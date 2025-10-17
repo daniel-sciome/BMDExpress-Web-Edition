@@ -1,8 +1,10 @@
 import React, { useEffect } from 'react';
-import { Spin } from 'antd';
+import { Spin, Row, Col } from 'antd';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadCategoryResults } from '../store/slices/categoryResultsSlice';
 import CategoryResultsGrid from './CategoryResultsGrid';
+import BMDvsPValueScatter from './charts/BMDvsPValueScatter';
+import BMDBoxPlot from './charts/BMDBoxPlot';
 
 interface CategoryResultsViewProps {
   projectId: string;
@@ -47,14 +49,26 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   }
 
   return (
-    <div style={{ height: '100%' }}>
+    <div style={{ height: '100%', padding: '1rem' }}>
       <h2 style={{ marginBottom: '0.5rem' }}>Category Results: {resultName}</h2>
       <p style={{ margin: '0 0 1rem 0', color: '#666' }}>
         Project: {projectId} | {data.length} categories
       </p>
 
-      {/* Just the grid for now */}
-      <CategoryResultsGrid />
+      {/* Table with category results */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <CategoryResultsGrid />
+      </div>
+
+      {/* Charts in responsive grid */}
+      <Row gutter={16}>
+        <Col xs={24} xl={12}>
+          <BMDvsPValueScatter />
+        </Col>
+        <Col xs={24} xl={12}>
+          <BMDBoxPlot />
+        </Col>
+      </Row>
     </div>
   );
 }
