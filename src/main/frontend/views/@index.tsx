@@ -193,16 +193,12 @@ export default function HomeView() {
                 Active Project: {selectedProject}
               </h3>
 
-              <p className="text-secondary mb-m">
-                You can now view analysis results or run new analyses.
-              </p>
-
               <HorizontalLayout theme="spacing">
                 <Button theme="primary success">
                   <Icon icon="vaadin:eye" slot="prefix" />
                   View Results
                 </Button>
-                <Button>
+                <Button disabled>
                   <Icon icon="vaadin:play" slot="prefix" />
                   Run Analysis
                 </Button>

@@ -372,6 +372,11 @@ export default function HomeView() {
 
 **Status:** ✅ Implemented, ready for testing with real .bm2 files
 
+**UI Refinements:**
+- Removed redundant text from active project section
+- Disabled "Run Analysis" button (functionality not yet implemented)
+- Cleaner, more focused active project display
+
 ---
 
 ## 5. Fixes Applied
