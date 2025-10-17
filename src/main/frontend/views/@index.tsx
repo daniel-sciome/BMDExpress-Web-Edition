@@ -1,92 +1,239 @@
-import { ViewConfig } from '@vaadin/hilla-file-router/types.js';
-import { Button, DatePicker, Grid, GridColumn, TextField } from '@vaadin/react-components';
-import { Notification } from '@vaadin/react-components/Notification';
-import { TaskService } from 'Frontend/generated/endpoints';
-import { useSignal } from '@vaadin/hilla-react-signals';
-import handleError from 'Frontend/views/_ErrorHandler';
-import { Group, ViewToolbar } from 'Frontend/components/ViewToolbar';
-import { useGridDataProvider } from '@vaadin/hilla-react-crud';
+import { useState, useEffect } from 'react';
+import { ProjectService } from 'Frontend/generated/endpoints';
+import {
+  Button,
+  Upload,
+  VerticalLayout,
+  HorizontalLayout,
+  Notification,
+  Icon
+} from '@vaadin/react-components';
+import { UploadBeforeEvent } from '@vaadin/upload';
 
-export const config: ViewConfig = {
-  title: 'Task List',
-  menu: {
-    icon: 'vaadin:clipboard-check',
-    order: 1,
-    title: 'Task List',
-  },
-};
+export default function HomeView() {
+  const [loadedProjects, setLoadedProjects] = useState<string[]>([]);
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: 'medium',
-  timeStyle: 'medium',
-});
+  // Load list of existing projects on mount
+  useEffect(() => {
+    loadProjectList();
+  }, []);
 
-const dateFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: 'medium',
-});
-
-type TaskEntryFormProps = {
-  onTaskCreated?: () => void;
-};
-
-function TaskEntryForm(props: TaskEntryFormProps) {
-  const description = useSignal('');
-  const dueDate = useSignal<string | undefined>('');
-  const createTask = async () => {
+  const loadProjectList = async () => {
     try {
-      await TaskService.createTask(description.value, dueDate.value);
-      if (props.onTaskCreated) {
-        props.onTaskCreated();
-      }
-      description.value = '';
-      dueDate.value = undefined;
-      Notification.show('Task added', { duration: 3000, position: 'bottom-end', theme: 'success' });
+      const projects = await ProjectService.getAllProjectIds();
+      // Filter out undefined values
+      setLoadedProjects((projects || []).filter((p): p is string => p !== undefined));
     } catch (error) {
-      handleError(error);
+      console.error('Failed to load projects:', error);
     }
   };
-  return (
-    <>
-      <TextField
-        placeholder="What do you want to do?"
-        aria-label="Task description"
-        maxlength={255}
-        style={{ minWidth: '20em' }}
-        value={description.value}
-        onValueChanged={(evt) => (description.value = evt.detail.value)}
-      />
-      <DatePicker
-        placeholder="Due date"
-        aria-label="Due date"
-        value={dueDate.value}
-        onValueChanged={(evt) => (dueDate.value = evt.detail.value)}
-      />
-      <Button onClick={createTask} theme="primary">
-        Create
-      </Button>
-    </>
-  );
-}
 
-export default function TaskListView() {
-  const dataProvider = useGridDataProvider(TaskService.list);
+  const handleUpload = async (e: UploadBeforeEvent) => {
+    const file = e.detail.file;
+
+    // Prevent default upload
+    e.preventDefault();
+
+    setLoading(true);
+
+    try {
+      // Upload project file
+      const projectId = await ProjectService.loadProject(file);
+
+      if (projectId) {
+        Notification.show(`Project loaded successfully: ${projectId}`, {
+          theme: 'success',
+          position: 'top-center',
+          duration: 3000
+        });
+
+        // Refresh project list
+        await loadProjectList();
+        setSelectedProject(projectId);
+      }
+    } catch (error: any) {
+      Notification.show(`Failed to load project: ${error.message}`, {
+        theme: 'error',
+        position: 'top-center',
+        duration: 5000
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectProject = (projectId: string) => {
+    setSelectedProject(projectId);
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    if (!confirm(`Delete project ${projectId}?`)) {
+      return;
+    }
+
+    try {
+      await ProjectService.deleteProject(projectId);
+      Notification.show('Project deleted', {
+        theme: 'success',
+        position: 'top-center',
+        duration: 2000
+      });
+
+      await loadProjectList();
+
+      if (selectedProject === projectId) {
+        setSelectedProject(null);
+      }
+    } catch (error: any) {
+      Notification.show(`Failed to delete project: ${error.message}`, {
+        theme: 'error',
+        position: 'top-center',
+        duration: 5000
+      });
+    }
+  };
 
   return (
-    <main className="w-full h-full flex flex-col box-border gap-s p-m">
-      <ViewToolbar title="Task List">
-        <Group>
-          <TaskEntryForm onTaskCreated={dataProvider.refresh} />
-        </Group>
-      </ViewToolbar>
-      <Grid dataProvider={dataProvider}>
-        <GridColumn path="description" />
-        <GridColumn path="dueDate" header="Due Date">
-          {({ item }) => (item.dueDate ? dateFormatter.format(new Date(item.dueDate)) : 'Never')}
-        </GridColumn>
-        <GridColumn path="creationDate" header="Creation Date">
-          {({ item }) => dateTimeFormatter.format(new Date(item.creationDate))}
-        </GridColumn>
-      </Grid>
-    </main>
+    <div className="p-l flex flex-col h-full">
+      {/* Header */}
+      <div className="mb-l">
+        <h1 className="text-3xl font-bold mb-m flex items-center gap-m">
+          <Icon icon="vaadin:chart-line" className="text-primary" />
+          BMDExpress Web
+        </h1>
+        <p className="text-secondary">
+          Benchmark Dose Analysis and Functional Classification
+        </p>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1">
+        <VerticalLayout theme="spacing-l">
+
+          {/* Upload Section */}
+          <div className="border rounded p-m bg-contrast-5">
+            <h2 className="text-xl font-semibold mb-m flex items-center gap-s">
+              <Icon icon="vaadin:upload" />
+              Load BMD Project
+            </h2>
+
+            <p className="text-secondary mb-m">
+              Upload a .bm2 project file to begin analysis
+            </p>
+
+            <Upload
+              accept=".bm2"
+              maxFiles={1}
+              onUploadBefore={handleUpload}
+              style={{ width: '100%' }}
+            >
+              <Button slot="add-button" theme="primary" disabled={loading}>
+                <Icon icon="vaadin:folder-open" slot="prefix" />
+                {loading ? 'Loading...' : 'Choose .bm2 File'}
+              </Button>
+            </Upload>
+          </div>
+
+          {/* Projects List */}
+          {loadedProjects.length > 0 && (
+            <div className="border rounded p-m">
+              <h2 className="text-xl font-semibold mb-m flex items-center gap-s">
+                <Icon icon="vaadin:folder" />
+                Loaded Projects ({loadedProjects.length})
+              </h2>
+
+              <div className="space-y-s">
+                {loadedProjects.map((projectId) => (
+                  <div
+                    key={projectId}
+                    className={`border rounded p-m flex items-center justify-between cursor-pointer transition-colors ${
+                      selectedProject === projectId
+                        ? 'bg-primary-10 border-primary'
+                        : 'bg-contrast-5 hover:bg-contrast-10'
+                    }`}
+                    onClick={() => handleSelectProject(projectId)}
+                  >
+                    <div className="flex items-center gap-m flex-1">
+                      <Icon
+                        icon={selectedProject === projectId ? "vaadin:check-circle" : "vaadin:circle-thin"}
+                        className={selectedProject === projectId ? "text-primary" : "text-secondary"}
+                      />
+                      <div>
+                        <div className="font-semibold">{projectId}</div>
+                        <div className="text-s text-secondary">
+                          Click to select project
+                        </div>
+                      </div>
+                    </div>
+
+                    <HorizontalLayout theme="spacing-s">
+                      <Button
+                        theme="icon error tertiary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteProject(projectId);
+                        }}
+                      >
+                        <Icon icon="vaadin:trash" />
+                      </Button>
+                    </HorizontalLayout>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Selected Project Info */}
+          {selectedProject && (
+            <div className="border rounded p-m bg-success-10 border-success">
+              <h3 className="text-l font-semibold mb-m flex items-center gap-s">
+                <Icon icon="vaadin:check" className="text-success" />
+                Active Project: {selectedProject}
+              </h3>
+
+              <p className="text-secondary mb-m">
+                You can now view analysis results or run new analyses.
+              </p>
+
+              <HorizontalLayout theme="spacing">
+                <Button theme="primary success">
+                  <Icon icon="vaadin:eye" slot="prefix" />
+                  View Results
+                </Button>
+                <Button>
+                  <Icon icon="vaadin:play" slot="prefix" />
+                  Run Analysis
+                </Button>
+              </HorizontalLayout>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {loadedProjects.length === 0 && (
+            <div className="text-center py-xl">
+              <Icon
+                icon="vaadin:folder-open-o"
+                style={{ fontSize: '4rem' }}
+                className="text-secondary mb-m"
+              />
+              <h3 className="text-xl font-semibold mb-s">No Projects Loaded</h3>
+              <p className="text-secondary">
+                Upload a .bm2 project file to get started
+              </p>
+            </div>
+          )}
+        </VerticalLayout>
+      </div>
+
+      {/* Footer Info */}
+      <div className="mt-l pt-m border-t text-s text-secondary">
+        <p>
+          BMDExpress Web provides benchmark dose analysis and functional classification
+          for toxicogenomics data. Load a project file to begin.
+        </p>
+      </div>
+    </div>
   );
 }
