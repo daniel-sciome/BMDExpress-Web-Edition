@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { ProjectService } from 'Frontend/generated/endpoints';
+import { ProjectService, ConfigService } from 'Frontend/generated/endpoints';
+import LibraryView from './LibraryView';
 import {
   Button,
   Upload,
@@ -11,14 +12,31 @@ import {
 import { UploadBeforeEvent } from '@vaadin/upload';
 
 export default function HomeView() {
+  const [viewMode, setViewMode] = useState<'upload' | 'library' | null>(null);
   const [loadedProjects, setLoadedProjects] = useState<string[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Load opening view configuration on mount
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const openingView = await ConfigService.getOpeningView();
+        setViewMode(openingView as 'upload' | 'library');
+      } catch (error) {
+        console.error('Failed to load config, defaulting to upload view:', error);
+        setViewMode('upload');
+      }
+    };
+    loadConfig();
+  }, []);
+
   // Load list of existing projects on mount
   useEffect(() => {
-    loadProjectList();
-  }, []);
+    if (viewMode === 'upload') {
+      loadProjectList();
+    }
+  }, [viewMode]);
 
   const loadProjectList = async () => {
     try {
@@ -95,6 +113,24 @@ export default function HomeView() {
     }
   };
 
+  // Show library view if configured
+  if (viewMode === 'library') {
+    return <LibraryView />;
+  }
+
+  // Show loading while determining view mode
+  if (viewMode === null) {
+    return (
+      <div className="p-l flex items-center justify-center h-full">
+        <div className="text-center">
+          <Icon icon="vaadin:spinner" className="animate-spin text-4xl text-primary mb-m" />
+          <p className="text-secondary">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Default upload view
   return (
     <div className="p-l flex flex-col h-full">
       {/* Header */}

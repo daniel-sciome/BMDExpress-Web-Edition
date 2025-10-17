@@ -5,10 +5,14 @@ import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Service;
 
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.annotation.PostConstruct;
 import java.io.*;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -28,9 +32,59 @@ public class ProjectService {
 
     private static final Logger log = LoggerFactory.getLogger(ProjectService.class);
 
+    @Value("${bmdexpress.library.dataPath:classpath:data/bm2}")
+    private String libraryDataPath;
+
     // In-memory project store
     // Maps project ID (UUID) -> ProjectHolder (project + metadata)
     private final Map<String, ProjectHolder> projects = new ConcurrentHashMap<>();
+
+    /**
+     * Load .bm2 files from the library directory on startup
+     */
+    @PostConstruct
+    public void loadLibraryProjects() {
+        log.info("Loading library projects from: {}", libraryDataPath);
+
+        try {
+            PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+            String pattern = libraryDataPath + "/**/*.bm2";
+            Resource[] resources = resolver.getResources(pattern);
+
+            log.info("Found {} .bm2 files in library directory", resources.length);
+
+            for (Resource resource : resources) {
+                try {
+                    String filename = resource.getFilename();
+                    if (filename == null) {
+                        continue;
+                    }
+
+                    log.info("Loading library project: {}", filename);
+
+                    BufferedInputStream bis = new BufferedInputStream(resource.getInputStream(), 1024 * 2000);
+                    ObjectInputStream ois = new ObjectInputStream(bis);
+                    BMDProject project = (BMDProject) ois.readObject();
+                    ois.close();
+
+                    // Use filename (without .bm2 extension) as project ID for library projects
+                    String projectId = filename.replace(".bm2", "");
+                    ProjectHolder holder = new ProjectHolder(projectId, project, filename, LocalDateTime.now());
+
+                    projects.put(projectId, holder);
+                    log.info("Library project loaded: {} (ID: {})", filename, projectId);
+
+                } catch (Exception e) {
+                    log.error("Failed to load library project: {}", resource.getFilename(), e);
+                }
+            }
+
+            log.info("Library initialization complete. {} projects loaded.", projects.size());
+
+        } catch (IOException e) {
+            log.error("Failed to scan library directory: {}", libraryDataPath, e);
+        }
+    }
 
     /**
      * Load a .bm2 project file from a MultipartFile and store it in memory

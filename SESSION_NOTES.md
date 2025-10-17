@@ -872,3 +872,231 @@ pkill -9 -f "spring-boot:run"
 ## End of Documentation
 
 This document captures the complete state of the BMDExpress web application development session, including all problems encountered, solutions applied, code written, and architectural decisions made.
+
+---
+
+## Session 2: Library View Implementation (2025-10-17)
+
+### Overview
+Implemented alternative "library" starting view to display pre-loaded .bm2 projects, configured remote access, and resolved Vaadin dev tools host restrictions.
+
+### New Features Implemented
+
+#### 1. Library View System
+**Purpose:** Alternative starting view for environments where projects are pre-loaded on server startup.
+
+**Components Created:**
+- **ConfigService.java** (new) - Exposes opening view configuration to frontend
+- **LibraryView.tsx** (new) - Gallery-style view of available projects
+- Modified **@index.tsx** - Conditional rendering based on config
+
+**How It Works:**
+1. On startup, ProjectService scans `src/main/resources/data/bmd/` for .bm2 files
+2. All found projects are loaded into memory with filename (minus .bm2) as project ID
+3. Frontend calls ConfigService.getOpeningView() to determine which view to show
+4. If "library" mode: displays LibraryView with grid of available projects
+5. If "upload" mode: displays original upload-focused view
+
+**Configuration (application.properties):**
+```properties
+# Opening View Configuration
+bmdexpress.openingView=library  # or "upload"
+bmdexpress.library.dataPath=classpath:data/bmd
+```
+
+#### 2. Auto-Loading of Library Projects
+**Modified:** ProjectService.java
+
+Added `@PostConstruct` method to automatically load .bm2 files on startup:
+```java
+@PostConstruct
+public void loadLibraryProjects() {
+    PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+    String pattern = libraryDataPath + "/**/*.bm2";
+    Resource[] resources = resolver.getResources(pattern);
+    
+    for (Resource resource : resources) {
+        String filename = resource.getFilename();
+        // Load using same deserialization as desktop app
+        BMDProject project = (BMDProject) ois.readObject();
+        // Use filename without extension as project ID
+        String projectId = filename.replace(".bm2", "");
+        projects.put(projectId, new ProjectHolder(...));
+    }
+}
+```
+
+**Test Data:**
+- Loaded P3MP-Parham.bm2 (34MB) successfully
+- Project available immediately on application startup
+
+#### 3. Remote Access Configuration
+**Modified:** application.properties
+
+```properties
+# Server configuration for remote access
+server.address=0.0.0.0
+```
+
+Allows access from:
+- http://localhost:8080/
+- http://192.168.100.199:8080/
+- http://lee-nooks:8080/
+- http://10.120.210.72:8080/
+
+#### 4. Vaadin Dev Tools Host Restrictions
+**Problem:** "Dev tools functionality denied for this host" error when accessing from remote machines.
+
+**Solution:** Modified Application.java to allow specific hosts:
+```java
+// Allow dev tools for specific hostnames/IPs
+System.setProperty("vaadin.devmode.hostsAllowed", 
+    "fedora,lee-nooks,localhost,192.168.100.*,10.120.210.*");
+```
+
+**Pattern Syntax:**
+- Comma-separated list of patterns
+- Supports `*` and `?` wildcards
+- `"*"` = allow all hosts (less secure)
+- Loopback addresses always allowed by default
+
+**Reference:** GitHub issue vaadin/flow#18351
+
+#### 5. Telemetry Configuration
+**Modified:** Application.java and application.properties
+
+Disabled Vaadin usage statistics and telemetry:
+```java
+System.setProperty("vaadin.statistics.enabled", "false");
+System.setProperty("vaadin.usageStatistics.disabled", "true");
+```
+
+```properties
+vaadin.usage-statistics.enabled=false
+com.vaadin.telemetry.disabled=true
+vaadin.launch-browser=false
+```
+
+### Frontend Implementation
+
+#### LibraryView.tsx Features:
+- Grid layout of available projects (responsive: 1/2/3 columns)
+- Visual selection with checkmarks
+- Empty state handling
+- Click to select, action buttons for selected project
+- Clean, modern UI using Vaadin components
+
+#### @index.tsx Changes:
+- Conditional rendering based on ConfigService.getOpeningView()
+- Shows LibraryView if mode is "library"
+- Shows upload view if mode is "upload"
+- Loading spinner while fetching configuration
+
+### Files Modified
+
+**Backend:**
+- `src/main/java/com/sciome/Application.java` - Added PWA annotation, dev tools config, telemetry disabling
+- `src/main/java/com/sciome/service/ConfigService.java` - NEW
+- `src/main/java/com/sciome/service/ProjectService.java` - Added library loading
+- `src/main/resources/application.properties` - Added server address, opening view, library path, telemetry config, dev tools hosts
+- `src/main/resources/data/bmd/` - NEW directory for library .bm2 files
+
+**Frontend:**
+- `src/main/frontend/views/LibraryView.tsx` - NEW
+- `src/main/frontend/views/@index.tsx` - Added conditional rendering
+- `src/main/frontend/generated/ConfigService.ts` - AUTO-GENERATED
+- `src/main/frontend/generated/endpoints.ts` - AUTO-GENERATED (added ConfigService)
+
+### Issues Resolved
+
+1. **TypeScript Import Error:**
+   - Changed from: `import { ConfigService } from 'Frontend/generated/ConfigService'`
+   - Changed to: `import { ConfigService } from 'Frontend/generated/endpoints'`
+
+2. **Incorrect Library Path:**
+   - Initially: `classpath:data/bm2` (wrong)
+   - Corrected: `classpath:data/bmd` (actual location)
+
+3. **Dev Tools Host Restriction:**
+   - Error: "Dev tools functionality denied for this host"
+   - Hostname discovered: "fedora" (not "lee-nooks")
+   - Fixed: Added both to allowed hosts list with network subnet wildcards
+
+4. **Vite Build Errors:**
+   - Fixed with: `mvn clean package`
+   - Regenerated all Vaadin/Vite plugins and configuration
+
+### Testing Results
+
+✅ **Confirmed Working:**
+- Library view displays P3MP-Parham project
+- Remote access from 192.168.100.199:8080 and lee-nooks:8080
+- Dev tools accessible on remote connections
+- Project selection works
+- TypeScript compilation: 0 errors
+- Server starts cleanly in ~8 seconds
+- Hot module reloading (HMR) functional
+
+⚠️ **Known Console Warnings (Non-Critical):**
+- "Lit is in dev mode" - informational, no impact
+- "Multiple versions of Lit loaded" - Vaadin internal, no impact
+- "this.log is not a function" - Known Vaadin 24.9.2 bug, no functional impact
+
+### Configuration Summary
+
+**Opening View Modes:**
+- **"library"** - Pre-loaded projects, no upload UI, ideal for shared/demo environments
+- **"upload"** - User uploads .bm2 files, ideal for development/multi-user
+
+**Security:**
+- Dev tools restricted to specific hosts (not wildcard `*`)
+- Telemetry disabled
+- Server binds to all interfaces (0.0.0.0) for network access
+
+### Updated File Structure
+
+```
+bmdexpress-web/
+├── src/main/
+│   ├── java/com/sciome/
+│   │   ├── Application.java                    # MODIFIED: Dev tools, telemetry config
+│   │   └── service/
+│   │       ├── ConfigService.java              # NEW
+│   │       └── ProjectService.java             # MODIFIED: Auto-loading
+│   ├── resources/
+│   │   ├── application.properties              # MODIFIED: Opening view, remote access
+│   │   └── data/bmd/                           # NEW
+│   │       ├── P3MP-Parham.bm2                # 34MB test project
+│   │       └── README.md
+│   └── frontend/
+│       ├── views/
+│       │   ├── @index.tsx                      # MODIFIED: Conditional rendering
+│       │   └── LibraryView.tsx                 # NEW
+│       └── generated/
+│           ├── ConfigService.ts                # AUTO-GENERATED
+│           └── endpoints.ts                    # AUTO-GENERATED: Added ConfigService
+```
+
+### Success Metrics
+
+- [x] Library view implemented and functional
+- [x] Auto-loading of .bm2 files on startup working
+- [x] Remote access configured (0.0.0.0 binding)
+- [x] Dev tools accessible from remote hosts
+- [x] ConfigService TypeScript generation successful
+- [x] Conditional view rendering based on configuration
+- [x] Telemetry disabled
+- [x] Console errors minimized
+- [x] Application accessible at multiple network addresses
+
+### Next Steps
+
+From here, the next priorities are:
+1. Implement results viewing UI for selected projects
+2. Add category analysis execution logic
+3. Build navigation tree component
+4. Create results table/grid component
+
+---
+
+## End of Session 2 Documentation
