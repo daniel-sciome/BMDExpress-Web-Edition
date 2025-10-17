@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { ProjectService } from 'Frontend/generated/endpoints';
+import { ProjectService, CategoryResultsService } from 'Frontend/generated/endpoints';
+import CategoryResultsView from '../components/CategoryResultsView';
 import {
   Button,
   VerticalLayout,
@@ -15,6 +16,8 @@ export default function LibraryView() {
   const [projects, setProjects] = useState<string[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [categoryResults, setCategoryResults] = useState<string[]>([]);
+  const [selectedCategoryResult, setSelectedCategoryResult] = useState<string | null>(null);
 
   useEffect(() => {
     loadProjects();
@@ -32,8 +35,18 @@ export default function LibraryView() {
     }
   };
 
-  const handleSelectProject = (projectId: string) => {
+  const handleSelectProject = async (projectId: string) => {
     setSelectedProject(projectId);
+    setSelectedCategoryResult(null);
+
+    // Load category results for this project
+    try {
+      const results = await CategoryResultsService.getCategoryResultNames(projectId);
+      setCategoryResults((results || []).filter((r): r is string => r !== undefined));
+    } catch (error) {
+      console.error('Failed to load category results:', error);
+      setCategoryResults([]);
+    }
   };
 
   return (
@@ -117,16 +130,49 @@ export default function LibraryView() {
                 Selected: {selectedProject}
               </h3>
 
+              {/* Category Results Selector */}
+              {categoryResults.length > 0 && (
+                <div className="mb-m">
+                  <label className="block mb-s font-semibold">
+                    Select Category Analysis Results:
+                  </label>
+                  <select
+                    className="w-full p-s border rounded"
+                    value={selectedCategoryResult || ''}
+                    onChange={(e) => setSelectedCategoryResult(e.target.value || null)}
+                  >
+                    <option value="">-- Select a category result --</option>
+                    {categoryResults.map((result) => (
+                      <option key={result} value={result}>
+                        {result}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {categoryResults.length === 0 && (
+                <p className="text-secondary mb-m">
+                  No category analysis results found in this project.
+                </p>
+              )}
+
               <HorizontalLayout theme="spacing">
-                <Button theme="primary success">
-                  <Icon icon="vaadin:eye" slot="prefix" />
-                  View Results
-                </Button>
                 <Button disabled>
                   <Icon icon="vaadin:play" slot="prefix" />
                   Run Analysis
                 </Button>
               </HorizontalLayout>
+            </div>
+          )}
+
+          {/* Category Results View */}
+          {selectedProject && selectedCategoryResult && (
+            <div className="border rounded p-m" style={{ minHeight: '600px' }}>
+              <CategoryResultsView
+                projectId={selectedProject}
+                resultName={selectedCategoryResult}
+              />
             </div>
           )}
         </VerticalLayout>

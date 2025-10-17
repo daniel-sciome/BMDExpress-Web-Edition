@@ -3,6 +3,9 @@ import '@vaadin/icons';
 import { AppLayout, Icon, ProgressBar, Scroller, SideNav, SideNavItem } from '@vaadin/react-components';
 import { Suspense, useMemo } from 'react';
 import { createMenuItems } from '@vaadin/hilla-file-router/runtime.js';
+import { Provider } from 'react-redux';
+import { store } from '../store/store';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 function Header() {
   // TODO Replace with real application logo and name
@@ -32,14 +35,18 @@ function MainMenu() {
 
 export default function MainLayout() {
   return (
-    <AppLayout primarySection="drawer">
-      <Header />
-      <Scroller slot="drawer">
-        <MainMenu />
-      </Scroller>
-      <Suspense fallback={<ProgressBar indeterminate={true} className="m-0" />}>
-        <Outlet />
-      </Suspense>
-    </AppLayout>
+    <ErrorBoundary>
+      <Provider store={store}>
+        <AppLayout primarySection="drawer">
+          <Header />
+          <Scroller slot="drawer">
+            <MainMenu />
+          </Scroller>
+          <Suspense fallback={<ProgressBar indeterminate={true} className="m-0" />}>
+            <Outlet />
+          </Suspense>
+        </AppLayout>
+      </Provider>
+    </ErrorBoundary>
   );
 }
