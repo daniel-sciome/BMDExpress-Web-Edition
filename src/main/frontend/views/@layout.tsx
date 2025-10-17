@@ -1,35 +1,36 @@
-import { Outlet, useLocation, useNavigate } from 'react-router';
+import { Outlet } from 'react-router';
 import '@vaadin/icons';
-import { AppLayout, Icon, ProgressBar, Scroller, SideNav, SideNavItem } from '@vaadin/react-components';
-import { Suspense, useMemo } from 'react';
-import { createMenuItems } from '@vaadin/hilla-file-router/runtime.js';
+import { AppLayout, Icon, ProgressBar, Scroller } from '@vaadin/react-components';
+import { Suspense } from 'react';
 import { Provider } from 'react-redux';
 import { store } from '../store/store';
 import ErrorBoundary from '../components/ErrorBoundary';
+import ProjectTreeSidebar from '../components/ProjectTreeSidebar';
 
 function Header() {
-  // TODO Replace with real application logo and name
   return (
     <div className="flex p-m gap-m items-center" slot="drawer">
       <Icon icon="vaadin:cubes" className="text-primary icon-l" />
-      <span className="font-semibold text-l">Bmdexpress Web</span>
+      <span className="font-semibold text-l">BMDExpress Web</span>
     </div>
   );
 }
 
-function MainMenu() {
-  const navigate = useNavigate();
-  const location = useLocation();
-
+function SidebarNav() {
   return (
-    <SideNav className="mx-m" onNavigate={({ path }) => path != null && navigate(path)} location={location}>
-      {createMenuItems().map(({ to, icon, title }) => (
-        <SideNavItem path={to} key={to}>
-          {icon && <Icon icon={icon} slot="prefix" />}
-          {title}
-        </SideNavItem>
-      ))}
-    </SideNav>
+    <div className="mx-m">
+      <h3 style={{
+        padding: '8px 12px',
+        margin: '8px 0',
+        fontSize: '14px',
+        fontWeight: 600,
+        color: '#666',
+        borderBottom: '1px solid #e0e0e0'
+      }}>
+        Available Projects
+      </h3>
+      <ProjectTreeSidebar />
+    </div>
   );
 }
 
@@ -40,7 +41,7 @@ export default function MainLayout() {
         <AppLayout primarySection="drawer">
           <Header />
           <Scroller slot="drawer">
-            <MainMenu />
+            <SidebarNav />
           </Scroller>
           <Suspense fallback={<ProgressBar indeterminate={true} className="m-0" />}>
             <Outlet />

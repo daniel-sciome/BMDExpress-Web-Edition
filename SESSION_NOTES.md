@@ -2183,3 +2183,504 @@ bmdexpress-web/
 ---
 
 ## End of Session 4 Documentation
+
+---
+
+## Session 5: Plotly Charts and UI Reorganization (2025-10-17)
+
+### Overview
+Implemented interactive Plotly charts with Redux synchronization, reorganized UI with sidebar project tree, and added tabbed interface for category results.
+
+### Part 1: Plotly Charts Implementation
+
+#### 1. BMD vs P-Value Scatter Chart
+**File:** `src/main/frontend/components/charts/BMDvsPValueScatter.tsx`
+
+**Features:**
+- **X-axis:** BMD Mean values
+- **Y-axis:** -log10(Fisher Exact P-Value)  
+- **Interactive Selection:** Click points to select categories (Ctrl/Cmd+Click for multi-select)
+- **Visual Feedback:**
+  - Selected points: Larger, highlighted in blue (#1890ff)
+  - Unselected points (when selections exist): Dimmed to 30% opacity (rgba(100, 100, 100, 0.3))
+  - No selection: All points standard blue
+- **Hover Tooltips:** Shows category description, BMD value, and p-value
+- **Export:** Built-in PNG export at 1200x1000px (2x scale)
+
+**Key Implementation:**
+```typescript
+// Separate selected and unselected points for styling
+const selectedIndices: number[] = [];
+const unselectedIndices: number[] = [];
+
+data.forEach((row, idx) => {
+  if (selectedCategoryIds.has(row.categoryId || '')) {
+    selectedIndices.push(idx);
+  } else {
+    unselectedIndices.push(idx);
+  }
+});
+
+// Build separate traces for selected/unselected
+const traces: any[] = [];
+
+if (hasSelection) {
+  // Unselected (dimmed)
+  traces.push({ /* dimmed trace */ });
+  // Selected (highlighted)
+  traces.push({ /* highlighted trace */ });
+} else {
+  // No selection - all same
+  traces.push({ /* standard trace */ });
+}
+
+// Click handler with multi-select support
+const handlePlotClick = (event: any) => {
+  const categoryId = event.points[0].customdata;
+  if (event.event?.ctrlKey || event.event?.metaKey) {
+    dispatch(toggleCategorySelection(categoryId));
+  } else {
+    dispatch(setSelectedCategoryIds([categoryId]));
+  }
+};
+```
+
+**TypeScript Fix:**
+- Initial error: `Type 'string' has no properties in common with type 'Partial<DataTitle>'`
+- Solution: Cast layout object to `any`: `layout={{ /* ... */ } as any}`
+
+#### 2. BMD Box and Whisker Chart
+**File:** `src/main/frontend/components/charts/BMDBoxPlot.tsx`
+
+**Features:**
+- **Three Metrics:** BMD Mean, BMDL Mean, BMDU Mean
+- **Selection Awareness:** Separate box plots for selected vs unselected when selections exist
+- **Statistics:** Mean and SD overlay on box plots (`boxmean: 'sd'`)
+- **Dynamic Title:** Shows median, mean, and count in subtitle
+- **Color Coding:**
+  - BMD: Blue (#1890ff)
+  - BMDL: Green (#52c41a)  
+  - BMDU: Orange (#fa8c16)
+  - Unselected: Same colors at 30% opacity
+
+**Key Implementation:**
+```typescript
+// Filter data by selection
+const selectedData = data.filter(row => selectedCategoryIds.has(row.categoryId || ''));
+const unselectedData = data.filter(row => !selectedCategoryIds.has(row.categoryId || ''));
+
+// Extract values
+const getBMDValues = (dataset) => ({
+  bmd: dataset.map(row => row.bmdMean).filter(val => val !== undefined && !isNaN(val)),
+  bmdl: dataset.map(row => row.bmdlMean).filter(val => val !== undefined && !isNaN(val)),
+  bmdu: dataset.map(row => row.bmduMean).filter(val => val !== undefined && !isNaN(val)),
+});
+
+// Build box plot traces
+if (hasSelection) {
+  // Selected + Unselected traces (6 total: 3 metrics × 2 states)
+} else {
+  // All data traces (3 total)
+}
+
+// Calculate statistics for subtitle
+const getStats = (values: number[]) => {
+  const sorted = [...values].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+  return { median, mean, count: values.length };
+};
+```
+
+#### Chart Integration
+**File:** `src/main/frontend/components/CategoryResultsView.tsx`
+
+**Layout:**
+```typescript
+<div style={{ height: '100%', padding: '1rem' }}>
+  <h2>Category Results: {resultName}</h2>
+  <p>Project: {projectId} | {data.length} categories</p>
+
+  {/* Table */}
+  <div style={{ marginBottom: '1.5rem' }}>
+    <CategoryResultsGrid />
+  </div>
+
+  {/* Charts in responsive 2-column grid */}
+  <Row gutter={16}>
+    <Col xs={24} xl={12}>
+      <BMDvsPValueScatter />
+    </Col>
+    <Col xs={24} xl={12}>
+      <BMDBoxPlot />
+    </Col>
+  </Row>
+</div>
+```
+
+**Responsive Breakpoints:**
+- xs (mobile): Stacked vertically (24/24 columns)
+- xl (desktop): Side-by-side (12/12 columns)
+
+#### Redux Synchronization
+**Bidirectional Reactivity:**
+
+1. **Table → Charts:**
+   - Select rows in table → `dispatch(setSelectedCategoryIds(ids))`
+   - Charts subscribe to `selectedCategoryIds` state
+   - Chart points update styling automatically
+
+2. **Charts → Table:**
+   - Click chart point → `dispatch(setSelectedCategoryIds([id]))`  
+   - Table subscribes to `selectedCategoryIds` state
+   - Table rows update selection automatically
+
+3. **Multi-Component Sync:**
+   - Both charts read same `selectedCategoryIds` state
+   - Clicking in scatter chart updates box plot
+   - Clicking in box plot updates scatter chart
+   - All through Redux single source of truth
+
+### Part 2: UI Reorganization - Sidebar Project Tree
+
+#### 1. Navigation Redux Slice
+**File:** `src/main/frontend/store/slices/navigationSlice.ts`
+
+**Purpose:** Centralized navigation state for project/category result selection
+
+**State:**
+```typescript
+interface NavigationState {
+  selectedProject: string | null;
+  selectedCategoryResult: string | null;
+}
+```
+
+**Actions:**
+- `setSelectedProject(projectId)` - Auto-clears category result when project changes
+- `setSelectedCategoryResult(resultName)` 
+- `clearSelection()` - Clears both
+
+**Added to Store:**
+```typescript
+export const store = configureStore({
+  reducer: {
+    categoryResults: categoryResultsReducer,
+    navigation: navigationReducer,  // NEW
+  },
+  // ...
+});
+```
+
+#### 2. Project Tree Sidebar Component
+**File:** `src/main/frontend/components/ProjectTreeSidebar.tsx`
+
+**Features:**
+- **Expandable Tree:** Ant Design Tree component
+- **Project Nodes:** Top-level items (folders)
+- **Category Result Nodes:** Child items (charts icon 📊)
+- **Lazy Loading:** Category results load on project expand (`onLoadData`)
+- **Redux Integration:** Selection updates `navigation` state
+- **Bidirectional Sync:** Sidebar selection reflects Redux state
+
+**Key Implementation:**
+```typescript
+// Tree structure
+const treeData: TreeDataNode[] = projects.map((projectId) => ({
+  title: projectId,
+  key: projectId,
+  isLeaf: false,
+  children: [], // Loaded on expand
+}));
+
+// Lazy load category results
+const onLoadData = async (node: any) => {
+  const categoryNodes = await loadCategoryResults(node.key);
+  setTreeData((prevData) => updateTreeData(prevData, node.key, categoryNodes));
+};
+
+// Selection handler
+const onSelect = (selectedKeys: React.Key[]) => {
+  const key = selectedKeys[0] as string;
+  if (key.includes('::')) {
+    const [projectId, resultName] = key.split('::');
+    dispatch(setSelectedProject(projectId));
+    dispatch(setSelectedCategoryResult(resultName));
+  } else {
+    dispatch(setSelectedProject(key));
+    dispatch(setSelectedCategoryResult(null));
+  }
+};
+```
+
+#### 3. Updated Layout
+**File:** `src/main/frontend/views/@layout.tsx`
+
+**Changes:**
+- **Removed:** Auto-generated file-router navigation (Home, Library links)
+- **Added:** "Available Projects" section with ProjectTreeSidebar
+
+**Before:**
+```typescript
+<SideNav>
+  {createMenuItems().map(({ to, icon, title }) => (
+    <SideNavItem path={to} key={to}>
+      {icon && <Icon icon={icon} />}
+      {title}
+    </SideNavItem>
+  ))}
+</SideNav>
+```
+
+**After:**
+```typescript
+<div className="mx-m">
+  <h3>Available Projects</h3>
+  <ProjectTreeSidebar />
+</div>
+```
+
+#### 4. Simplified LibraryView
+**File:** `src/main/frontend/views/LibraryView.tsx`
+
+**Changes:**
+- **Removed:** Project cards grid, category result dropdown, selection UI
+- **Now:** Pure display component reacting to Redux `navigation` state
+- **Simplified from 189 lines → 67 lines**
+
+**Three Display States:**
+
+1. **No Project Selected:**
+```typescript
+<div className="flex items-center justify-center h-full">
+  <Icon icon="vaadin:book" />
+  <h1>Welcome to BMDExpress Web</h1>
+  <p>Select a project from the sidebar to get started.</p>
+</div>
+```
+
+2. **Project Selected (no category result):**
+```typescript
+<div className="flex items-center justify-center h-full">
+  <Icon icon="vaadin:folder-open" />
+  <h2>Project: {selectedProject}</h2>
+  <p>Expand the project in the sidebar and select a category analysis result.</p>
+</div>
+```
+
+3. **Both Selected:**
+```typescript
+<CategoryResultsView projectId={selectedProject} resultName={selectedCategoryResult} />
+```
+
+### Part 3: Tabbed Category Results Interface
+
+#### Implementation
+**File:** `src/main/frontend/views/LibraryView.tsx` (Updated)
+
+**Features:**
+- **Auto-Load:** All category results load when project selected
+- **Tabs:** Ant Design Tabs with one tab per category result
+- **Tab Content:** Each tab contains CategoryResultsView with charts
+- **Synchronized State:** Tab changes update Redux navigation state
+- **Auto-Selection:** First tab auto-selected when project loads
+
+**Key Implementation:**
+```typescript
+// Load all category results on project selection
+useEffect(() => {
+  if (selectedProject) {
+    loadCategoryResults(selectedProject);
+  }
+}, [selectedProject]);
+
+const loadCategoryResults = async (projectId: string) => {
+  const results = await CategoryResultsService.getCategoryResultNames(projectId);
+  setCategoryResults(results);
+  
+  // Auto-select first result if none selected
+  if (results.length > 0 && !selectedCategoryResult) {
+    dispatch(setSelectedCategoryResult(results[0]));
+  }
+};
+
+// Build tab items
+const tabItems = categoryResults.map((resultName) => ({
+  key: resultName,
+  label: resultName,
+  children: (
+    <div style={{ padding: '16px' }}>
+      <CategoryResultsView projectId={selectedProject} resultName={resultName} />
+    </div>
+  ),
+}));
+
+// Render tabs
+<Tabs
+  activeKey={selectedCategoryResult || categoryResults[0]}
+  onChange={(key) => dispatch(setSelectedCategoryResult(key))}
+  items={tabItems}
+/>
+```
+
+**Layout:**
+```
+┌─────────────────────────────────────────────────┐
+│ 📁 P3MP-Parham                                  │  ← Project header
+├─────────────────────────────────────────────────┤
+│ [Cat Result 1] [Cat Result 2] [Cat Result 3]   │  ← Tabs
+├─────────────────────────────────────────────────┤
+│  Category Results Table (263 categories)        │
+│  ┌──────────────────────────────────┐           │
+│  │ Collapse panel with Ant Design   │           │
+│  │ table showing selected rows       │           │
+│  └──────────────────────────────────┘           │
+│                                                  │
+│  ┌──────────────┐  ┌──────────────┐            │
+│  │ BMD vs P-Val │  │  BMD Box Plot│            │
+│  │   Scatter    │  │              │            │
+│  │ (Interactive)│  │ (Interactive)│            │
+│  └──────────────┘  └──────────────┘            │
+└─────────────────────────────────────────────────┘
+```
+
+### Files Created/Modified
+
+**New Files:**
+- `src/main/frontend/components/charts/BMDvsPValueScatter.tsx`
+- `src/main/frontend/components/charts/BMDBoxPlot.tsx`
+- `src/main/frontend/store/slices/navigationSlice.ts`
+- `src/main/frontend/components/ProjectTreeSidebar.tsx`
+
+**Modified Files:**
+- `src/main/frontend/store/store.ts` - Added navigation reducer
+- `src/main/frontend/views/@layout.tsx` - Replaced navigation with tree sidebar
+- `src/main/frontend/views/LibraryView.tsx` - Simplified to tabs + display component
+- `src/main/frontend/components/CategoryResultsView.tsx` - Added chart integration
+
+### Technical Decisions
+
+#### 1. Plotly `layout` TypeScript Casting
+**Issue:** Plotly types don't accept string titles
+**Solution:** Cast entire layout object to `any`
+**Rationale:** Plotly.js accepts string titles at runtime; TypeScript definitions are overly strict
+
+#### 2. Category ID Keys in Tree
+**Format:** `"projectId::categoryResultName"`
+**Rationale:**
+- Ensures unique keys across all tree nodes
+- Easy to parse with `split('::')`
+- Supports future nested structures
+
+#### 3. Navigation State in Separate Slice
+**Rationale:**
+- Category results slice manages data/selection
+- Navigation slice manages routing/views  
+- Separation of concerns
+- Easier to test independently
+
+#### 4. Tabs Auto-Load All Results
+**Rationale:**
+- User can quickly switch between results
+- No need to reload data on tab change
+- Matches desktop app's "open all" behavior
+- Trade-off: More initial load time for better UX
+
+### Testing Results
+
+**Charts:**
+- ✅ Scatter chart displays 263 points correctly
+- ✅ Box plot shows BMD/BMDL/BMDU distributions
+- ✅ Click-to-select works (single and multi-select with Ctrl)
+- ✅ Selection synchronizes between all components
+- ✅ Dimming effect applies correctly
+- ✅ Hover tooltips show accurate data
+- ✅ Export to PNG works (1200x1000 @ 2x)
+
+**UI Organization:**
+- ✅ Sidebar tree loads projects automatically
+- ✅ Expandable tree loads category results on demand
+- ✅ Project/result selection updates Redux state
+- ✅ LibraryView responds to state changes
+- ✅ Welcome screens show appropriate messages
+
+**Tabs:**
+- ✅ All category results appear as tabs
+- ✅ Tab switching updates chart data
+- ✅ First tab auto-selected on project load
+- ✅ Tab state synchronized with sidebar selection
+
+**Performance:**
+- ✅ 0 TypeScript compilation errors
+- ✅ Hot module reloading functional
+- ✅ No memory leaks with 263 category rows
+- ✅ Smooth chart interactions
+
+### User Experience Flow
+
+1. **Application Load:**
+   - Sidebar shows "Available Projects" header
+   - P3MP-Parham project visible in tree
+   - Main area shows welcome message
+
+2. **Select Project:**
+   - Click P3MP-Parham in sidebar
+   - Project expands (if category results exist)
+   - Main area shows project info screen
+   - Tabs load with all category results
+
+3. **Select Category Result:**
+   - Click category result in sidebar (or tab)
+   - CategoryResultsView loads with:
+     - Collapse table header showing count
+     - Ant Design table with 263 rows
+     - Scatter chart (left)
+     - Box plot (right)
+
+4. **Interact with Data:**
+   - Click table row → Charts highlight points
+   - Click chart point → Table selects row
+   - Ctrl+Click → Multi-select
+   - Switch tabs → View different results
+
+### Success Metrics
+
+- [x] Two interactive Plotly charts implemented
+- [x] Redux synchronization working bidirectionally
+- [x] Category ID-based selection state functional
+- [x] Sidebar project tree with lazy loading
+- [x] Navigation state centralized in Redux
+- [x] Tabbed interface for category results
+- [x] UI simplified and reorganized
+- [x] TypeScript compilation: 0 errors
+- [x] All visual feedback working (dimming, highlighting)
+- [x] Export functionality operational
+
+### Next Steps
+
+**Additional Charts:**
+1. BMDL vs BMDU Scatter
+2. Volcano Plot
+3. BMD/P-Value Histograms
+4. BMD CDF (Cumulative Distribution)
+5. Genes per Category Bar Chart
+6. Remaining 8 chart types
+
+**Features:**
+1. Filtering UI implementation
+2. External hyperlinks (GO, NCBI, Reactome)
+3. CSV/Excel export
+4. Multi-select improvements (shift-click ranges)
+5. Chart animation options
+
+**Polish:**
+1. Loading skeletons for charts
+2. Empty state handling
+3. Performance optimization for 10,000+ rows
+4. Keyboard navigation
+5. Accessibility improvements
+
+---
+
+## End of Session 5 Documentation
+
