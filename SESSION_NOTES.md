@@ -106,14 +106,59 @@
   - Interactive Plotly charts
   - Collapsible chart container
 
+#### 3. Google Cloud Run Deployment
+**Cloud Infrastructure Setup**:
+- Created Google Cloud project: `bmdexpress-web` ("BMD Express Web Edition")
+- Configured billing account and enabled required APIs:
+  - Cloud Run API
+  - Artifact Registry API
+  - Cloud Build API
+- Created Artifact Registry repository in us-east1 region
+
+**Deployment Strategy**:
+- Approach: Pre-build JAR locally, package in minimal Docker image
+- Reason: TypeScript strict mode errors during cloud build
+- Solution: Build production JAR locally with `mvn clean package -Pproduction -DskipTests`
+- Created simplified Dockerfile copying pre-built JAR (165MB → 281MB final image)
+
+**Deployment Configuration**:
+- Region: `us-east1` (South Carolina) - East Coast location
+- Memory: 2Gi
+- CPU: 2 cores
+- Port: 8080
+- **Session Affinity**: ✅ **ENABLED** (critical for Vaadin stateful sessions)
+- Public Access: Enabled (`--allow-unauthenticated`)
+
+**Deployment Process**:
+1. Built production JAR locally (74 seconds)
+2. Created .gcloudignore to include target/ directory
+3. Built Docker image via Cloud Build (41 seconds)
+4. Pushed to Artifact Registry
+5. Deployed to Cloud Run with session affinity
+
+**Live Application**:
+- **Production URL**: https://bmdexpress-web-498562755791.us-east1.run.app
+- Status: ✅ **LIVE AND OPERATIONAL**
+- Session Management: Verified (JSESSIONID, csrfToken, GAESA cookies present)
+- Sticky Sessions: Confirmed via GAESA cookie (Google App Engine Session Affinity)
+
+**Cost Structure**:
+- Idle (no traffic): $0 (scales to zero)
+- Light usage (<10,000 requests/month): Free tier
+- Production use: Pay-per-use pricing
+
 ### Next Steps (Future Sessions)
 - Potential additional layout adjustments as needed
 - Performance optimization for large datasets
 - Additional chart customization options
 - Export/save functionality for charts
+- CI/CD pipeline setup for automated deployments
+- Custom domain configuration (optional)
+- Fix TypeScript strict mode errors for cloud-based builds
 
 ---
 
-**Session Duration**: Network interruption recovery + full implementation
-**Status**: ✅ Complete and functional
-**Server**: Running at http://localhost:8080/
+**Session Duration**: Network interruption recovery + full implementation + Cloud Run deployment
+**Status**: ✅ Complete and deployed to production
+**Local Development**: http://localhost:8080/
+**Production**: https://bmdexpress-web-498562755791.us-east1.run.app

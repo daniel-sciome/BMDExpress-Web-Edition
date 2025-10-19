@@ -2,8 +2,9 @@
 
 Web-based implementation of BMDExpress using Vaadin Flow and Hilla framework for dose-response analysis of high-dimensional data.
 
-![image](https://github.com/user-attachments/assets/bbd3941f-9a4c-4cdc-86fc-57697cdfb419)
+**🌐 Live Demo**: https://bmdexpress-web-498562755791.us-east1.run.app
 
+![image](https://github.com/user-attachments/assets/bbd3941f-9a4c-4cdc-86fc-57697cdfb419)
 
 ## About
 

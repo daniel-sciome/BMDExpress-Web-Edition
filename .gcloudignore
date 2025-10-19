@@ -1,0 +1,10 @@
+# gcloudignore for BMDExpress Web
+# Include target/ directory for pre-built JAR deployment
+
+.git
+.gitignore
+node_modules/
+*.md
+.idea/
+*.iml
+.mvn/wrapper/maven-wrapper.jar
