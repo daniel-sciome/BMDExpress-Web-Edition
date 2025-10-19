@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Spin, Row, Col, Tag } from 'antd';
+import { Spin, Row, Col, Tag, Collapse } from 'antd';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadCategoryResults } from '../store/slices/categoryResultsSlice';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
@@ -7,6 +7,7 @@ import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/Analys
 import CategoryResultsGrid from './CategoryResultsGrid';
 import BMDvsPValueScatter from './charts/BMDvsPValueScatter';
 import BMDBoxPlot from './charts/BMDBoxPlot';
+import PathwayCurveViewer from './PathwayCurveViewer';
 
 interface CategoryResultsViewProps {
   projectId: string;
@@ -106,15 +107,30 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         <CategoryResultsGrid />
       </div>
 
-      {/* Charts in responsive grid */}
-      <Row gutter={16}>
-        <Col xs={24} xl={12}>
-          <BMDvsPValueScatter />
-        </Col>
-        <Col xs={24} xl={12}>
-          <BMDBoxPlot />
-        </Col>
-      </Row>
+      {/* Charts in collapsible container */}
+      <Collapse
+        defaultActiveKey={['charts']}
+        style={{ marginBottom: '1.5rem' }}
+        items={[
+          {
+            key: 'charts',
+            label: 'BMD Analysis Charts',
+            children: (
+              <Row gutter={16}>
+                <Col xs={24} xl={12}>
+                  <BMDvsPValueScatter />
+                </Col>
+                <Col xs={24} xl={12}>
+                  <BMDBoxPlot />
+                </Col>
+              </Row>
+            ),
+          },
+        ]}
+      />
+
+      {/* Pathway Curve Viewer */}
+      <PathwayCurveViewer projectId={projectId} resultName={resultName} />
     </div>
   );
 }
