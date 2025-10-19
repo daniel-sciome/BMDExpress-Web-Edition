@@ -1,4 +1,4 @@
-# BMDExpress-Vaadin-Flow-Hilla
+# BMDExpress Web Edition
 
 Web-based implementation of BMDExpress using Vaadin Flow and Hilla framework for dose-response analysis of high-dimensional data.
 
