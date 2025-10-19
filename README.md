@@ -1,7 +1,7 @@
 # BMDExpress-Vaadin-Flow-Hilla
 
 Web-based implementation of BMDExpress using Vaadin Flow and Hilla framework for dose-response analysis of high-dimensional data.
-
+<img width="612" height="573" alt="image" src="https://github.com/user-attachments/assets/bbd3941f-9a4c-4cdc-86fc-57697cdfb419" />
 ## About
 
 This application provides a web interface for BMDExpress, which uses dose-response models from the EPA BMDS software and ToxicR to analyze high dimensional dose-response data, particularly gene expression data. The outputs are gene and gene set level benchmark dose values.
