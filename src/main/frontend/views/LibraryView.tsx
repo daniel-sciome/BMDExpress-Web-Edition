@@ -3,6 +3,7 @@ import { Tabs } from 'antd';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { setSelectedCategoryResult } from '../store/slices/navigationSlice';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
+import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
 import CategoryResultsView from '../components/CategoryResultsView';
 import { Icon } from '@vaadin/react-components';
 
@@ -15,7 +16,7 @@ export default function LibraryView() {
   const selectedProject = useAppSelector((state) => state.navigation.selectedProject);
   const selectedCategoryResult = useAppSelector((state) => state.navigation.selectedCategoryResult);
 
-  const [categoryResults, setCategoryResults] = useState<string[]>([]);
+  const [annotations, setAnnotations] = useState<AnalysisAnnotationDto[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Load category results when project changes
@@ -23,24 +24,24 @@ export default function LibraryView() {
     if (selectedProject) {
       loadCategoryResults(selectedProject);
     } else {
-      setCategoryResults([]);
+      setAnnotations([]);
     }
   }, [selectedProject]);
 
   const loadCategoryResults = async (projectId: string) => {
     try {
       setLoading(true);
-      const results = await CategoryResultsService.getCategoryResultNames(projectId);
-      const categoryNames = (results || []).filter((r): r is string => r !== undefined);
-      setCategoryResults(categoryNames);
+      const annotationList = await CategoryResultsService.getAllCategoryResultAnnotations(projectId);
+      const validAnnotations = (annotationList || []).filter((a): a is AnalysisAnnotationDto => a !== undefined);
+      setAnnotations(validAnnotations);
 
       // If we have results but none selected, select the first one
-      if (categoryNames.length > 0 && !selectedCategoryResult) {
-        dispatch(setSelectedCategoryResult(categoryNames[0]));
+      if (validAnnotations.length > 0 && !selectedCategoryResult) {
+        dispatch(setSelectedCategoryResult(validAnnotations[0].fullName || ''));
       }
     } catch (error) {
       console.error('Failed to load category results:', error);
-      setCategoryResults([]);
+      setAnnotations([]);
     } finally {
       setLoading(false);
     }
@@ -86,7 +87,7 @@ export default function LibraryView() {
   }
 
   // Project selected but no category results found
-  if (categoryResults.length === 0) {
+  if (annotations.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center" style={{ maxWidth: '600px', padding: '2rem' }}>
@@ -106,15 +107,15 @@ export default function LibraryView() {
     );
   }
 
-  // Build tab items
-  const tabItems = categoryResults.map((resultName) => ({
-    key: resultName,
-    label: resultName,
+  // Build tab items using annotations
+  const tabItems = annotations.map((annotation) => ({
+    key: annotation.fullName || '',
+    label: annotation.parseSuccess && annotation.displayName ? annotation.displayName : annotation.fullName,
     children: (
       <div style={{ padding: '16px' }}>
         <CategoryResultsView
           projectId={selectedProject}
-          resultName={resultName}
+          resultName={annotation.fullName || ''}
         />
       </div>
     ),
@@ -136,7 +137,7 @@ export default function LibraryView() {
 
       <div style={{ flex: 1, overflow: 'hidden' }}>
         <Tabs
-          activeKey={selectedCategoryResult || categoryResults[0]}
+          activeKey={selectedCategoryResult || annotations[0]?.fullName || ''}
           onChange={handleTabChange}
           items={tabItems}
           style={{ height: '100%' }}

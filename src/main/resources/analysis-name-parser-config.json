@@ -1,0 +1,109 @@
+{
+  "parserConfig": {
+    "description": "Configuration for parsing BMDExpress analysis names into structured annotations",
+    "parameterSuffixCount": 12,
+    "fieldDelimiter": "_",
+    "knownValues": {
+      "sex": {
+        "values": ["Male", "Female", "Mixed", "Both"],
+        "caseInsensitive": true
+      },
+      "species": {
+        "values": ["Rat", "Mouse", "Human", "Rabbit", "Dog", "Monkey"],
+        "caseInsensitive": true
+      },
+      "platform": {
+        "patterns": [
+          "S1500_Plus",
+          "S1500",
+          "TempO_Seq",
+          "Affymetrix",
+          "RNA_Seq",
+          "Agilent"
+        ],
+        "multiPart": true
+      },
+      "organ": {
+        "values": [
+          "Heart",
+          "Liver",
+          "Kidney",
+          "Brain",
+          "Lung",
+          "Spleen",
+          "Thymus",
+          "Thyroid",
+          "Testis",
+          "Ovary",
+          "Uterus",
+          "Mammary",
+          "Blood",
+          "Bone",
+          "Muscle",
+          "Skin",
+          "Stomach",
+          "Intestine",
+          "Colon",
+          "Pancreas",
+          "Bladder",
+          "Adrenal",
+          "Pituitary"
+        ],
+        "caseInsensitive": true,
+        "allowSuffix": true,
+        "suffixPattern": "-.*"
+      },
+      "analysisType": {
+        "patterns": [
+          "GO_BP",
+          "GO_CC",
+          "GO_MF",
+          "Reactome",
+          "KEGG",
+          "Pathway",
+          "WikiPathways",
+          "BioPlanet",
+          "GENE"
+        ],
+        "multiPart": true,
+        "location": "parameterSuffix"
+      }
+    },
+    "parsingStrategy": {
+      "description": "Parse prefix (before last 12 parts) and parameterSuffix (last 12 parts) separately",
+      "prefixFields": {
+        "order": ["prefix", "chemical", "sex", "organ"],
+        "chemical": {
+          "description": "Extracted after prefix and before sex, may contain multiple parts",
+          "multiPart": true,
+          "cleanUnderscores": true
+        }
+      },
+      "parameterSuffixFields": {
+        "platform": {
+          "description": "Platform name, may be multi-part (e.g., S1500_Plus)",
+          "searchMethod": "matchKnownPattern"
+        },
+        "species": {
+          "description": "Species name",
+          "searchMethod": "matchKnownValue"
+        },
+        "analysisType": {
+          "description": "Analysis type (e.g., GO_BP)",
+          "searchMethod": "matchKnownPattern"
+        }
+      }
+    },
+    "displayFormat": {
+      "short": "{chemical} - {sex} {organ} ({species})",
+      "medium": "{chemical} | {sex} {organ} | {platform} | {species}",
+      "full": "{chemical} - {sex} {organ} - {platform} - {species} - {analysisType} - {parameterSuffix}"
+    },
+    "validation": {
+      "required": ["chemical"],
+      "optional": ["sex", "organ", "species", "platform", "prefix", "parameterSuffix"],
+      "strictMode": false,
+      "throwOnParseFailure": false
+    }
+  }
+}

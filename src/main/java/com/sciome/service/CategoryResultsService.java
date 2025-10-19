@@ -2,6 +2,7 @@ package com.sciome.service;
 
 import com.sciome.bmdexpress2.mvp.model.BMDProject;
 import com.sciome.bmdexpress2.mvp.model.category.CategoryAnalysisResults;
+import com.sciome.dto.AnalysisAnnotationDto;
 import com.sciome.dto.CategoryAnalysisResultDto;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
@@ -20,10 +21,12 @@ import java.util.stream.Collectors;
 public class CategoryResultsService {
 
     private final ProjectService projectService;
+    private final AnalysisNameParser analysisNameParser;
 
     @Autowired
-    public CategoryResultsService(ProjectService projectService) {
+    public CategoryResultsService(ProjectService projectService, AnalysisNameParser analysisNameParser) {
         this.projectService = projectService;
+        this.analysisNameParser = analysisNameParser;
     }
 
     /**
@@ -87,5 +90,33 @@ public class CategoryResultsService {
         return categoryResults.getCategoryAnalsyisResults().stream()
                 .map(CategoryAnalysisResultDto::fromDesktopObject)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Get parsed annotation metadata for a category analysis result.
+     *
+     * @param projectId the project identifier
+     * @param categoryResultName the name of the category result
+     * @return AnalysisAnnotationDto with parsed metadata
+     * @throws IllegalArgumentException if the project or result is not found
+     */
+    public AnalysisAnnotationDto getCategoryResultAnnotation(String projectId, String categoryResultName) {
+        // Verify the result exists (will throw if not found)
+        findCategoryResult(projectId, categoryResultName);
+
+        // Parse the name into structured metadata
+        return analysisNameParser.parse(categoryResultName);
+    }
+
+    /**
+     * Get parsed annotation metadata for all category analysis results in a project.
+     *
+     * @param projectId the project identifier
+     * @return list of AnalysisAnnotationDto objects
+     * @throws IllegalArgumentException if the project is not found
+     */
+    public List<AnalysisAnnotationDto> getAllCategoryResultAnnotations(String projectId) {
+        List<String> resultNames = getCategoryResultNames(projectId);
+        return analysisNameParser.parseAll(resultNames);
     }
 }
