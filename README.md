@@ -49,7 +49,7 @@ mvn spring-boot:run
 
 Or import into your IDE and run the `Application` class.
 
-The application will be available at: http://localhost:8080/
+The application will be available at: TBD
 
 ### Building for Production
 
