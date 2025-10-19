@@ -2684,3 +2684,195 @@ const tabItems = categoryResults.map((resultName) => ({
 
 ## End of Session 5 Documentation
 
+
+---
+
+## Session 6: Analysis Name Annotations System (2025-10-19)
+
+### Overview
+Implemented comprehensive analysis name parsing system to extract structured metadata from BMDExpress category analysis names. Converts long underscore-delimited strings into human-readable formatted names with metadata tags.
+
+### Problem Statement
+
+**User Requirement:**
+> "Each category analysis will have descriptive terms: chemical, sex, organ, species, platform, parameterSuffix. They will be derived from the name/title string."
+
+**Example Input:**
+```
+P2_Perfluoro_3_methoxypropanoic_acid_Female_Heart-expression1_curvefitprefilter_foldfilter1.25_BMD_S1500_Plus_Rat_GO_BP_true_rsquared0.6_ratio10_conf0.5
+```
+
+**Goals:**
+- Extract: chemical, sex, organ, species, platform, analysisType
+- Format for UI display (replace long strings with metadata)
+- Use JSON/XML/Lua config for parsing rules (backend)
+- Deliver parsed data via API to frontend
+- Force naming convention compliance
+
+### Implementation
+
+#### 1. Configuration-Based Parser
+
+**File:** `src/main/resources/analysis-name-parser-config.json`
+
+**Design:**
+- JSON configuration defines parsing rules
+- Known values for: sex (4), species (6), organs (23), platforms (6), analysis types (9)
+- Parameter suffix: last 12 underscore-delimited parts
+- Configurable display formats (short, medium, full)
+- Validation rules (required fields, strict mode)
+
+**Key Configuration:**
+```json
+{
+  "parserConfig": {
+    "parameterSuffixCount": 12,
+    "knownValues": {
+      "sex": ["Male", "Female", "Mixed", "Both"],
+      "species": ["Rat", "Mouse", "Human", ...],
+      "organ": ["Heart", "Liver", "Thyroid", ...23 total],
+      "platform": ["S1500_Plus", "S1500", ...],
+      "analysisType": ["GO_BP", "GO_CC", "GENE", ...]
+    },
+    "displayFormat": {
+      "short": "{chemical} - {sex} {organ} ({species})"
+    },
+    "validation": {
+      "required": ["chemical"],
+      "strictMode": false
+    }
+  }
+}
+```
+
+#### 2. Backend Services
+
+**AnalysisAnnotationDto** (14 fields):
+- Metadata: chemical, sex, organ, species, platform, analysisType
+- Technical: parameterSuffix, prefix, fullName
+- Display: displayName, displayNameMedium
+- Status: parseSuccess, parseError
+
+**AnalysisNameParser Service:**
+- Loads JSON config on startup
+- Parses names using pattern matching
+- Extracts last 12 parts as parameter suffix
+- Identifies metadata from known values
+- Formats display names
+- Batch parsing support
+
+**CategoryResultsService API Extensions:**
+```java
+public AnalysisAnnotationDto getCategoryResultAnnotation(String projectId, String resultName)
+public List<AnalysisAnnotationDto> getAllCategoryResultAnnotations(String projectId)
+```
+
+#### 3. Frontend Integration
+
+**ProjectTreeSidebar:**
+- Displays formatted displayName instead of full string
+- Example: "Perfluoro 3 methoxypropanoic acid - Female Heart (Rat)"
+
+**CategoryResultsView:**
+- Shows formatted header with metadata tags
+- Color-coded tags: Chemical (blue), Sex (purple), Organ (green), Species (orange), Platform (cyan), Analysis Type (magenta)
+- Falls back to full name if parsing fails
+
+**LibraryView:**
+- Tab labels use formatted displayName
+- Loads annotations on project selection
+
+### Bug Fix: Parser Exceptions
+
+**Problem:** "No category analysis results found in this project" despite many results existing.
+
+**Root Cause:**
+- Parser threw exceptions for missing organs (Thyroid, Adrenal, Pituitary)
+- Missing analysis type (GENE)
+- Strict validation required all 4 fields (chemical, sex, organ, species)
+- Strict mode stopped batch parsing on first failure
+
+**Fixes:**
+1. Added missing organs to config (23 total)
+2. Added GENE analysis type (9 total)
+3. Relaxed validation to only require 'chemical'
+4. Disabled strict mode (throwOnParseFailure: false)
+5. Changed validation to log warnings instead of throwing
+
+**Result:** Parser now handles partial matches gracefully, all results visible.
+
+### Parsing Example
+
+**Input:**
+```
+P2_Perfluoro_3_methoxypropanoic_acid_Female_Heart-expression1_curvefitprefilter_foldfilter1.25_BMD_S1500_Plus_Rat_GO_BP_true_rsquared0.6_ratio10_conf0.5
+```
+
+**Output:**
+```json
+{
+  "chemical": "Perfluoro 3 methoxypropanoic acid",
+  "sex": "Female",
+  "organ": "Heart",
+  "species": "Rat",
+  "platform": "S1500_Plus",
+  "analysisType": "GO_BP",
+  "displayName": "Perfluoro 3 methoxypropanoic acid - Female Heart (Rat)",
+  "parseSuccess": true
+}
+```
+
+### Files Created/Modified
+
+**New Files:**
+- `src/main/resources/analysis-name-parser-config.json`
+- `src/main/java/com/sciome/dto/AnalysisAnnotationDto.java`
+- `src/main/java/com/sciome/service/AnalysisNameParser.java`
+
+**Modified Files:**
+- `src/main/java/com/sciome/service/CategoryResultsService.java` - Added 2 endpoints
+- `src/main/frontend/components/ProjectTreeSidebar.tsx` - Display formatted names
+- `src/main/frontend/components/CategoryResultsView.tsx` - Metadata tags header
+- `src/main/frontend/views/LibraryView.tsx` - Annotations integration
+
+**Auto-Generated:**
+- `src/main/frontend/generated/com/sciome/dto/AnalysisAnnotationDto.ts`
+- Updated `CategoryResultsService.ts` with new methods
+
+### Configuration Management
+
+**Adding New Known Values:**
+Edit `analysis-name-parser-config.json`:
+```json
+"organ": { "values": ["Heart", "Liver", "NewOrgan"] }
+"species": { "values": ["Rat", "Mouse", "NewSpecies"] }
+"platform": { "patterns": ["S1500_Plus", "New_Platform"] }
+"analysisType": { "patterns": ["GO_BP", "NEW_TYPE"] }
+```
+
+Restart server after changes: `mvn spring-boot:run`
+
+### Success Metrics
+
+- [x] JSON configuration parser implemented
+- [x] AnalysisAnnotationDto with 14 fields
+- [x] Two new API endpoints exposed
+- [x] Sidebar displays formatted names
+- [x] Results view shows metadata tags
+- [x] Tab labels use display names
+- [x] Parser handles missing values gracefully
+- [x] All P3MP-Parham results visible
+- [x] TypeScript compilation: 0 errors
+
+### Future Enhancements
+
+1. **Filtering** - Filter by chemical, sex, organ, species
+2. **Grouping** - Group results by metadata
+3. **Search** - Full-text search on chemicals
+4. **Validation UI** - Show parse errors/warnings
+5. **Batch Renaming** - Tool to fix non-compliant names
+6. **Export** - CSV/Excel export of metadata
+
+---
+
+## End of Session 6 Documentation

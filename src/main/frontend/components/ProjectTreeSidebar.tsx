@@ -55,14 +55,15 @@ export default function ProjectTreeSidebar() {
 
   const loadCategoryResults = async (projectId: string): Promise<TreeDataNode[]> => {
     try {
-      const results = await CategoryResultsService.getCategoryResultNames(projectId);
-      const categoryResults = (results || []).filter((r): r is string => r !== undefined);
+      const annotations = await CategoryResultsService.getAllCategoryResultAnnotations(projectId);
+      const validAnnotations = (annotations || []).filter((a): a is import('Frontend/generated/com/sciome/dto/AnalysisAnnotationDto').default => a !== undefined);
 
-      return categoryResults.map((resultName) => ({
-        title: resultName,
-        key: `${projectId}::${resultName}`,
+      return validAnnotations.map((annotation) => ({
+        title: annotation.displayName || annotation.fullName || 'Unknown',
+        key: `${projectId}::${annotation.fullName}`,
         isLeaf: true,
         icon: <span style={{ fontSize: '12px' }}>📊</span>,
+        data: annotation, // Store full annotation for later use
       }));
     } catch (error) {
       console.error('Failed to load category results:', error);
