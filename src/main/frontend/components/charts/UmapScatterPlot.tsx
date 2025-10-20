@@ -183,8 +183,8 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
   }, [dispatch]);
 
   // Layout configuration
-  const layout = {
-    title: 'GO Term UMAP Embedding Space',
+  const layout: any = {
+    title: { text: 'GO Term UMAP Embedding Space' },
     xaxis: {
       title: 'UMAP 1',
       zeroline: false,
@@ -208,7 +208,7 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
   };
 
   // Config for Plotly
-  const config = {
+  const config: any = {
     displayModeBar: true,
     modeBarButtonsToAdd: [],
     modeBarButtonsToRemove: ['autoScale2d'],
