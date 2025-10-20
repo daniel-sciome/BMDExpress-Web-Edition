@@ -162,3 +162,175 @@
 **Status**: ✅ Complete and deployed to production
 **Local Development**: http://localhost:8080/
 **Production**: https://bmdexpress-web-498562755791.us-east1.run.app
+
+---
+
+## Session: October 20, 2025
+
+### Custom Domain Configuration
+**Domain Setup**:
+- Domain: `snail-mt-fuji.dev`
+- Verified domain ownership via Google Search Console with TXT record
+- Installed gcloud beta components for domain mapping
+- Created Cloud Run domain mapping for subdomain: `bmdexpress-web.snail-mt-fuji.dev`
+- Added CNAME DNS record pointing to `ghs.googlehosted.com`
+- SSL certificate automatically provisioned and distributed
+
+**Domain Status**:
+- Custom Domain: https://bmdexpress-web.snail-mt-fuji.dev (pending DNS propagation)
+- Certificate: ✅ Provisioned
+- DNS: ⏳ Propagating (15-60 minutes typical)
+
+### Chart Selector and Additional Visualizations
+
+#### 1. Chart Selector Implementation
+**Reorganized UI to Match BMDExpress-3 Desktop**:
+- Replaced collapsible charts section with dropdown selector
+- Added Select component in Card header for chart type selection
+- Implemented conditional rendering based on selected chart type
+- All 13 chart types from BMDExpress-3 desktop now available in dropdown
+- Default selection: "Default Charts" (BMD vs P-Value Scatter + BMD Box Plot)
+
+#### 2. New Charts Implemented (7 total)
+
+**Range Plot**:
+- Horizontal error bars showing BMDL/BMD/BMDU confidence intervals
+- Top 20 pathways sorted by p-value
+- Logarithmic x-axis for BMD values
+- Interactive tooltips with all three values
+- File: `src/main/frontend/components/charts/RangePlot.tsx`
+
+**Bubble Chart**:
+- X-axis: BMD Median (log scale)
+- Y-axis: -log10(Fisher's two-tail p-value)
+- Bubble size: Percentage of genes in pathway
+- Dynamic sizing with transparency
+- File: `src/main/frontend/components/charts/BubbleChart.tsx`
+
+**BMD and BMDL Bar Charts**:
+- 6 horizontal bar charts (2 columns × 3 rows)
+- Charts: BMD/BMDL/BMDU for both Median and Mean
+- Top 20 pathways per chart
+- Color-coded by metric
+- Logarithmic x-axis
+- File: `src/main/frontend/components/charts/BarCharts.tsx`
+
+**Accumulation Charts**:
+- 6 cumulative distribution function (CDF) plots
+- Shows percentage of pathways below each BMD threshold
+- Charts: BMD/BMDL/BMDU for both Median and Mean
+- Filled area charts with transparency
+- Logarithmic x-axis, 0-100% y-axis
+- File: `src/main/frontend/components/charts/AccumulationCharts.tsx`
+
+**Best Models Pie Chart**:
+- Distribution of BMDS model types across all unique probes
+- Backend API method: `getModelCounts()` in CategoryResultsService
+- Tracks unique probes to avoid double-counting
+- Color-coded model names
+- Interactive legend and tooltips
+- File: `src/main/frontend/components/charts/BestModelsPieChart.tsx`
+
+#### 3. Category Selection/Filtering System
+
+**Redux State Management**:
+- Added `selectChartData` selector to categoryResultsSlice
+- Selector returns:
+  - Selected categories only (if any are selected)
+  - All categories (if none selected)
+- Memoized for performance
+
+**Updated All Charts to Respond to Selection**:
+- ✅ BMDvsPValueScatter - Uses selectChartData
+- ✅ BMDBoxPlot - Uses selectChartData
+- ✅ RangePlot - Uses selectChartData
+- ✅ BubbleChart - Uses selectChartData
+- ✅ BarCharts - Uses selectChartData
+- ✅ AccumulationCharts - Uses selectChartData
+- ✅ BestModelsPieChart - Analysis-wide (not category-filtered)
+
+**User Experience**:
+- Select rows in CategoryResultsGrid using checkboxes
+- All charts automatically update to show only selected categories
+- Selection persists across chart type changes
+- Deselect all to return to full dataset view
+- Grid rows dim when not selected (visual feedback)
+
+### Files Created
+
+**Chart Components**:
+- `src/main/frontend/components/charts/RangePlot.tsx` (140 lines)
+- `src/main/frontend/components/charts/BubbleChart.tsx` (124 lines)
+- `src/main/frontend/components/charts/BarCharts.tsx` (126 lines)
+- `src/main/frontend/components/charts/AccumulationCharts.tsx` (151 lines)
+- `src/main/frontend/components/charts/BestModelsPieChart.tsx` (111 lines)
+
+### Files Modified
+
+**Backend**:
+- `src/main/java/com/sciome/service/CategoryResultsService.java`:
+  - Added `getModelCounts()` method for pie chart
+  - Extracts best model names from ProbeStatResult
+  - Uses Set to track unique probes and avoid double-counting
+
+**Frontend State**:
+- `src/main/frontend/store/slices/categoryResultsSlice.ts`:
+  - Added `selectChartData` selector for filtered chart data
+
+**Chart Components** (Updated to use selectChartData):
+- `src/main/frontend/components/charts/BMDvsPValueScatter.tsx`
+- `src/main/frontend/components/charts/BMDBoxPlot.tsx`
+- `src/main/frontend/components/charts/RangePlot.tsx`
+- `src/main/frontend/components/charts/BubbleChart.tsx`
+- `src/main/frontend/components/charts/BarCharts.tsx`
+- `src/main/frontend/components/charts/AccumulationCharts.tsx`
+
+**Main View**:
+- `src/main/frontend/components/CategoryResultsView.tsx`:
+  - Replaced Collapse component with Card + Select dropdown
+  - Added imports for all new chart components
+  - Implemented conditional rendering for 13 chart types
+  - Integrated chart selector matching BMDExpress-3 desktop UX
+
+### Chart Types Available
+
+**Implemented (9 of 13)**:
+1. ✅ Default Charts (Scatter + Box Plot)
+2. ✅ Curve Overlay (Pathway Curve Viewer)
+3. ✅ Range Plot
+4. ✅ Bubble Chart
+5. ✅ BMD and BMDL Bar Charts (6 charts)
+6. ✅ Accumulation Charts (6 charts)
+7. ✅ Best Models Pie Chart
+
+**Remaining (4 of 13)**:
+8. ⏳ Mean Histograms (5 histograms)
+9. ⏳ Median Histograms (3 histograms)
+10. ⏳ BMD vs BMDL Scatter Plots (4 variations)
+11. ⏳ Violin Plot Per Category
+12. ⏳ Global Violin Plot
+13. ⏳ Venn Diagram
+
+### Technical Achievements
+- Successfully replicated BMDExpress-3 desktop chart organization
+- Implemented dynamic chart filtering via Redux selector pattern
+- All charts use Plotly.js for interactive, publication-quality visualizations
+- Charts respond in real-time to category selection/deselection
+- Efficient memoization prevents unnecessary re-renders
+- Proper handling of missing/invalid data in all chart types
+
+### Next Steps (Future Sessions)
+- Implement remaining 6 chart types (Histograms, Scatter variations, Violin plots, Venn diagram)
+- Add chart export functionality (PNG, SVG, data CSV)
+- Implement chart customization options (colors, axis ranges, etc.)
+- Add "Clear Selection" button for easier workflow
+- Show selection count indicator in UI
+- Performance optimization for large datasets
+- CI/CD pipeline for automated deployments
+
+---
+
+**Session Duration**: Custom domain setup + Chart selector + 5 new chart types + Selection filtering
+**Status**: ✅ Complete - 9 of 13 chart types implemented with full selection support
+**Custom Domain**: https://bmdexpress-web.snail-mt-fuji.dev (propagating)
+**Production**: https://bmdexpress-web-498562755791.us-east1.run.app

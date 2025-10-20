@@ -2,10 +2,10 @@ import React from 'react';
 import Plot from 'react-plotly.js';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../store/store';
-import { selectSortedData } from '../../store/slices/categoryResultsSlice';
+import { selectChartData } from '../../store/slices/categoryResultsSlice';
 
 export default function BMDBoxPlot() {
-  const data = useSelector(selectSortedData);
+  const data = useSelector(selectChartData);
   const selectedCategoryIds = useSelector((state: RootState) => state.categoryResults.selectedCategoryIds);
 
   const hasSelection = selectedCategoryIds.size > 0;
