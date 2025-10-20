@@ -32,8 +32,8 @@ export default function RangePlot() {
     // Take top 20 categories sorted by p-value (most significant first)
     const topCategories = validData
       .sort((a: CategoryAnalysisResultDto, b: CategoryAnalysisResultDto) => {
-        const pA = a.fishersTwoTail ?? 1;
-        const pB = b.fishersTwoTail ?? 1;
+        const pA = a.fishersExactTwoTailPValue ?? 1;
+        const pB = b.fishersExactTwoTailPValue ?? 1;
         return pA - pB;
       })
       .slice(0, 20);

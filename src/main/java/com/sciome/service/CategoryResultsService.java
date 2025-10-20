@@ -402,7 +402,7 @@ public class CategoryResultsService {
     public Map<String, Integer> getModelCounts(String projectId, String categoryResultName) {
         CategoryAnalysisResults categoryResults = findCategoryResult(projectId, categoryResultName);
         Map<String, Integer> modelCounts = new HashMap<>();
-        Set<String> processedProbes = new HashSet<>();
+        Set<ProbeStatResult> processedProbes = new HashSet<>();
 
         if (categoryResults.getCategoryAnalsyisResults() == null) {
             return modelCounts;
@@ -419,15 +419,12 @@ public class CategoryResultsService {
                 }
 
                 for (ProbeStatResult psr : rgps.getProbeStatResults()) {
-                    // Use probe ID to avoid counting the same probe multiple times
-                    String probeId = psr.getProbeResponse() != null ?
-                        psr.getProbeResponse().getProbe().getId() : null;
-
-                    if (probeId == null || processedProbes.contains(probeId)) {
+                    // Use ProbeStatResult object for uniqueness (same as desktop app)
+                    if (processedProbes.contains(psr)) {
                         continue;
                     }
 
-                    processedProbes.add(probeId);
+                    processedProbes.add(psr);
 
                     // Get the best model
                     var bestStatResult = psr.getBestStatResult();
