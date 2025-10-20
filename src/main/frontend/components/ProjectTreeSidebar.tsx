@@ -53,18 +53,55 @@ export default function ProjectTreeSidebar() {
     }
   };
 
+  // Helper function to get friendly name for analysis type
+  const getAnalysisTypeDisplayName = (analysisType: string | undefined): string => {
+    if (!analysisType) return 'Other';
+
+    const typeMap: Record<string, string> = {
+      'GO_BP': 'GO Biological Process',
+      'GO_MF': 'GO Molecular Function',
+      'GO_CC': 'GO Cellular Component',
+      'KEGG': 'KEGG Pathways',
+      'Reactome': 'Reactome Pathways',
+      'Pathway': 'Pathways',
+      'GENE': 'Genes',
+    };
+
+    return typeMap[analysisType] || analysisType;
+  };
+
   const loadCategoryResults = async (projectId: string): Promise<TreeDataNode[]> => {
     try {
       const annotations = await CategoryResultsService.getAllCategoryResultAnnotations(projectId);
       const validAnnotations = (annotations || []).filter((a): a is import('Frontend/generated/com/sciome/dto/AnalysisAnnotationDto').default => a !== undefined);
 
-      return validAnnotations.map((annotation) => ({
-        title: annotation.displayName || annotation.fullName || 'Unknown',
-        key: `${projectId}::${annotation.fullName}`,
-        isLeaf: true,
-        icon: <span style={{ fontSize: '12px' }}>📊</span>,
-        data: annotation, // Store full annotation for later use
+      // Group annotations by analysisType
+      const groupedByType = validAnnotations.reduce((acc, annotation) => {
+        const type = annotation.analysisType || 'Other';
+        if (!acc[type]) {
+          acc[type] = [];
+        }
+        acc[type].push(annotation);
+        return acc;
+      }, {} as Record<string, typeof validAnnotations>);
+
+      // Create tree nodes for each category type
+      const typeNodes = Object.entries(groupedByType).map(([analysisType, annotations]) => ({
+        title: getAnalysisTypeDisplayName(analysisType),
+        key: `${projectId}::type::${analysisType}`,
+        isLeaf: false,
+        icon: <span style={{ fontSize: '12px' }}>📂</span>,
+        children: annotations.map((annotation) => ({
+          title: annotation.displayName || annotation.fullName || 'Unknown',
+          key: `${projectId}::${annotation.fullName}`,
+          isLeaf: true,
+          icon: <span style={{ fontSize: '12px' }}>📊</span>,
+          data: annotation, // Store full annotation for later use
+        })),
       }));
+
+      // Sort by type name for consistent display
+      return typeNodes.sort((a, b) => (a.title as string).localeCompare(b.title as string));
     } catch (error) {
       console.error('Failed to load category results:', error);
       return [];
@@ -79,13 +116,18 @@ export default function ProjectTreeSidebar() {
       return;
     }
 
-    // Load category results for this project
-    const categoryNodes = await loadCategoryResults(key as string);
+    // Check if this is a project node (no :: in key)
+    const keyStr = key as string;
+    if (!keyStr.includes('::')) {
+      // Load category type groups for this project
+      const categoryTypeNodes = await loadCategoryResults(keyStr);
 
-    // Update tree data
-    setTreeData((prevData) =>
-      updateTreeData(prevData, key, categoryNodes)
-    );
+      // Update tree data
+      setTreeData((prevData) =>
+        updateTreeData(prevData, key, categoryTypeNodes)
+      );
+    }
+    // Category type nodes already have their children loaded inline
   };
 
   const updateTreeData = (
@@ -117,7 +159,16 @@ export default function ProjectTreeSidebar() {
 
     // Check if it's a category result (contains ::)
     if (key.includes('::')) {
-      const [projectId, resultName] = key.split('::');
+      const parts = key.split('::');
+
+      // Check if it's a category type node (format: projectId::type::typeName)
+      if (parts.length === 3 && parts[1] === 'type') {
+        // It's a category type node - just expand/collapse, don't select
+        return;
+      }
+
+      // It's a category result (format: projectId::resultName)
+      const [projectId, resultName] = parts;
       dispatch(setSelectedProject(projectId));
       dispatch(setSelectedCategoryResult(resultName));
     } else {

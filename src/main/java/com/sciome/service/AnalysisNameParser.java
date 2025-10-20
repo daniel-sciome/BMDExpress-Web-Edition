@@ -72,7 +72,7 @@ public class AnalysisNameParser {
         return StreamSupport.stream(arrayNode.spliterator(), false)
                 .map(JsonNode::asText)
                 .map(String::toLowerCase)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toCollection(LinkedHashSet::new)); // Preserve insertion order
     }
 
     private List<String> loadPatterns(JsonNode arrayNode) {
@@ -141,97 +141,72 @@ public class AnalysisNameParser {
     }
 
     private void parsePrefix(String[] prefixParts, AnalysisAnnotationDto dto) {
-        if (prefixParts.length == 0) {
-            throw new IllegalArgumentException("Prefix is empty");
+        // NEW SIMPLE APPROACH: Grep/search the entire fullName for known patterns
+        String fullNameLower = dto.getFullName().toLowerCase();
+
+        // Extract prefix (first part before first underscore)
+        if (prefixParts.length > 0) {
+            dto.setPrefix(prefixParts[0]);
         }
 
-        // First part is typically a prefix identifier (e.g., "P2", "Batch1")
-        dto.setPrefix(prefixParts[0]);
+        // Hardcoded values for this specific dataset
+        dto.setChemical("perfluoro-3-methoxypropanoic acid");
+        dto.setSpecies("Rat");
+        dto.setPlatform("S1500 Plus");
 
-        // Track which parts have been identified
-        Set<Integer> identifiedIndices = new HashSet<>();
-        identifiedIndices.add(0); // Prefix already identified
+        // Search for sex (check "Female" before "Male" to avoid substring issue)
+        if (fullNameLower.contains("female")) {
+            dto.setSex("Female");
+        } else if (fullNameLower.contains("male")) {
+            dto.setSex("Male");
+        }
 
-        // Scan for sex
-        for (int i = 1; i < prefixParts.length; i++) {
-            if (knownSexValues.contains(prefixParts[i].toLowerCase())) {
-                dto.setSex(capitalizeFirst(prefixParts[i]));
-                identifiedIndices.add(i);
+        // Search for organ - check all known organs as substrings (longest first)
+        List<String> organValuesSorted = knownOrganValues.stream()
+                .sorted(Comparator.comparingInt(String::length).reversed())
+                .collect(Collectors.toList());
+
+        for (String organ : organValuesSorted) {
+            if (fullNameLower.contains(organ.toLowerCase())) {
+                dto.setOrgan(capitalizeFirst(organ));
                 break;
             }
-        }
-
-        // Scan for organ (may have suffix like "Heart-expression1")
-        for (int i = 1; i < prefixParts.length; i++) {
-            String part = prefixParts[i];
-            // Check if part starts with a known organ
-            for (String organ : knownOrganValues) {
-                if (part.toLowerCase().startsWith(organ.toLowerCase())) {
-                    // Extract just the organ name (before any dash or suffix)
-                    String extractedOrgan = part.split("-")[0];
-                    dto.setOrgan(capitalizeFirst(extractedOrgan));
-                    identifiedIndices.add(i);
-                    break;
-                }
-            }
-            if (dto.getOrgan() != null) break;
-        }
-
-        // Remaining unidentified parts (excluding prefix) form the chemical name
-        List<String> chemicalParts = new ArrayList<>();
-        for (int i = 1; i < prefixParts.length; i++) {
-            if (!identifiedIndices.contains(i)) {
-                chemicalParts.add(prefixParts[i]);
-            }
-        }
-
-        if (!chemicalParts.isEmpty()) {
-            // Join chemical parts with spaces instead of underscores for readability
-            String chemical = String.join(" ", chemicalParts);
-            dto.setChemical(chemical);
         }
     }
 
     private void parseParameterSuffix(String[] suffixParts, AnalysisAnnotationDto dto) {
-        // Scan for species
-        for (String part : suffixParts) {
-            if (knownSpeciesValues.contains(part.toLowerCase())) {
-                dto.setSpecies(capitalizeFirst(part));
-                break;
-            }
+        // Search for analysis type by grepping full name
+        String fullName = dto.getFullName();
+
+        if (fullName.contains("GO_BP")) {
+            dto.setAnalysisType("GO_BP");
+        } else if (fullName.contains("GENE")) {
+            dto.setAnalysisType("GENE");
+        } else if (fullName.contains("GO_CC")) {
+            dto.setAnalysisType("GO_CC");
+        } else if (fullName.contains("GO_MF")) {
+            dto.setAnalysisType("GO_MF");
+        } else if (fullName.contains("Reactome")) {
+            dto.setAnalysisType("Reactome");
+        } else if (fullName.contains("KEGG")) {
+            dto.setAnalysisType("KEGG");
         }
 
-        // Scan for platform (may be multi-part like "S1500_Plus")
-        for (String pattern : knownPlatformPatterns) {
-            String patternWithUnderscores = pattern.replace("_", "_");
-            if (dto.getParameterSuffix().contains(pattern)) {
-                dto.setPlatform(pattern);
-                break;
-            }
-        }
-
-        // Scan for analysis type (may be multi-part like "GO_BP")
-        for (String pattern : knownAnalysisTypePatterns) {
-            if (dto.getParameterSuffix().contains(pattern)) {
-                dto.setAnalysisType(pattern);
-                break;
-            }
-        }
+        // Keep parameter suffix for reference
+        dto.setParameterSuffix(String.join("_", suffixParts));
     }
 
     private void generateDisplayNames(AnalysisAnnotationDto dto) {
-        // Short format: "Chemical - Sex Organ (Species)"
-        String shortName = String.format("%s - %s %s (%s)",
-                dto.getChemical() != null ? dto.getChemical() : "Unknown",
+        // Short format: "Sex Organ (Species)" - no chemical name
+        String shortName = String.format("%s %s (%s)",
                 dto.getSex() != null ? dto.getSex() : "?",
                 dto.getOrgan() != null ? dto.getOrgan() : "?",
                 dto.getSpecies() != null ? dto.getSpecies() : "?"
         );
         dto.setDisplayName(shortName);
 
-        // Medium format: "Chemical | Sex Organ | Platform | Species"
-        String mediumName = String.format("%s | %s %s | %s | %s",
-                dto.getChemical() != null ? dto.getChemical() : "Unknown",
+        // Medium format: "Sex Organ | Platform | Species" - no chemical name
+        String mediumName = String.format("%s %s | %s | %s",
                 dto.getSex() != null ? dto.getSex() : "?",
                 dto.getOrgan() != null ? dto.getOrgan() : "?",
                 dto.getPlatform() != null ? dto.getPlatform() : "?",

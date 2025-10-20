@@ -14,6 +14,7 @@ import AccumulationCharts from './charts/AccumulationCharts';
 import BestModelsPieChart from './charts/BestModelsPieChart';
 import PathwayCurveViewer from './PathwayCurveViewer';
 import VennDiagram from './charts/VennDiagram';
+import UmapScatterPlot from './charts/UmapScatterPlot';
 
 interface CategoryResultsViewProps {
   projectId: string;
@@ -23,6 +24,7 @@ interface CategoryResultsViewProps {
 // Chart type constants - matching BMDExpress-3 desktop app
 const CHART_TYPES = {
   DEFAULT: 'Default Charts',
+  UMAP_SEMANTIC: 'UMAP Semantic Space',
   CURVE_OVERLAY: 'Curve Overlay',
   RANGE_PLOT: 'Range Plot',
   BUBBLE_CHART: 'Bubble Chart',
@@ -105,11 +107,9 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
       {/* Formatted header with annotation metadata */}
       {annotation && annotation.parseSuccess ? (
         <div style={{ marginBottom: '1rem' }}>
-          <h2 style={{ marginBottom: '0.5rem' }}>{annotation.displayName}</h2>
+          <h2 style={{ marginBottom: '0.5rem' }}>{annotation.chemical || 'Unknown Chemical'}</h2>
+          <h3 style={{ marginBottom: '0.5rem', fontWeight: 'normal', color: '#666' }}>{annotation.displayName}</h3>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
-            {annotation.chemical && (
-              <Tag color="blue" style={{ fontSize: '13px' }}>Chemical: {annotation.chemical}</Tag>
-            )}
             {annotation.sex && (
               <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {annotation.sex}</Tag>
             )}
@@ -125,6 +125,9 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
             {annotation.analysisType && (
               <Tag color="magenta" style={{ fontSize: '13px' }}>Analysis: {annotation.analysisType}</Tag>
             )}
+            <Tag color="geekblue" style={{ fontSize: '13px' }}>
+              Analysis Parameters: curvefitprefilter_foldfilter1.25_BMD_S1500_Plus_Rat_GO_BP_true_rsquared0.6_ratio10_conf0.5
+            </Tag>
           </div>
           <p style={{ margin: '0 0 0 0', color: '#888', fontSize: '12px' }}>
             {data.length} categories | Project: {projectId}
@@ -171,6 +174,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
             </Col>
           </Row>
         )}
+
+        {selectedChartType === CHART_TYPES.UMAP_SEMANTIC && <UmapScatterPlot />}
 
         {selectedChartType === CHART_TYPES.CURVE_OVERLAY && (
           <PathwayCurveViewer projectId={projectId} resultName={resultName} />

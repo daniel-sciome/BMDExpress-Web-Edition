@@ -30,6 +30,9 @@ interface CategoryResultsState {
   // Selection (category IDs - primary state for cross-component reactivity)
   selectedCategoryIds: Set<string>;
 
+  // UMAP selection (GO IDs selected from UMAP scatter plot - takes priority over table selection)
+  selectedUmapGoIds: Set<string>;
+
   // Highlighting (for hover states)
   highlightedRow: number | null;
 
@@ -51,6 +54,7 @@ const initialState: CategoryResultsState = {
   resultName: null,
   filters: {},
   selectedCategoryIds: new Set<string>(),
+  selectedUmapGoIds: new Set<string>(),
   highlightedRow: null,
   sortColumn: null,
   sortDirection: 'asc',
@@ -110,6 +114,24 @@ const categoryResultsSlice = createSlice({
       state.selectedCategoryIds.clear();
     },
 
+    // UMAP selection actions (GO IDs selected from UMAP scatter plot)
+    setSelectedUmapGoIds: (state, action: PayloadAction<string[]>) => {
+      state.selectedUmapGoIds = new Set(action.payload);
+    },
+
+    toggleUmapGoIdSelection: (state, action: PayloadAction<string>) => {
+      const goId = action.payload;
+      if (state.selectedUmapGoIds.has(goId)) {
+        state.selectedUmapGoIds.delete(goId);
+      } else {
+        state.selectedUmapGoIds.add(goId);
+      }
+    },
+
+    clearUmapSelection: (state) => {
+      state.selectedUmapGoIds.clear();
+    },
+
     // Highlighting action
     setHighlightedRow: (state, action: PayloadAction<number | null>) => {
       state.highlightedRow = action.payload;
@@ -144,6 +166,7 @@ const categoryResultsSlice = createSlice({
         state.projectId = action.meta.arg.projectId;
         state.resultName = action.meta.arg.resultName;
         state.selectedCategoryIds.clear();
+        state.selectedUmapGoIds.clear();
         state.highlightedRow = null;
       })
       .addCase(loadCategoryResults.rejected, (state, action) => {
@@ -160,6 +183,9 @@ export const {
   setSelectedCategoryIds,
   toggleCategorySelection,
   clearSelection,
+  setSelectedUmapGoIds,
+  toggleUmapGoIdSelection,
+  clearUmapSelection,
   setHighlightedRow,
   setSortColumn,
   setPage,
@@ -229,15 +255,26 @@ export const selectPaginatedData = createSelector(
   }
 );
 
-// Selector for chart data - returns selected categories if any, otherwise all data
+// Selector for chart data - returns selected categories based on UMAP or table selection
+// Priority: UMAP selection > Table selection > All data
 export const selectChartData = createSelector(
-  [selectSortedData, (state: RootState) => state.categoryResults.selectedCategoryIds],
-  (allData, selectedIds) => {
-    // If no categories are selected, return all data
-    if (selectedIds.size === 0) {
-      return allData;
+  [
+    selectSortedData,
+    (state: RootState) => state.categoryResults.selectedUmapGoIds,
+    (state: RootState) => state.categoryResults.selectedCategoryIds
+  ],
+  (allData, umapGoIds, categoryIds) => {
+    // Priority 1: UMAP selection (if any GO IDs are selected in UMAP scatter plot)
+    if (umapGoIds.size > 0) {
+      return allData.filter(row => umapGoIds.has(row.categoryId || ''));
     }
-    // Otherwise, return only selected categories
-    return allData.filter(row => selectedIds.has(row.categoryId || ''));
+
+    // Priority 2: Table selection (if any categories are selected in table)
+    if (categoryIds.size > 0) {
+      return allData.filter(row => categoryIds.has(row.categoryId || ''));
+    }
+
+    // Default: return all data (no filtering)
+    return allData;
   }
 );

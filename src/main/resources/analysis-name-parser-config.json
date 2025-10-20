@@ -5,8 +5,9 @@
     "fieldDelimiter": "_",
     "knownValues": {
       "sex": {
-        "values": ["Male", "Female", "Mixed", "Both"],
-        "caseInsensitive": true
+        "values": ["Female", "Male", "Mixed", "Both"],
+        "caseInsensitive": true,
+        "comment": "Female before Male to avoid substring matching issues"
       },
       "species": {
         "values": ["Rat", "Mouse", "Human", "Rabbit", "Dog", "Monkey"],
@@ -25,29 +26,18 @@
       },
       "organ": {
         "values": [
-          "Heart",
+          "Thyroid",
+          "Thymus",
+          "Spleen",
+          "Ovary",
+          "Lung",
           "Liver",
           "Kidney",
+          "Heart",
           "Brain",
-          "Lung",
-          "Spleen",
-          "Thymus",
-          "Thyroid",
-          "Testis",
-          "Ovary",
-          "Uterus",
-          "Mammary",
-          "Blood",
-          "Bone",
-          "Muscle",
-          "Skin",
-          "Stomach",
-          "Intestine",
-          "Colon",
-          "Pancreas",
-          "Bladder",
           "Adrenal",
-          "Pituitary"
+          "Testes",
+          "Uterus"
         ],
         "caseInsensitive": true,
         "allowSuffix": true,
