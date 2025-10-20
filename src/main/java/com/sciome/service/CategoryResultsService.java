@@ -12,6 +12,7 @@ import com.sciome.dto.CategoryAnalysisResultDto;
 import com.sciome.dto.CurveDataDto;
 import com.sciome.dto.DosePointDto;
 import com.sciome.dto.PathwayInfoDto;
+import com.sciome.dto.VennDiagramDataDto;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -437,5 +438,104 @@ public class CategoryResultsService {
         }
 
         return modelCounts;
+    }
+
+    /**
+     * Calculate Venn diagram overlaps for 2-5 category analysis results.
+     * Compares category descriptions (pathway names) across multiple datasets.
+     *
+     * @param projectId the project identifier
+     * @param categoryResultNames list of 2-5 category result names to compare
+     * @return VennDiagramDataDto with overlap counts and items
+     * @throws IllegalArgumentException if the project or results are not found, or if count is not 2-5
+     */
+    public VennDiagramDataDto getVennDiagramData(String projectId, List<String> categoryResultNames) {
+        if (categoryResultNames == null || categoryResultNames.size() < 2 || categoryResultNames.size() > 5) {
+            throw new IllegalArgumentException("Venn diagram requires 2-5 category analysis results");
+        }
+
+        // Get all category results
+        List<CategoryAnalysisResults> allResults = new ArrayList<>();
+        for (String name : categoryResultNames) {
+            allResults.add(findCategoryResult(projectId, name));
+        }
+
+        // Extract category descriptions from each result
+        List<Set<String>> datasets = new ArrayList<>();
+        List<String> setNames = new ArrayList<>();
+
+        for (CategoryAnalysisResults results : allResults) {
+            Set<String> categories = new HashSet<>();
+            if (results.getCategoryAnalsyisResults() != null) {
+                for (CategoryAnalysisResult result : results.getCategoryAnalsyisResults()) {
+                    String categoryDesc = result.getCategoryDescription();
+                    if (categoryDesc != null && !categoryDesc.isEmpty()) {
+                        categories.add(categoryDesc);
+                    }
+                }
+            }
+            datasets.add(categories);
+            setNames.add(results.getName());
+        }
+
+        // Calculate overlaps using binary encoding (like BMDExpress-3)
+        Map<String, Integer> itemToSets = new HashMap<>();
+
+        // Assign bit values: A=1, B=2, C=4, D=8, E=16
+        int[] bitValues = {1, 2, 4, 8, 16};
+
+        // Mark which sets each item belongs to
+        for (int i = 0; i < datasets.size(); i++) {
+            for (String item : datasets.get(i)) {
+                itemToSets.put(item, itemToSets.getOrDefault(item, 0) + bitValues[i]);
+            }
+        }
+
+        // Count overlaps (index by combined bit value)
+        int maxCombinations = (int) Math.pow(2, datasets.size());
+        int[] overlapCounts = new int[maxCombinations];
+        Map<Integer, List<String>> overlapItemLists = new HashMap<>();
+
+        for (int i = 0; i < maxCombinations; i++) {
+            overlapItemLists.put(i, new ArrayList<>());
+        }
+
+        for (Map.Entry<String, Integer> entry : itemToSets.entrySet()) {
+            int combinedValue = entry.getValue();
+            overlapCounts[combinedValue]++;
+            overlapItemLists.get(combinedValue).add(entry.getKey());
+        }
+
+        // Convert to maps for DTO
+        Map<String, Integer> overlaps = new HashMap<>();
+        Map<String, List<String>> overlapItems = new HashMap<>();
+
+        for (int i = 1; i < maxCombinations; i++) {
+            if (overlapCounts[i] > 0) {
+                // Generate key like "A", "B", "A,B", "A,B,C", etc.
+                String key = generateSetKey(i, datasets.size());
+                overlaps.put(key, overlapCounts[i]);
+                overlapItems.put(key, overlapItemLists.get(i));
+            }
+        }
+
+        return new VennDiagramDataDto(setNames, overlaps, overlapItems, datasets.size());
+    }
+
+    /**
+     * Generate a set key from a bit-encoded value.
+     * Examples: 1="A", 3="A,B", 7="A,B,C"
+     */
+    private String generateSetKey(int value, int setCount) {
+        List<String> sets = new ArrayList<>();
+        String[] labels = {"A", "B", "C", "D", "E"};
+
+        for (int i = 0; i < setCount; i++) {
+            if ((value & (1 << i)) != 0) {
+                sets.add(labels[i]);
+            }
+        }
+
+        return String.join(",", sets);
     }
 }

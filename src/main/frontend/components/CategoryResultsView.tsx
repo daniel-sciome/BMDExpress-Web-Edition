@@ -13,6 +13,7 @@ import BarCharts from './charts/BarCharts';
 import AccumulationCharts from './charts/AccumulationCharts';
 import BestModelsPieChart from './charts/BestModelsPieChart';
 import PathwayCurveViewer from './PathwayCurveViewer';
+import VennDiagram from './charts/VennDiagram';
 
 interface CategoryResultsViewProps {
   projectId: string;
@@ -41,13 +42,26 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   const { loading, error, data } = useAppSelector((state) => state.categoryResults);
   const [annotation, setAnnotation] = useState<AnalysisAnnotationDto | null>(null);
   const [selectedChartType, setSelectedChartType] = useState<string>(CHART_TYPES.DEFAULT);
+  const [availableResults, setAvailableResults] = useState<string[]>([]);
 
   useEffect(() => {
     if (projectId && resultName) {
       dispatch(loadCategoryResults({ projectId, resultName }));
       loadAnnotation();
+      loadAvailableResults();
     }
   }, [dispatch, projectId, resultName]);
+
+  const loadAvailableResults = async () => {
+    try {
+      const results = await CategoryResultsService.getCategoryResultNames(projectId);
+      if (results && Array.isArray(results)) {
+        setAvailableResults(results.filter((r): r is string => typeof r === 'string'));
+      }
+    } catch (err) {
+      console.error('Failed to load available results:', err);
+    }
+  };
 
   const loadAnnotation = async () => {
     try {
@@ -205,9 +219,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         )}
 
         {selectedChartType === CHART_TYPES.VENN_DIAGRAM && (
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-            Venn Diagram - Coming Soon
-          </div>
+          <VennDiagram projectId={projectId} availableResults={availableResults} />
         )}
       </Card>
     </div>
