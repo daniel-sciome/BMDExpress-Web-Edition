@@ -429,8 +429,33 @@ const pB = b.fishersExactTwoTailPValue ?? 1;
 - Performance optimization for large datasets
 - CI/CD pipeline for automated deployments
 
+### Production Deployment
+
+**Build Process**:
+- Executed `mvn clean package -Pproduction -DskipTests`
+- Production JAR size: 165MB
+- Build time: 75 seconds
+- Frontend Vite build completed in 69 seconds
+
+**Deployment to Google Cloud Run**:
+- Region: us-east1 (South Carolina)
+- Deployment method: Source-based with Dockerfile
+- Container built and pushed to Artifact Registry
+- New revision: `bmdexpress-web-00002-vjt`
+- Traffic: 100% to new revision
+- Session affinity: Enabled
+- Resources: 2Gi memory, 2 CPU cores
+
+**Verification**:
+- ✅ Service URL: https://bmdexpress-web-498562755791.us-east1.run.app
+- ✅ Custom Domain: https://bmdexpress-web.snail-mt-fuji.dev
+- ✅ HTTP/2 200 response
+- ✅ Session cookies active (JSESSIONID)
+- ✅ Best Models Pie Chart fix deployed
+
 ---
 
-**Session Duration**: Bug fix session - Best Models Pie Chart data issue
-**Status**: ✅ Complete - Pie chart now displays model distribution correctly
+**Session Duration**: Bug fix session - Best Models Pie Chart data issue + Production deployment
+**Status**: ✅ Complete - Pie chart fix deployed to production
 **Production**: https://bmdexpress-web.snail-mt-fuji.dev
+**Revision**: bmdexpress-web-00002-vjt
