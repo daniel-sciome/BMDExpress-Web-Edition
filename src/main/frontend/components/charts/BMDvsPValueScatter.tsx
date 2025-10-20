@@ -2,11 +2,11 @@ import React from 'react';
 import Plot from 'react-plotly.js';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState, AppDispatch } from '../../store/store';
-import { selectSortedData, toggleCategorySelection, setSelectedCategoryIds } from '../../store/slices/categoryResultsSlice';
+import { selectChartData, toggleCategorySelection, setSelectedCategoryIds } from '../../store/slices/categoryResultsSlice';
 
 export default function BMDvsPValueScatter() {
   const dispatch = useDispatch<AppDispatch>();
-  const data = useSelector(selectSortedData);
+  const data = useSelector(selectChartData);
   const selectedCategoryIds = useSelector((state: RootState) => state.categoryResults.selectedCategoryIds);
 
   // Prepare data for plotting

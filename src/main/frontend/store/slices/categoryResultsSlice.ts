@@ -228,3 +228,16 @@ export const selectPaginatedData = createSelector(
     return sorted.slice(start, start + pageSize);
   }
 );
+
+// Selector for chart data - returns selected categories if any, otherwise all data
+export const selectChartData = createSelector(
+  [selectSortedData, (state: RootState) => state.categoryResults.selectedCategoryIds],
+  (allData, selectedIds) => {
+    // If no categories are selected, return all data
+    if (selectedIds.size === 0) {
+      return allData;
+    }
+    // Otherwise, return only selected categories
+    return allData.filter(row => selectedIds.has(row.categoryId || ''));
+  }
+);

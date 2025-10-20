@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Spin, Row, Col, Tag, Collapse } from 'antd';
+import { Spin, Row, Col, Tag, Select, Card } from 'antd';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadCategoryResults } from '../store/slices/categoryResultsSlice';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
@@ -7,6 +7,11 @@ import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/Analys
 import CategoryResultsGrid from './CategoryResultsGrid';
 import BMDvsPValueScatter from './charts/BMDvsPValueScatter';
 import BMDBoxPlot from './charts/BMDBoxPlot';
+import RangePlot from './charts/RangePlot';
+import BubbleChart from './charts/BubbleChart';
+import BarCharts from './charts/BarCharts';
+import AccumulationCharts from './charts/AccumulationCharts';
+import BestModelsPieChart from './charts/BestModelsPieChart';
 import PathwayCurveViewer from './PathwayCurveViewer';
 
 interface CategoryResultsViewProps {
@@ -14,10 +19,28 @@ interface CategoryResultsViewProps {
   resultName: string;
 }
 
+// Chart type constants - matching BMDExpress-3 desktop app
+const CHART_TYPES = {
+  DEFAULT: 'Default Charts',
+  CURVE_OVERLAY: 'Curve Overlay',
+  RANGE_PLOT: 'Range Plot',
+  BUBBLE_CHART: 'Bubble Chart',
+  BMD_BMDL_BARCHARTS: 'BMD and BMDL Bar Charts',
+  ACCUMULATION_CHARTS: 'Accumulation Charts',
+  BEST_MODEL_PIE: 'Best Models Pie Chart',
+  MEAN_HISTOGRAMS: 'Mean Histograms',
+  MEDIAN_HISTOGRAMS: 'Median Histograms',
+  BMD_BMDL_SCATTER: 'BMD vs BMDL Scatter Plots',
+  VIOLIN: 'Violin Plot Per Category',
+  VIOLIN_PLOT_DATASET: 'Global Violin Plot',
+  VENN_DIAGRAM: 'Venn Diagram',
+} as const;
+
 export default function CategoryResultsView({ projectId, resultName }: CategoryResultsViewProps) {
   const dispatch = useAppDispatch();
   const { loading, error, data } = useAppSelector((state) => state.categoryResults);
   const [annotation, setAnnotation] = useState<AnalysisAnnotationDto | null>(null);
+  const [selectedChartType, setSelectedChartType] = useState<string>(CHART_TYPES.DEFAULT);
 
   useEffect(() => {
     if (projectId && resultName) {
@@ -107,30 +130,86 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         <CategoryResultsGrid />
       </div>
 
-      {/* Charts in collapsible container */}
-      <Collapse
-        defaultActiveKey={['charts']}
+      {/* Chart Type Selector */}
+      <Card
+        title="Visualizations"
         style={{ marginBottom: '1.5rem' }}
-        items={[
-          {
-            key: 'charts',
-            label: 'BMD Analysis Charts',
-            children: (
-              <Row gutter={16}>
-                <Col xs={24} xl={12}>
-                  <BMDvsPValueScatter />
-                </Col>
-                <Col xs={24} xl={12}>
-                  <BMDBoxPlot />
-                </Col>
-              </Row>
-            ),
-          },
-        ]}
-      />
+        extra={
+          <Select
+            value={selectedChartType}
+            onChange={setSelectedChartType}
+            style={{ width: 250 }}
+            options={Object.values(CHART_TYPES).map(type => ({
+              label: type,
+              value: type,
+            }))}
+          />
+        }
+      >
+        {/* Render selected chart(s) */}
+        {selectedChartType === CHART_TYPES.DEFAULT && (
+          <Row gutter={16}>
+            <Col xs={24} xl={12}>
+              <BMDvsPValueScatter />
+            </Col>
+            <Col xs={24} xl={12}>
+              <BMDBoxPlot />
+            </Col>
+          </Row>
+        )}
 
-      {/* Pathway Curve Viewer */}
-      <PathwayCurveViewer projectId={projectId} resultName={resultName} />
+        {selectedChartType === CHART_TYPES.CURVE_OVERLAY && (
+          <PathwayCurveViewer projectId={projectId} resultName={resultName} />
+        )}
+
+        {selectedChartType === CHART_TYPES.RANGE_PLOT && <RangePlot />}
+
+        {selectedChartType === CHART_TYPES.BUBBLE_CHART && <BubbleChart />}
+
+        {selectedChartType === CHART_TYPES.BEST_MODEL_PIE && (
+          <BestModelsPieChart projectId={projectId} resultName={resultName} />
+        )}
+
+        {selectedChartType === CHART_TYPES.BMD_BMDL_BARCHARTS && <BarCharts />}
+
+        {selectedChartType === CHART_TYPES.ACCUMULATION_CHARTS && <AccumulationCharts />}
+
+        {selectedChartType === CHART_TYPES.MEAN_HISTOGRAMS && (
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+            Mean Histograms - Coming Soon
+          </div>
+        )}
+
+        {selectedChartType === CHART_TYPES.MEDIAN_HISTOGRAMS && (
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+            Median Histograms - Coming Soon
+          </div>
+        )}
+
+        {selectedChartType === CHART_TYPES.BMD_BMDL_SCATTER && (
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+            BMD vs BMDL Scatter Plots - Coming Soon
+          </div>
+        )}
+
+        {selectedChartType === CHART_TYPES.VIOLIN && (
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+            Violin Plot Per Category - Coming Soon
+          </div>
+        )}
+
+        {selectedChartType === CHART_TYPES.VIOLIN_PLOT_DATASET && (
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+            Global Violin Plot - Coming Soon
+          </div>
+        )}
+
+        {selectedChartType === CHART_TYPES.VENN_DIAGRAM && (
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+            Venn Diagram - Coming Soon
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

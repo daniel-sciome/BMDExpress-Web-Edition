@@ -390,4 +390,55 @@ public class CategoryResultsService {
 
         return points;
     }
+
+    /**
+     * Get model counts for Best Models Pie Chart.
+     * Returns a map of model names to their counts across all genes in the category analysis.
+     *
+     * @param projectId the project identifier
+     * @param categoryResultName the name of the category result
+     * @return map of model names to counts
+     */
+    public Map<String, Integer> getModelCounts(String projectId, String categoryResultName) {
+        CategoryAnalysisResults categoryResults = findCategoryResult(projectId, categoryResultName);
+        Map<String, Integer> modelCounts = new HashMap<>();
+        Set<String> processedProbes = new HashSet<>();
+
+        if (categoryResults.getCategoryAnalsyisResults() == null) {
+            return modelCounts;
+        }
+
+        for (CategoryAnalysisResult result : categoryResults.getCategoryAnalsyisResults()) {
+            if (result.getReferenceGeneProbeStatResults() == null) {
+                continue;
+            }
+
+            for (ReferenceGeneProbeStatResult rgps : result.getReferenceGeneProbeStatResults()) {
+                if (rgps.getProbeStatResults() == null) {
+                    continue;
+                }
+
+                for (ProbeStatResult psr : rgps.getProbeStatResults()) {
+                    // Use probe ID to avoid counting the same probe multiple times
+                    String probeId = psr.getProbeResponse() != null ?
+                        psr.getProbeResponse().getProbe().getId() : null;
+
+                    if (probeId == null || processedProbes.contains(probeId)) {
+                        continue;
+                    }
+
+                    processedProbes.add(probeId);
+
+                    // Get the best model
+                    var bestStatResult = psr.getBestStatResult();
+                    if (bestStatResult != null) {
+                        String modelName = bestStatResult.toString();
+                        modelCounts.put(modelName, modelCounts.getOrDefault(modelName, 0) + 1);
+                    }
+                }
+            }
+        }
+
+        return modelCounts;
+    }
 }
