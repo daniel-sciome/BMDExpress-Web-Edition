@@ -103,10 +103,10 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   }
 
   return (
-    <div style={{ height: '100%', padding: '1rem' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '1rem' }}>
       {/* Formatted header with annotation metadata */}
       {annotation && annotation.parseSuccess ? (
-        <div style={{ marginBottom: '1rem' }}>
+        <div style={{ marginBottom: '1rem', flexShrink: 0 }}>
           <h2 style={{ marginBottom: '0.5rem' }}>{annotation.chemical || 'Unknown Chemical'}</h2>
           <h3 style={{ marginBottom: '0.5rem', fontWeight: 'normal', color: '#666' }}>{annotation.displayName}</h3>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
@@ -134,7 +134,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           </p>
         </div>
       ) : (
-        <div style={{ marginBottom: '1rem' }}>
+        <div style={{ marginBottom: '1rem', flexShrink: 0 }}>
           <h2 style={{ marginBottom: '0.5rem' }}>Category Results: {resultName}</h2>
           <p style={{ margin: '0 0 0 0', color: '#666' }}>
             Project: {projectId} | {data.length} categories
@@ -142,12 +142,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         </div>
       )}
 
-      {/* Table with category results */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <CategoryResultsGrid />
-      </div>
-
-      {/* Chart Type Selector */}
+      {/* Charts in scrolling container */}
       <Card
         title="Visualizations"
         style={{ marginBottom: '1.5rem' }}
@@ -163,70 +158,81 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           />
         }
       >
-        {/* Render selected chart(s) */}
-        {selectedChartType === CHART_TYPES.DEFAULT && (
-          <Row gutter={16}>
-            <Col xs={24} xl={12}>
-              <BMDvsPValueScatter />
-            </Col>
-            <Col xs={24} xl={12}>
-              <BMDBoxPlot />
-            </Col>
-          </Row>
-        )}
+        <div style={{
+          maxHeight: '600px',
+          overflowY: 'auto',
+          overflowX: 'hidden'
+        }}>
+          {/* Render selected chart(s) */}
+          {selectedChartType === CHART_TYPES.DEFAULT && (
+            <Row gutter={16}>
+              <Col xs={24} xl={12}>
+                <BMDvsPValueScatter />
+              </Col>
+              <Col xs={24} xl={12}>
+                <BMDBoxPlot />
+              </Col>
+            </Row>
+          )}
 
-        {selectedChartType === CHART_TYPES.UMAP_SEMANTIC && <UmapScatterPlot />}
+          {selectedChartType === CHART_TYPES.UMAP_SEMANTIC && <UmapScatterPlot />}
 
-        {selectedChartType === CHART_TYPES.CURVE_OVERLAY && (
-          <PathwayCurveViewer projectId={projectId} resultName={resultName} />
-        )}
+          {selectedChartType === CHART_TYPES.CURVE_OVERLAY && (
+            <PathwayCurveViewer projectId={projectId} resultName={resultName} />
+          )}
 
-        {selectedChartType === CHART_TYPES.RANGE_PLOT && <RangePlot />}
+          {selectedChartType === CHART_TYPES.RANGE_PLOT && <RangePlot />}
 
-        {selectedChartType === CHART_TYPES.BUBBLE_CHART && <BubbleChart />}
+          {selectedChartType === CHART_TYPES.BUBBLE_CHART && <BubbleChart />}
 
-        {selectedChartType === CHART_TYPES.BEST_MODEL_PIE && (
-          <BestModelsPieChart projectId={projectId} resultName={resultName} />
-        )}
+          {selectedChartType === CHART_TYPES.BEST_MODEL_PIE && (
+            <BestModelsPieChart projectId={projectId} resultName={resultName} />
+          )}
 
-        {selectedChartType === CHART_TYPES.BMD_BMDL_BARCHARTS && <BarCharts />}
+          {selectedChartType === CHART_TYPES.BMD_BMDL_BARCHARTS && <BarCharts />}
 
-        {selectedChartType === CHART_TYPES.ACCUMULATION_CHARTS && <AccumulationCharts />}
+          {selectedChartType === CHART_TYPES.ACCUMULATION_CHARTS && <AccumulationCharts />}
 
-        {selectedChartType === CHART_TYPES.MEAN_HISTOGRAMS && (
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-            Mean Histograms - Coming Soon
-          </div>
-        )}
+          {selectedChartType === CHART_TYPES.MEAN_HISTOGRAMS && (
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+              Mean Histograms - Coming Soon
+            </div>
+          )}
 
-        {selectedChartType === CHART_TYPES.MEDIAN_HISTOGRAMS && (
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-            Median Histograms - Coming Soon
-          </div>
-        )}
+          {selectedChartType === CHART_TYPES.MEDIAN_HISTOGRAMS && (
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+              Median Histograms - Coming Soon
+            </div>
+          )}
 
-        {selectedChartType === CHART_TYPES.BMD_BMDL_SCATTER && (
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-            BMD vs BMDL Scatter Plots - Coming Soon
-          </div>
-        )}
+          {selectedChartType === CHART_TYPES.BMD_BMDL_SCATTER && (
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+              BMD vs BMDL Scatter Plots - Coming Soon
+            </div>
+          )}
 
-        {selectedChartType === CHART_TYPES.VIOLIN && (
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-            Violin Plot Per Category - Coming Soon
-          </div>
-        )}
+          {selectedChartType === CHART_TYPES.VIOLIN && (
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+              Violin Plot Per Category - Coming Soon
+            </div>
+          )}
 
-        {selectedChartType === CHART_TYPES.VIOLIN_PLOT_DATASET && (
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-            Global Violin Plot - Coming Soon
-          </div>
-        )}
+          {selectedChartType === CHART_TYPES.VIOLIN_PLOT_DATASET && (
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+              Global Violin Plot - Coming Soon
+            </div>
+          )}
 
-        {selectedChartType === CHART_TYPES.VENN_DIAGRAM && (
-          <VennDiagram projectId={projectId} availableResults={availableResults} />
-        )}
+          {selectedChartType === CHART_TYPES.VENN_DIAGRAM && (
+            <VennDiagram projectId={projectId} availableResults={availableResults} />
+          )}
+        </div>
       </Card>
+
+      {/* Table at the bottom */}
+      <div style={{ flexShrink: 0 }}>
+        <CategoryResultsGrid />
+      </div>
     </div>
   );
 }
