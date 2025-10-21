@@ -43,6 +43,14 @@ public class CategoryAnalysisResultDto {
     private Double bmduMinimum;
     private Double bmduSD;
 
+    // Weighted statistics
+    private Double bmdWMean;
+    private Double bmdWSD;
+    private Double bmdlWMean;
+    private Double bmdlWSD;
+    private Double bmduWMean;
+    private Double bmduWSD;
+
     // Filter counts
     private Integer genesWithBMDLessEqualHighDose;
     private Integer genesWithBMDpValueGreaterEqualValue;
@@ -94,6 +102,14 @@ public class CategoryAnalysisResultDto {
         dto.setBmduMedian(result.getBmduMedian());
         dto.setBmduMinimum(result.getBmduMinimum());
         dto.setBmduSD(result.getBmduSD());
+
+        // Weighted statistics
+        dto.setBmdWMean(result.getBmdWMean());
+        dto.setBmdWSD(result.getBmdWSD());
+        dto.setBmdlWMean(result.getBmdlWMean());
+        dto.setBmdlWSD(result.getBmdlWSD());
+        dto.setBmduWMean(result.getBmduWMean());
+        dto.setBmduWSD(result.getBmduWSD());
 
         // Filter counts
         dto.setGenesWithBMDLessEqualHighDose(result.getGenesWithBMDLessEqualHighDose());
@@ -327,5 +343,53 @@ public class CategoryAnalysisResultDto {
 
     public void setGenesWithFoldChangeAboveValue(Integer genesWithFoldChangeAboveValue) {
         this.genesWithFoldChangeAboveValue = genesWithFoldChangeAboveValue;
+    }
+
+    public Double getBmdWMean() {
+        return bmdWMean;
+    }
+
+    public void setBmdWMean(Double bmdWMean) {
+        this.bmdWMean = bmdWMean;
+    }
+
+    public Double getBmdWSD() {
+        return bmdWSD;
+    }
+
+    public void setBmdWSD(Double bmdWSD) {
+        this.bmdWSD = bmdWSD;
+    }
+
+    public Double getBmdlWMean() {
+        return bmdlWMean;
+    }
+
+    public void setBmdlWMean(Double bmdlWMean) {
+        this.bmdlWMean = bmdlWMean;
+    }
+
+    public Double getBmdlWSD() {
+        return bmdlWSD;
+    }
+
+    public void setBmdlWSD(Double bmdlWSD) {
+        this.bmdlWSD = bmdlWSD;
+    }
+
+    public Double getBmduWMean() {
+        return bmduWMean;
+    }
+
+    public void setBmduWMean(Double bmduWMean) {
+        this.bmduWMean = bmduWMean;
+    }
+
+    public Double getBmduWSD() {
+        return bmduWSD;
+    }
+
+    public void setBmduWSD(Double bmduWSD) {
+        this.bmduWSD = bmduWSD;
     }
 }
