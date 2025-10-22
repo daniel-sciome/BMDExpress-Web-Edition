@@ -133,7 +133,7 @@
       "workbox-core": "7.3.0",
       "workbox-precaching": "7.3.0"
     },
-    "hash": "3f4a1e7751760f3664d790bf01ff0b1faa11bc5053221b5efbb4e7b49c541090"
+    "hash": "46be096d5624661b9e242c2e6e660ccb93f35c77c97341d75fc9d1afedb73928"
   },
   "overrides": {
     "@vaadin/bundles": "$@vaadin/bundles",
@@ -235,6 +235,8 @@
     "react-plotly.js": "$react-plotly.js",
     "react-redux": "$react-redux",
     "d3": "$d3",
-    "@ant-design/charts": "$@ant-design/charts"
+    "@ant-design/charts": "$@ant-design/charts",
+    "@types/react-resizable": "$@types/react-resizable",
+    "react-resizable": "$react-resizable"
   }
 }
