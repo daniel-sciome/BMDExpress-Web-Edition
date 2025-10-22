@@ -112,7 +112,7 @@ export default function LibraryView() {
     key: annotation.fullName || '',
     label: annotation.parseSuccess && annotation.displayName ? annotation.displayName : annotation.fullName,
     children: (
-      <div style={{ padding: '16px' }}>
+      <div style={{ height: '100%' }}>
         <CategoryResultsView
           projectId={selectedProject}
           resultName={annotation.fullName || ''}
@@ -135,17 +135,18 @@ export default function LibraryView() {
         </h2>
       </div>
 
-      <div style={{ flex: 1, overflow: 'hidden' }}>
+      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <Tabs
           activeKey={selectedCategoryResult || annotations[0]?.fullName || ''}
           onChange={handleTabChange}
           items={tabItems}
-          style={{ height: '100%' }}
+          style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
           tabBarStyle={{
             margin: 0,
             paddingLeft: '24px',
             paddingRight: '24px',
-            background: 'white'
+            background: 'white',
+            flexShrink: 0
           }}
         />
       </div>
