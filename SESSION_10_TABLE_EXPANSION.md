@@ -515,10 +515,62 @@ Successfully expanded the category results table from 10 to 33 columns, achievin
 
 ---
 
+## Production Build Fixes
+
+### TypeScript Compilation Error
+**Problem**: Production build failed with TypeScript error:
+```
+error TS2304: Cannot find name 'CheckboxValueType'
+```
+
+**Root Cause**: Import statement and type annotation for `CheckboxValueType` from Ant Design caused compilation issues in production TypeScript compiler.
+
+**Solution** (2 commits):
+1. Removed unused import: `import type { CheckboxValueType } from 'antd/es/checkbox/Group';`
+2. Removed type annotation from useState: Changed `useState<CheckboxValueType[]>(['1'])` to `useState(['1'])`
+3. TypeScript now infers the type as `string[]` from the initial value
+
+**Files Modified**:
+- `CategoryResultsView.tsx`: Removed import and type annotation
+
+### Table Pagination Improvements
+
+**Problem 1**: Page size selector didn't work - dropdown appeared but selecting different sizes had no effect.
+
+**Root Cause**: Pagination configuration was missing state management and onChange handler.
+
+**Solution**:
+1. Added state: `const [pageSize, setPageSize] = useState(50);`
+2. Added `onShowSizeChange` handler to update state
+3. Connected state to pagination config: `pageSize: pageSize`
+
+**Problem 2**: User requested more granular page size options (2 and 5) and dynamic table height.
+
+**Solution**:
+1. Added 2 and 5 to page size options: `['2', '5', '10', '25', '50', '100', '200']`
+2. Removed fixed table height (`y: 400`) to make table fit the number of rows dynamically
+3. Table now grows/shrinks based on selected page size
+
+**Files Modified**:
+- `CategoryResultsGrid.tsx` (lines 17, 400-406):
+  - Added pageSize state
+  - Updated pagination config with state management
+  - Added smaller page size options
+  - Removed fixed vertical scroll height
+
+**Benefits**:
+- ✅ Page size selector now functional
+- ✅ More granular viewing options (2, 5 rows for quick inspection)
+- ✅ Table height adapts to content (compact for small pages, expanded for large)
+- ✅ Better for presentations and demos (can show just 2-5 rows cleanly)
+
+---
+
 ## Next Session Priorities
 
-1. Test all 33 columns with production data
-2. Build and deploy to production
-3. Consider Priority 2 enhancements (percentiles, gene lists)
-4. Evaluate need for column visibility controls
-5. User feedback on table usability with 33 columns
+1. Complete production build and deployment
+2. Test all 33 columns with production data
+3. Verify pagination and dynamic table height in production
+4. Consider Priority 2 enhancements (percentiles, gene lists)
+5. Evaluate need for column visibility controls
+6. User feedback on table usability with 33 columns
