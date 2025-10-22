@@ -459,3 +459,51 @@ const pB = b.fishersExactTwoTailPValue ?? 1;
 **Status**: ✅ Complete - Pie chart fix deployed to production
 **Production**: https://bmdexpress-web.snail-mt-fuji.dev
 **Revision**: bmdexpress-web-00002-vjt
+
+---
+
+## Session: October 22, 2025 (Session 12)
+
+### Column Width Reduction & Table Layout Fix
+
+**Detailed Documentation**: See [SESSION_12_COLUMN_WIDTH_REDUCTION.md](SESSION_12_COLUMN_WIDTH_REDUCTION.md)
+
+**Objective**: Reduce category results table column widths by 50% and fix table expansion behavior
+
+**Issues Addressed**:
+- Table expanding to fill container width despite specified column widths
+- Proportional column sizing overriding individual width values
+- Large file size of CategoryResultsGrid.tsx (1,280 lines)
+
+**Root Causes Identified**:
+1. `scroll.x` property set to 2500px forced minimum width causing proportional scaling
+2. Missing `tableLayout="fixed"` allowed flexible CSS table layout
+3. Ant Design Table default behavior expands columns to fill available space
+
+**Changes Implemented**:
+- ✅ Reduced all 94 column widths by 50% (e.g., 150px → 75px, 110px → 55px)
+- ✅ Changed `scroll.x` from 2500 to 1250 to match reduced widths
+- ✅ Added `tableLayout="fixed"` property to enforce CSS fixed layout
+- ✅ Added react-resizable dependencies for potential future column resizing feature
+
+**Files Modified**:
+- `src/main/frontend/components/CategoryResultsGrid.tsx` - ~96 lines (width values + table properties)
+- `package.json` - Added react-resizable and @types/react-resizable
+
+**Outstanding Issues**:
+- Table width expansion not fully resolved despite tableLayout="fixed"
+- Need to investigate parent container CSS and computed styles
+- Column widths may need fine-tuning based on content
+
+**Next Steps**:
+- Refactor CategoryResultsGrid.tsx (1,280 lines) into smaller, modular components
+- Extract column definitions to separate file(s)
+- Create reusable column builder utilities
+- Investigate remaining table expansion issues
+
+---
+
+**Session Duration**: Troubleshooting and layout configuration
+**Status**: ⏳ Partial - Changes implemented but behavior not fully resolved
+**Build Status**: ✅ Compiles successfully
+**Next Priority**: Component refactoring and modularization
