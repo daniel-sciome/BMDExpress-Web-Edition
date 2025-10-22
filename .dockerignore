@@ -1,0 +1,26 @@
+# Exclude everything except target
+*
+!target/
+
+# Within target, only include the JAR
+target/*
+!target/bmdexpress-web-*.jar
+
+# Exclude lib directory (contains old BMDExpress desktop versions)
+lib/
+
+# Exclude development files
+.git/
+.idea/
+*.iml
+node_modules/
+src/
+.mvn/
+mvnw
+mvnw.cmd
+
+# Exclude build artifacts we don't need
+*.md
+pom.xml
+Dockerfile
+.dockerignore
