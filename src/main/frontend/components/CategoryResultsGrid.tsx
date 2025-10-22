@@ -13,6 +13,9 @@ export default function CategoryResultsGrid() {
   // Filter toggle state - default OFF (show all rows like desktop)
   const [hideRowsWithoutBMD, setHideRowsWithoutBMD] = useState(false);
 
+  // Pagination state
+  const [pageSize, setPageSize] = useState(50);
+
   // Apply filter based on toggle
   const data = useMemo(() => {
     if (!hideRowsWithoutBMD) {
@@ -394,11 +397,13 @@ export default function CategoryResultsGrid() {
           rowSelection={rowSelection}
           rowClassName={getRowClassName}
           pagination={{
-            pageSize: 50,
+            pageSize: pageSize,
             showSizeChanger: true,
+            pageSizeOptions: ['2', '5', '10', '25', '50', '100', '200'],
+            onShowSizeChange: (current, size) => setPageSize(size),
             showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} categories`,
           }}
-          scroll={{ x: 2500, y: 400 }}
+          scroll={{ x: 2500 }}
           size="small"
         />
       ),
