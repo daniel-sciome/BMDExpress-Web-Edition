@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Spin, Row, Col, Tag, Collapse, Checkbox } from 'antd';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { loadCategoryResults } from '../store/slices/categoryResultsSlice';
+import { loadCategoryResults, loadAnalysisParameters } from '../store/slices/categoryResultsSlice';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
 import CategoryResultsGrid from './CategoryResultsGrid';
@@ -23,7 +23,7 @@ interface CategoryResultsViewProps {
 
 export default function CategoryResultsView({ projectId, resultName }: CategoryResultsViewProps) {
   const dispatch = useAppDispatch();
-  const { loading, error, data } = useAppSelector((state) => state.categoryResults);
+  const { loading, error, data, analysisParameters } = useAppSelector((state) => state.categoryResults);
   const [annotation, setAnnotation] = useState<AnalysisAnnotationDto | null>(null);
   const [availableResults, setAvailableResults] = useState<string[]>([]);
   const [visibleCharts, setVisibleCharts] = useState(['1']); // Default Charts visible by default
@@ -31,6 +31,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   useEffect(() => {
     if (projectId && resultName) {
       dispatch(loadCategoryResults({ projectId, resultName }));
+      dispatch(loadAnalysisParameters({ projectId, resultName }));
       loadAnnotation();
       loadAvailableResults();
     }
@@ -117,10 +118,22 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
             {annotation.analysisType && (
               <Tag color="magenta" style={{ fontSize: '13px' }}>Analysis: {annotation.analysisType}</Tag>
             )}
-            <Tag color="geekblue" style={{ fontSize: '13px' }}>
-              Analysis Parameters: curvefitprefilter_foldfilter1.25_BMD_S1500_Plus_Rat_GO_BP_true_rsquared0.6_ratio10_conf0.5
-            </Tag>
           </div>
+          {/* Analysis Parameters */}
+          {analysisParameters && analysisParameters.length > 0 && (
+            <div style={{ marginBottom: '8px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', color: '#666' }}>
+                Analysis Parameters:
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {analysisParameters.map((param, index) => (
+                  <Tag key={index} color="geekblue" style={{ fontSize: '12px', margin: 0 }}>
+                    {param}
+                  </Tag>
+                ))}
+              </div>
+            </div>
+          )}
           <p style={{ margin: '0 0 0 0', color: '#888', fontSize: '12px' }}>
             {data.length} categories | Project: {projectId}
           </p>

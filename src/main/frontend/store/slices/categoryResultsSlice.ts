@@ -24,6 +24,10 @@ interface CategoryResultsState {
   projectId: string | null;
   resultName: string | null;
 
+  // Analysis parameters (from AnalysisInfo notes)
+  analysisParameters: string[];
+  parametersLoading: boolean;
+
   // Filters
   filters: Filters;
 
@@ -52,6 +56,8 @@ const initialState: CategoryResultsState = {
   error: null,
   projectId: null,
   resultName: null,
+  analysisParameters: [],
+  parametersLoading: false,
   filters: {},
   selectedCategoryIds: new Set<string>(),
   selectedUmapGoIds: new Set<string>(),
@@ -76,6 +82,22 @@ export const loadCategoryResults = createAsyncThunk(
       return filtered;
     } catch (error) {
       console.error('[Redux] Error loading category results:', error);
+      throw error;
+    }
+  }
+);
+
+// Async thunk to load analysis parameters
+export const loadAnalysisParameters = createAsyncThunk(
+  'categoryResults/loadParameters',
+  async ({ projectId, resultName }: { projectId: string; resultName: string }) => {
+    console.log('[Redux] Loading analysis parameters:', { projectId, resultName });
+    try {
+      const parameters = await CategoryResultsService.getAnalysisParameters(projectId, resultName);
+      console.log('[Redux] Received analysis parameters:', parameters);
+      return parameters || [];
+    } catch (error) {
+      console.error('[Redux] Error loading analysis parameters:', error);
       throw error;
     }
   }
@@ -172,6 +194,17 @@ const categoryResultsSlice = createSlice({
       .addCase(loadCategoryResults.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to load results';
+      })
+      .addCase(loadAnalysisParameters.pending, (state) => {
+        state.parametersLoading = true;
+      })
+      .addCase(loadAnalysisParameters.fulfilled, (state, action) => {
+        state.parametersLoading = false;
+        state.analysisParameters = action.payload;
+      })
+      .addCase(loadAnalysisParameters.rejected, (state, action) => {
+        state.parametersLoading = false;
+        console.error('Failed to load analysis parameters:', action.error);
       });
   },
 });
