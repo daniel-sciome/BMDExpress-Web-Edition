@@ -1,9 +1,27 @@
-import React, { useMemo, useState } from 'react';
-import { Table, Collapse, Checkbox } from 'antd';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Table, Collapse, Checkbox, Popover, Button, Space } from 'antd';
+import { SettingOutlined } from '@ant-design/icons';
 import type { TableProps, ColumnsType } from 'antd/es/table';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { selectSortedData, setSelectedCategoryIds } from '../store/slices/categoryResultsSlice';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
+
+// Column visibility state interface
+interface ColumnVisibility {
+  geneCounts: boolean;
+  fishersFull: boolean;
+  bmdExtended: boolean;
+  bmdlStats: boolean;
+  bmduStats: boolean;
+  filterCounts: boolean;
+  percentiles: boolean;
+  directionalUp: boolean;
+  directionalDown: boolean;
+  directionalAnalysis: boolean;
+  zScores: boolean;
+  modelFoldChange: boolean;
+  geneLists: boolean;
+}
 
 export default function CategoryResultsGrid() {
   const dispatch = useAppDispatch();
@@ -15,6 +33,48 @@ export default function CategoryResultsGrid() {
 
   // Pagination state
   const [pageSize, setPageSize] = useState(50);
+
+  // Column visibility state - smart defaults (only essential columns visible)
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>(() => {
+    // Default: only essential columns visible
+    const defaults: ColumnVisibility = {
+      geneCounts: true,
+      fishersFull: false, // Only show Two-Tail P-Value initially
+      bmdExtended: false, // Only show Mean & Median initially
+      bmdlStats: false,
+      bmduStats: false,
+      filterCounts: false,
+      percentiles: false,
+      directionalUp: false,
+      directionalDown: false,
+      directionalAnalysis: false,
+      zScores: false,
+      modelFoldChange: false,
+      geneLists: false,
+    };
+
+    // Try to load from localStorage
+    const saved = localStorage.getItem('categoryTable_visibleColumns');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Merge with defaults to ensure all keys exist (in case we added new columns)
+        return { ...defaults, ...parsed };
+      } catch (e) {
+        console.error('Failed to parse saved column visibility:', e);
+        return defaults;
+      }
+    }
+
+    return defaults;
+  });
+
+  // Save visibility to localStorage when it changes
+  useEffect(() => {
+    console.log('=== columnVisibility changed (useEffect) ===');
+    console.log(JSON.stringify(columnVisibility, null, 2));
+    localStorage.setItem('categoryTable_visibleColumns', JSON.stringify(columnVisibility));
+  }, [columnVisibility]);
 
   // Apply filter based on toggle
   const data = useMemo(() => {
@@ -61,9 +121,8 @@ export default function CategoryResultsGrid() {
     return value.toFixed(4);
   };
 
-  // Table columns with Priority 1 fields
-  const columns: ColumnsType<CategoryAnalysisResultDto> = [
-    // Fixed left columns
+  // Define all column groups as functions for conditional rendering
+  const getFixedColumns = (): ColumnsType<CategoryAnalysisResultDto> => [
     {
       title: 'Category ID',
       dataIndex: 'categoryId',
@@ -81,8 +140,9 @@ export default function CategoryResultsGrid() {
       fixed: 'left',
       sorter: (a, b) => (a.categoryDescription || '').localeCompare(b.categoryDescription || ''),
     },
+  ];
 
-    // Gene Counts Group
+  const getGeneCountsColumns = (): ColumnsType<CategoryAnalysisResultDto> => [
     {
       title: 'Gene Counts',
       children: [
@@ -113,10 +173,28 @@ export default function CategoryResultsGrid() {
         },
       ],
     },
+  ];
 
-    // Fisher's Exact Test Group
+  const getFishersEssentialColumn = (): ColumnsType<CategoryAnalysisResultDto> => [
     {
-      title: "Fisher's Exact Test",
+      title: "Fisher's Test",
+      children: [
+        {
+          title: 'Two-Tail P',
+          dataIndex: 'fishersExactTwoTailPValue',
+          key: 'fishersExactTwoTailPValue',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatPValue(value),
+          sorter: (a, b) => (a.fishersExactTwoTailPValue || 0) - (b.fishersExactTwoTailPValue || 0),
+        },
+      ],
+    },
+  ];
+
+  const getFishersFullColumns = (): ColumnsType<CategoryAnalysisResultDto> => [
+    {
+      title: "Fisher's Exact Test (Full)",
       children: [
         {
           title: 'A',
@@ -168,19 +246,11 @@ export default function CategoryResultsGrid() {
           render: (value: number) => formatPValue(value),
           sorter: (a, b) => (a.fishersExactRightPValue || 0) - (b.fishersExactRightPValue || 0),
         },
-        {
-          title: 'Two-Tail P',
-          dataIndex: 'fishersExactTwoTailPValue',
-          key: 'fishersExactTwoTailPValue',
-          width: 110,
-          align: 'right',
-          render: (value: number) => formatPValue(value),
-          sorter: (a, b) => (a.fishersExactTwoTailPValue || 0) - (b.fishersExactTwoTailPValue || 0),
-        },
       ],
     },
+  ];
 
-    // BMD Statistics Group
+  const getBMDEssentialColumns = (): ColumnsType<CategoryAnalysisResultDto> => [
     {
       title: 'BMD Statistics',
       children: [
@@ -202,6 +272,14 @@ export default function CategoryResultsGrid() {
           render: (value: number) => formatNumber(value),
           sorter: (a, b) => (a.bmdMedian || 0) - (b.bmdMedian || 0),
         },
+      ],
+    },
+  ];
+
+  const getBMDExtendedColumns = (): ColumnsType<CategoryAnalysisResultDto> => [
+    {
+      title: 'BMD Statistics (Extended)',
+      children: [
         {
           title: 'Min',
           dataIndex: 'bmdMinimum',
@@ -240,8 +318,9 @@ export default function CategoryResultsGrid() {
         },
       ],
     },
+  ];
 
-    // BMDL Statistics Group
+  const getBMDLColumns = (): ColumnsType<CategoryAnalysisResultDto> => [
     {
       title: 'BMDL Statistics',
       children: [
@@ -301,8 +380,9 @@ export default function CategoryResultsGrid() {
         },
       ],
     },
+  ];
 
-    // BMDU Statistics Group
+  const getBMDUColumns = (): ColumnsType<CategoryAnalysisResultDto> => [
     {
       title: 'BMDU Statistics',
       children: [
@@ -364,6 +444,568 @@ export default function CategoryResultsGrid() {
     },
   ];
 
+  const getFilterCountsColumns = (): ColumnsType<CategoryAnalysisResultDto> => [
+    {
+      title: 'Filter Counts',
+      children: [
+        {
+          title: 'R² ≥',
+          dataIndex: 'genesWithBMDRSquaredValueGreaterEqualValue',
+          key: 'genesWithBMDRSquaredValueGreaterEqualValue',
+          width: 90,
+          align: 'right',
+          sorter: (a, b) => (a.genesWithBMDRSquaredValueGreaterEqualValue || 0) - (b.genesWithBMDRSquaredValueGreaterEqualValue || 0),
+        },
+        {
+          title: 'BMD/BMDL <',
+          dataIndex: 'genesWithBMDBMDLRatioBelowValue',
+          key: 'genesWithBMDBMDLRatioBelowValue',
+          width: 100,
+          align: 'right',
+          sorter: (a, b) => (a.genesWithBMDBMDLRatioBelowValue || 0) - (b.genesWithBMDBMDLRatioBelowValue || 0),
+        },
+        {
+          title: 'BMDU/BMDL <',
+          dataIndex: 'genesWithBMDUBMDLRatioBelowValue',
+          key: 'genesWithBMDUBMDLRatioBelowValue',
+          width: 110,
+          align: 'right',
+          sorter: (a, b) => (a.genesWithBMDUBMDLRatioBelowValue || 0) - (b.genesWithBMDUBMDLRatioBelowValue || 0),
+        },
+        {
+          title: 'BMDU/BMD <',
+          dataIndex: 'genesWithBMDUBMDRatioBelowValue',
+          key: 'genesWithBMDUBMDRatioBelowValue',
+          width: 100,
+          align: 'right',
+          sorter: (a, b) => (a.genesWithBMDUBMDRatioBelowValue || 0) - (b.genesWithBMDUBMDRatioBelowValue || 0),
+        },
+        {
+          title: 'N-Fold Below',
+          dataIndex: 'genesWithNFoldBelowLowPostiveDoseValue',
+          key: 'genesWithNFoldBelowLowPostiveDoseValue',
+          width: 100,
+          align: 'right',
+          sorter: (a, b) => (a.genesWithNFoldBelowLowPostiveDoseValue || 0) - (b.genesWithNFoldBelowLowPostiveDoseValue || 0),
+        },
+        {
+          title: 'Pre-P ≥',
+          dataIndex: 'genesWithPrefilterPValueAboveValue',
+          key: 'genesWithPrefilterPValueAboveValue',
+          width: 90,
+          align: 'right',
+          sorter: (a, b) => (a.genesWithPrefilterPValueAboveValue || 0) - (b.genesWithPrefilterPValueAboveValue || 0),
+        },
+        {
+          title: 'Pre-Adj-P ≥',
+          dataIndex: 'genesWithPrefilterAdjustedPValueAboveValue',
+          key: 'genesWithPrefilterAdjustedPValueAboveValue',
+          width: 110,
+          align: 'right',
+          sorter: (a, b) => (a.genesWithPrefilterAdjustedPValueAboveValue || 0) - (b.genesWithPrefilterAdjustedPValueAboveValue || 0),
+        },
+        {
+          title: 'Not Step Fn',
+          dataIndex: 'genesNotStepFunction',
+          key: 'genesNotStepFunction',
+          width: 100,
+          align: 'right',
+          sorter: (a, b) => (a.genesNotStepFunction || 0) - (b.genesNotStepFunction || 0),
+        },
+        {
+          title: 'Not Step (BMDL)',
+          dataIndex: 'genesNotStepFunctionWithBMDLower',
+          key: 'genesNotStepFunctionWithBMDLower',
+          width: 120,
+          align: 'right',
+          sorter: (a, b) => (a.genesNotStepFunctionWithBMDLower || 0) - (b.genesNotStepFunctionWithBMDLower || 0),
+        },
+        {
+          title: 'Not Adverse',
+          dataIndex: 'genesNotAdverseDirection',
+          key: 'genesNotAdverseDirection',
+          width: 100,
+          align: 'right',
+          sorter: (a, b) => (a.genesNotAdverseDirection || 0) - (b.genesNotAdverseDirection || 0),
+        },
+        {
+          title: 'ABS Z-Score ≥',
+          dataIndex: 'genesWithABSZScoreAboveValue',
+          key: 'genesWithABSZScoreAboveValue',
+          width: 110,
+          align: 'right',
+          sorter: (a, b) => (a.genesWithABSZScoreAboveValue || 0) - (b.genesWithABSZScoreAboveValue || 0),
+        },
+        {
+          title: 'ABS Model FC ≥',
+          dataIndex: 'genesWithABSModelFCAboveValue',
+          key: 'genesWithABSModelFCAboveValue',
+          width: 120,
+          align: 'right',
+          sorter: (a, b) => (a.genesWithABSModelFCAboveValue || 0) - (b.genesWithABSModelFCAboveValue || 0),
+        },
+      ],
+    },
+  ];
+
+  const getPercentilesColumns = (): ColumnsType<CategoryAnalysisResultDto> => [
+    {
+      title: 'Percentile Values',
+      children: [
+        {
+          title: 'BMD 5th %',
+          dataIndex: 'bmdFifthPercentileTotalGenes',
+          key: 'bmdFifthPercentileTotalGenes',
+          width: 100,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.bmdFifthPercentileTotalGenes || 0) - (b.bmdFifthPercentileTotalGenes || 0),
+        },
+        {
+          title: 'BMD 10th %',
+          dataIndex: 'bmdTenthPercentileTotalGenes',
+          key: 'bmdTenthPercentileTotalGenes',
+          width: 100,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.bmdTenthPercentileTotalGenes || 0) - (b.bmdTenthPercentileTotalGenes || 0),
+        },
+        {
+          title: 'BMDL 5th %',
+          dataIndex: 'bmdlFifthPercentileTotalGenes',
+          key: 'bmdlFifthPercentileTotalGenes',
+          width: 100,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.bmdlFifthPercentileTotalGenes || 0) - (b.bmdlFifthPercentileTotalGenes || 0),
+        },
+        {
+          title: 'BMDL 10th %',
+          dataIndex: 'bmdlTenthPercentileTotalGenes',
+          key: 'bmdlTenthPercentileTotalGenes',
+          width: 100,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.bmdlTenthPercentileTotalGenes || 0) - (b.bmdlTenthPercentileTotalGenes || 0),
+        },
+        {
+          title: 'BMDU 5th %',
+          dataIndex: 'bmduFifthPercentileTotalGenes',
+          key: 'bmduFifthPercentileTotalGenes',
+          width: 100,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.bmduFifthPercentileTotalGenes || 0) - (b.bmduFifthPercentileTotalGenes || 0),
+        },
+        {
+          title: 'BMDU 10th %',
+          dataIndex: 'bmduTenthPercentileTotalGenes',
+          key: 'bmduTenthPercentileTotalGenes',
+          width: 100,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.bmduTenthPercentileTotalGenes || 0) - (b.bmduTenthPercentileTotalGenes || 0),
+        },
+      ],
+    },
+  ];
+
+  const getDirectionalUpColumns = (): ColumnsType<CategoryAnalysisResultDto> => [
+    {
+      title: 'UP-Regulated Genes',
+      children: [
+        {
+          title: 'BMD Mean',
+          dataIndex: 'genesUpBMDMean',
+          key: 'genesUpBMDMean',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.genesUpBMDMean || 0) - (b.genesUpBMDMean || 0),
+        },
+        {
+          title: 'BMD Median',
+          dataIndex: 'genesUpBMDMedian',
+          key: 'genesUpBMDMedian',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.genesUpBMDMedian || 0) - (b.genesUpBMDMedian || 0),
+        },
+        {
+          title: 'BMD SD',
+          dataIndex: 'genesUpBMDSD',
+          key: 'genesUpBMDSD',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.genesUpBMDSD || 0) - (b.genesUpBMDSD || 0),
+        },
+        {
+          title: 'BMDL Mean',
+          dataIndex: 'genesUpBMDLMean',
+          key: 'genesUpBMDLMean',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.genesUpBMDLMean || 0) - (b.genesUpBMDLMean || 0),
+        },
+        {
+          title: 'BMDL Median',
+          dataIndex: 'genesUpBMDLMedian',
+          key: 'genesUpBMDLMedian',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.genesUpBMDLMedian || 0) - (b.genesUpBMDLMedian || 0),
+        },
+        {
+          title: 'BMDL SD',
+          dataIndex: 'genesUpBMDLSD',
+          key: 'genesUpBMDLSD',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.genesUpBMDLSD || 0) - (b.genesUpBMDLSD || 0),
+        },
+        {
+          title: 'BMDU Mean',
+          dataIndex: 'genesUpBMDUMean',
+          key: 'genesUpBMDUMean',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.genesUpBMDUMean || 0) - (b.genesUpBMDUMean || 0),
+        },
+        {
+          title: 'BMDU Median',
+          dataIndex: 'genesUpBMDUMedian',
+          key: 'genesUpBMDUMedian',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.genesUpBMDUMedian || 0) - (b.genesUpBMDUMedian || 0),
+        },
+        {
+          title: 'BMDU SD',
+          dataIndex: 'genesUpBMDUSD',
+          key: 'genesUpBMDUSD',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.genesUpBMDUSD || 0) - (b.genesUpBMDUSD || 0),
+        },
+      ],
+    },
+  ];
+
+  const getDirectionalDownColumns = (): ColumnsType<CategoryAnalysisResultDto> => [
+    {
+      title: 'DOWN-Regulated Genes',
+      children: [
+        {
+          title: 'BMD Mean',
+          dataIndex: 'genesDownBMDMean',
+          key: 'genesDownBMDMean',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.genesDownBMDMean || 0) - (b.genesDownBMDMean || 0),
+        },
+        {
+          title: 'BMD Median',
+          dataIndex: 'genesDownBMDMedian',
+          key: 'genesDownBMDMedian',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.genesDownBMDMedian || 0) - (b.genesDownBMDMedian || 0),
+        },
+        {
+          title: 'BMD SD',
+          dataIndex: 'genesDownBMDSD',
+          key: 'genesDownBMDSD',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.genesDownBMDSD || 0) - (b.genesDownBMDSD || 0),
+        },
+        {
+          title: 'BMDL Mean',
+          dataIndex: 'genesDownBMDLMean',
+          key: 'genesDownBMDLMean',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.genesDownBMDLMean || 0) - (b.genesDownBMDLMean || 0),
+        },
+        {
+          title: 'BMDL Median',
+          dataIndex: 'genesDownBMDLMedian',
+          key: 'genesDownBMDLMedian',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.genesDownBMDLMedian || 0) - (b.genesDownBMDLMedian || 0),
+        },
+        {
+          title: 'BMDL SD',
+          dataIndex: 'genesDownBMDLSD',
+          key: 'genesDownBMDLSD',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.genesDownBMDLSD || 0) - (b.genesDownBMDLSD || 0),
+        },
+        {
+          title: 'BMDU Mean',
+          dataIndex: 'genesDownBMDUMean',
+          key: 'genesDownBMDUMean',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.genesDownBMDUMean || 0) - (b.genesDownBMDUMean || 0),
+        },
+        {
+          title: 'BMDU Median',
+          dataIndex: 'genesDownBMDUMedian',
+          key: 'genesDownBMDUMedian',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.genesDownBMDUMedian || 0) - (b.genesDownBMDUMedian || 0),
+        },
+        {
+          title: 'BMDU SD',
+          dataIndex: 'genesDownBMDUSD',
+          key: 'genesDownBMDUSD',
+          width: 110,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.genesDownBMDUSD || 0) - (b.genesDownBMDUSD || 0),
+        },
+      ],
+    },
+  ];
+
+  const getDirectionalAnalysisColumns = (): ColumnsType<CategoryAnalysisResultDto> => [
+    {
+      title: 'Directional Analysis',
+      children: [
+        {
+          title: 'Overall Direction',
+          dataIndex: 'overallDirection',
+          key: 'overallDirection',
+          width: 120,
+          align: 'center',
+          sorter: (a, b) => (a.overallDirection || '').localeCompare(b.overallDirection || ''),
+        },
+        {
+          title: '% UP',
+          dataIndex: 'percentWithOverallDirectionUP',
+          key: 'percentWithOverallDirectionUP',
+          width: 90,
+          align: 'right',
+          render: (value: number) => formatNumber(value, 1),
+          sorter: (a, b) => (a.percentWithOverallDirectionUP || 0) - (b.percentWithOverallDirectionUP || 0),
+        },
+        {
+          title: '% DOWN',
+          dataIndex: 'percentWithOverallDirectionDOWN',
+          key: 'percentWithOverallDirectionDOWN',
+          width: 90,
+          align: 'right',
+          render: (value: number) => formatNumber(value, 1),
+          sorter: (a, b) => (a.percentWithOverallDirectionDOWN || 0) - (b.percentWithOverallDirectionDOWN || 0),
+        },
+        {
+          title: '% Conflict',
+          dataIndex: 'percentWithOverallDirectionConflict',
+          key: 'percentWithOverallDirectionConflict',
+          width: 90,
+          align: 'right',
+          render: (value: number) => formatNumber(value, 1),
+          sorter: (a, b) => (a.percentWithOverallDirectionConflict || 0) - (b.percentWithOverallDirectionConflict || 0),
+        },
+      ],
+    },
+  ];
+
+  const getZScoresColumns = (): ColumnsType<CategoryAnalysisResultDto> => [
+    {
+      title: 'Z-Score Statistics',
+      children: [
+        {
+          title: 'Min',
+          dataIndex: 'minZScore',
+          key: 'minZScore',
+          width: 100,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.minZScore || 0) - (b.minZScore || 0),
+        },
+        {
+          title: 'Median',
+          dataIndex: 'medianZScore',
+          key: 'medianZScore',
+          width: 100,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.medianZScore || 0) - (b.medianZScore || 0),
+        },
+        {
+          title: 'Max',
+          dataIndex: 'maxZScore',
+          key: 'maxZScore',
+          width: 100,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.maxZScore || 0) - (b.maxZScore || 0),
+        },
+        {
+          title: 'Mean',
+          dataIndex: 'meanZScore',
+          key: 'meanZScore',
+          width: 100,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.meanZScore || 0) - (b.meanZScore || 0),
+        },
+      ],
+    },
+  ];
+
+  const getModelFoldChangeColumns = (): ColumnsType<CategoryAnalysisResultDto> => [
+    {
+      title: 'Model Fold Change',
+      children: [
+        {
+          title: 'Min',
+          dataIndex: 'minModelFoldChange',
+          key: 'minModelFoldChange',
+          width: 100,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.minModelFoldChange || 0) - (b.minModelFoldChange || 0),
+        },
+        {
+          title: 'Median',
+          dataIndex: 'medianModelFoldChange',
+          key: 'medianModelFoldChange',
+          width: 100,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.medianModelFoldChange || 0) - (b.medianModelFoldChange || 0),
+        },
+        {
+          title: 'Max',
+          dataIndex: 'maxModelFoldChange',
+          key: 'maxModelFoldChange',
+          width: 100,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.maxModelFoldChange || 0) - (b.maxModelFoldChange || 0),
+        },
+        {
+          title: 'Mean',
+          dataIndex: 'meanModelFoldChange',
+          key: 'meanModelFoldChange',
+          width: 100,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.meanModelFoldChange || 0) - (b.meanModelFoldChange || 0),
+        },
+      ],
+    },
+  ];
+
+  const getGeneListsColumns = (): ColumnsType<CategoryAnalysisResultDto> => [
+    {
+      title: 'Gene Lists',
+      children: [
+        {
+          title: 'Genes',
+          dataIndex: 'genes',
+          key: 'genes',
+          width: 200,
+          ellipsis: true,
+          sorter: (a, b) => (a.genes || '').localeCompare(b.genes || ''),
+        },
+        {
+          title: 'Gene Symbols',
+          dataIndex: 'geneSymbols',
+          key: 'geneSymbols',
+          width: 200,
+          ellipsis: true,
+          sorter: (a, b) => (a.geneSymbols || '').localeCompare(b.geneSymbols || ''),
+        },
+      ],
+    },
+  ];
+
+  // Build columns dynamically based on visibility state
+  const columns: ColumnsType<CategoryAnalysisResultDto> = useMemo(() => {
+    console.log('=== Building columns (useMemo) ===');
+    console.log('columnVisibility:', JSON.stringify(columnVisibility, null, 2));
+    const cols: ColumnsType<CategoryAnalysisResultDto> = [];
+
+    // Always show fixed columns
+    cols.push(...getFixedColumns());
+
+    // Conditionally add column groups based on visibility
+    if (columnVisibility.geneCounts) {
+      cols.push(...getGeneCountsColumns());
+    }
+
+    // Fisher's Test - show full columns when checked
+    if (columnVisibility.fishersFull) {
+      cols.push(...getFishersFullColumns());
+    }
+
+    // BMD Stats - show extended columns when checked
+    if (columnVisibility.bmdExtended) {
+      cols.push(...getBMDExtendedColumns());
+    }
+
+    // BMDL and BMDU stats
+    if (columnVisibility.bmdlStats) {
+      cols.push(...getBMDLColumns());
+    }
+    if (columnVisibility.bmduStats) {
+      cols.push(...getBMDUColumns());
+    }
+
+    // Advanced column groups
+    if (columnVisibility.filterCounts) {
+      cols.push(...getFilterCountsColumns());
+    }
+    if (columnVisibility.percentiles) {
+      cols.push(...getPercentilesColumns());
+    }
+    if (columnVisibility.directionalUp) {
+      cols.push(...getDirectionalUpColumns());
+    }
+    if (columnVisibility.directionalDown) {
+      cols.push(...getDirectionalDownColumns());
+    }
+    if (columnVisibility.directionalAnalysis) {
+      cols.push(...getDirectionalAnalysisColumns());
+    }
+    if (columnVisibility.zScores) {
+      cols.push(...getZScoresColumns());
+    }
+    if (columnVisibility.modelFoldChange) {
+      cols.push(...getModelFoldChangeColumns());
+    }
+    if (columnVisibility.geneLists) {
+      cols.push(...getGeneListsColumns());
+    }
+
+    console.log('=== Columns built ===');
+    console.log('Total column groups:', cols.length);
+    return cols;
+  }, [columnVisibility]);
+
   // Custom row styles based on selection
   const getRowClassName = (record: CategoryAnalysisResultDto) => {
     // If there are selections and this row is not selected, dim it
@@ -373,12 +1015,202 @@ export default function CategoryResultsGrid() {
     return '';
   };
 
+  // Column visibility popover content
+  const columnVisibilityContent = (
+    <div style={{ width: '400px', maxHeight: '500px', overflowY: 'auto' }}>
+      <div style={{ marginBottom: '16px', display: 'flex', gap: '8px' }}>
+        <Button
+          size="small"
+          onClick={() => setColumnVisibility({
+            geneCounts: true,
+            fishersFull: true,
+            bmdExtended: true,
+            bmdlStats: true,
+            bmduStats: true,
+            filterCounts: true,
+            percentiles: true,
+            directionalUp: true,
+            directionalDown: true,
+            directionalAnalysis: true,
+            zScores: true,
+            modelFoldChange: true,
+            geneLists: true,
+          })}
+        >
+          Show All
+        </Button>
+        <Button
+          size="small"
+          onClick={() => setColumnVisibility({
+            geneCounts: true,
+            fishersFull: false,
+            bmdExtended: false,
+            bmdlStats: false,
+            bmduStats: false,
+            filterCounts: false,
+            percentiles: false,
+            directionalUp: false,
+            directionalDown: false,
+            directionalAnalysis: false,
+            zScores: false,
+            modelFoldChange: false,
+            geneLists: false,
+          })}
+        >
+          Reset to Defaults
+        </Button>
+      </div>
+
+      <Space direction="vertical" style={{ width: '100%' }}>
+        <div style={{ fontWeight: 600, marginBottom: '8px', borderBottom: '1px solid #f0f0f0', paddingBottom: '8px' }}>
+          Essential Columns
+        </div>
+        <Checkbox
+          checked={columnVisibility.geneCounts}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, geneCounts: e.target.checked });
+          }}
+        >
+          Gene Counts (Passed, All, %)
+        </Checkbox>
+
+        <div style={{ fontWeight: 600, marginTop: '16px', marginBottom: '8px', borderBottom: '1px solid #f0f0f0', paddingBottom: '8px' }}>
+          Statistics Columns
+        </div>
+        <Checkbox
+          checked={columnVisibility.fishersFull}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, fishersFull: e.target.checked });
+          }}
+        >
+          Fisher's Test - Full (A, B, C, D, Left P, Right P)
+        </Checkbox>
+        <Checkbox
+          checked={columnVisibility.bmdExtended}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, bmdExtended: e.target.checked });
+          }}
+        >
+          BMD Statistics - Extended (Min, SD, Weighted)
+        </Checkbox>
+        <Checkbox
+          checked={columnVisibility.bmdlStats}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, bmdlStats: e.target.checked });
+          }}
+        >
+          BMDL Statistics
+        </Checkbox>
+        <Checkbox
+          checked={columnVisibility.bmduStats}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, bmduStats: e.target.checked });
+          }}
+        >
+          BMDU Statistics
+        </Checkbox>
+
+        <div style={{ fontWeight: 600, marginTop: '16px', marginBottom: '8px', borderBottom: '1px solid #f0f0f0', paddingBottom: '8px' }}>
+          Advanced Columns
+        </div>
+        <Checkbox
+          checked={columnVisibility.filterCounts}
+          onChange={(e) => {
+            e.stopPropagation();
+            console.log('=== Filter Counts checkbox onChange ===');
+            console.log('e.target.checked:', e.target.checked);
+            console.log('columnVisibility.filterCounts (current):', columnVisibility.filterCounts);
+            console.log('Full current state:', JSON.stringify(columnVisibility, null, 2));
+            const newState = { ...columnVisibility, filterCounts: e.target.checked };
+            console.log('New state:', JSON.stringify(newState, null, 2));
+            setColumnVisibility(newState);
+          }}
+        >
+          Filter Counts (12 columns)
+        </Checkbox>
+        <Checkbox
+          checked={columnVisibility.percentiles}
+          onChange={(e) => {
+            e.stopPropagation();
+            console.log('=== Percentiles checkbox onChange ===');
+            console.log('e.target.checked:', e.target.checked);
+            setColumnVisibility({ ...columnVisibility, percentiles: e.target.checked });
+          }}
+        >
+          Percentile Values (6 columns)
+        </Checkbox>
+        <Checkbox
+          checked={columnVisibility.directionalUp}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, directionalUp: e.target.checked });
+          }}
+        >
+          Directional Stats - UP Genes (9 columns)
+        </Checkbox>
+        <Checkbox
+          checked={columnVisibility.directionalDown}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, directionalDown: e.target.checked });
+          }}
+        >
+          Directional Stats - DOWN Genes (9 columns)
+        </Checkbox>
+        <Checkbox
+          checked={columnVisibility.directionalAnalysis}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, directionalAnalysis: e.target.checked });
+          }}
+        >
+          Directional Analysis (4 columns)
+        </Checkbox>
+        <Checkbox
+          checked={columnVisibility.zScores}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, zScores: e.target.checked });
+          }}
+        >
+          Z-Score Statistics (4 columns)
+        </Checkbox>
+        <Checkbox
+          checked={columnVisibility.modelFoldChange}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, modelFoldChange: e.target.checked });
+          }}
+        >
+          Model Fold Change (4 columns)
+        </Checkbox>
+        <Checkbox
+          checked={columnVisibility.geneLists}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, geneLists: e.target.checked });
+          }}
+        >
+          Gene Lists (2 columns)
+        </Checkbox>
+      </Space>
+    </div>
+  );
+
   // Collapse items configuration
   const collapseItems = [
     {
       key: '1',
       label: (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div
+          style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}
+          onClick={(e) => e.stopPropagation()}
+        >
           <span>Category Results ({data.length} categories{hideRowsWithoutBMD ? ` / ${allData.length} total` : ''})</span>
           <Checkbox
             checked={hideRowsWithoutBMD}
@@ -387,6 +1219,20 @@ export default function CategoryResultsGrid() {
           >
             Hide rows without BMD
           </Checkbox>
+          <Popover
+            content={columnVisibilityContent}
+            title="Configure Table Columns"
+            trigger="click"
+            placement="bottomLeft"
+          >
+            <Button
+              icon={<SettingOutlined />}
+              onClick={(e) => e.stopPropagation()}
+              size="small"
+            >
+              Configure Columns
+            </Button>
+          </Popover>
         </div>
       ),
       children: (

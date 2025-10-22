@@ -538,4 +538,29 @@ public class CategoryResultsService {
 
         return String.join(",", sets);
     }
+
+    /**
+     * Get analysis parameters (notes) from the AnalysisInfo for a category result.
+     * These notes contain information about the analysis configuration, such as
+     * min/max gene filters applied during the analysis.
+     *
+     * @param projectId the project identifier
+     * @param categoryResultName the name of the category result
+     * @return list of analysis parameter notes
+     * @throws IllegalArgumentException if the project or result is not found
+     */
+    public List<String> getAnalysisParameters(String projectId, String categoryResultName) {
+        CategoryAnalysisResults categoryResults = findCategoryResult(projectId, categoryResultName);
+
+        if (categoryResults.getAnalysisInfo() == null) {
+            return List.of();
+        }
+
+        List<String> notes = categoryResults.getAnalysisInfo().getNotes();
+        if (notes == null) {
+            return List.of();
+        }
+
+        return new ArrayList<>(notes);
+    }
 }
