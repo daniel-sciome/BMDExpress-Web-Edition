@@ -26,7 +26,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   const { loading, error, data } = useAppSelector((state) => state.categoryResults);
   const [annotation, setAnnotation] = useState<AnalysisAnnotationDto | null>(null);
   const [availableResults, setAvailableResults] = useState<string[]>([]);
-  const [visibleCharts, setVisibleCharts] = useState<CheckboxValueType[]>(['1']); // Default Charts visible by default
+  const [visibleCharts, setVisibleCharts] = useState(['1']); // Default Charts visible by default
 
   useEffect(() => {
     if (projectId && resultName) {
