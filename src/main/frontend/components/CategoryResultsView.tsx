@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Spin, Row, Col, Tag, Collapse, Checkbox } from 'antd';
-import type { CheckboxValueType } from 'antd/es/checkbox/Group';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadCategoryResults } from '../store/slices/categoryResultsSlice';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
