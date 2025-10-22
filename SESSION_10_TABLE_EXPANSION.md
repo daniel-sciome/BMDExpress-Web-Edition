@@ -374,16 +374,140 @@ const data = useMemo(() => {
 
 ---
 
+## Post-Implementation: UI Layout Refinements
+
+After implementing the table expansion, we made significant UI/UX improvements to the chart and table display:
+
+### 1. Chart Display Refactoring
+
+**Changed From**: Dropdown selector to switch between chart types (one chart visible at a time)
+
+**Changed To**:
+- Collapsible accordion panels for all 14 chart types
+- Checkbox-based visibility control
+- Users can show multiple chart types simultaneously
+
+### 2. Scroll Container Architecture
+
+**Multiple iterations to get the right behavior**:
+
+#### Iteration 1: Charts had internal scroll, table separate
+- Problem: Two separate scrollbars, awkward UX
+
+#### Iteration 2: Tried single scroll wrapping both
+- Problem: Height chain broken by Ant Design Tabs internal wrappers
+
+#### Final Solution: Unified scroll container
+- Added CSS to ensure Ant Design Tabs passes height through
+- Single scrollbar for entire content area
+- Charts and table in natural document flow
+- Smooth scrolling from charts → table
+
+**Files Modified**:
+- `LibraryView.tsx`: Fixed Tabs flexbox and height propagation
+- `CategoryResultsView.tsx`: Added CSS for `.ant-tabs-content` height
+
+### 3. Chart Visibility Controls
+
+**Implementation**:
+```tsx
+// Checkbox selector at top of charts area
+<Checkbox.Group value={visibleCharts} onChange={setVisibleCharts}>
+  <div style={{ display: 'flex', gap: '16px', flexWrap: 'nowrap' }}>
+    <Checkbox value="1">Default Charts</Checkbox>
+    <Checkbox value="2">UMAP Semantic Space</Checkbox>
+    // ... 14 total checkboxes
+  </div>
+</Checkbox.Group>
+```
+
+**Features**:
+- Single horizontal row of 14 checkboxes
+- Horizontal scrollbar when window is narrow
+- Only checked charts are rendered (zero space for unchecked)
+- Each checked chart appears as collapsible panel
+- Default: Only "Default Charts" checked on load
+
+### 4. Layout Structure (Final)
+
+```
+┌────────────────────────────────────┐
+│ Header (fixed)                     │
+│ - Chemical name                    │
+│ - Metadata tags                    │
+├────────────────────────────────────┤
+│ ┌────────────────────────────────┐ │
+│ │ SCROLLABLE CONTAINER           │ │
+│ │                                │ │
+│ │ ┌────────────────────────────┐ │ │
+│ │ │ Chart Selector (checkboxes)│ │ │
+│ │ └────────────────────────────┘ │ │
+│ │                                │ │
+│ │ ▼ Default Charts               │ │
+│ │   [BMD vs P] [Box Plot]        │ │
+│ │                                │ │
+│ │ ▼ Range Plot                   │ │
+│ │   [chart content]              │ │
+│ │                                │ │
+│ │ ... (other checked charts)     │ │
+│ │                                │ │
+│ │ ┌────────────────────────────┐ │ │
+│ │ │ Table (CategoryResultsGrid)│ │ │
+│ │ │ - 33 columns                │ │ │
+│ │ │ - BMD filter toggle         │ │ │
+│ │ └────────────────────────────┘ │ │
+│ │                                │ │
+│ └────────────────────────────────┘ │
+└────────────────────────────────────┘
+```
+
+### Files Changed (UI Refinements):
+
+1. **`CategoryResultsView.tsx`** (~150 lines changed):
+   - Removed dropdown `Select` component
+   - Added checkbox-based chart visibility control
+   - Restructured to single scroll container
+   - Added CSS for Tabs height propagation
+   - Chart panels conditionally rendered based on checkboxes
+
+2. **`LibraryView.tsx`** (~10 lines changed):
+   - Fixed Tabs flexbox layout
+   - Made tab bar flexShrink: 0
+
+### Benefits:
+
+- ✅ **Better discoverability**: All chart types visible in checkbox list
+- ✅ **Multiple simultaneous charts**: Compare charts side-by-side
+- ✅ **Unified scrolling**: One scrollbar for entire content
+- ✅ **Efficient rendering**: Unchecked charts take zero space (not rendered)
+- ✅ **Flexible layout**: Charts area and table share available space
+- ✅ **Horizontal compactness**: Checkboxes scroll horizontally when needed
+
+---
+
 ## Summary
 
-Successfully expanded the category results table from 10 to 33 columns, achieving ~27% parity with the desktop application (up from ~8%). Created comprehensive refinement plan document comparing web vs desktop implementations. Verified that all current charts are using correct data fields. Implemented weighted statistics and BMD filter toggle as requested.
+Successfully expanded the category results table from 10 to 33 columns, achieving ~27% parity with the desktop application (up from ~8%). Created comprehensive refinement plan document comparing web vs desktop implementations. Verified that all current charts are using correct data fields. Implemented weighted statistics and BMD filter toggle. Additionally, completely refactored the UI layout with checkbox-based chart visibility controls, unified scrolling, and collapsible chart panels for better UX.
 
-**Impact**:
-- 3.3x more data columns displayed
+**Table Expansion Impact**:
+- 3.3x more data columns displayed (10 → 33 columns)
 - 100% of Priority 1 fields implemented
 - All charts verified as accurate
 - Clear roadmap for future enhancements
 - Desktop behavior parity for BMD filtering
+
+**UI/UX Improvements**:
+- Replaced dropdown selector with checkbox-based chart visibility
+- Unified scroll container for charts and table
+- Multiple charts can be displayed simultaneously
+- Collapsible accordion for all 14 chart types
+- Efficient rendering (unchecked charts not rendered)
+- Single horizontal scrollbar for entire content area
+
+**Total Changes**:
+- Java: 1 file (~60 lines) - DTO extensions
+- TypeScript: 3 files (~400 lines) - Table expansion + UI refactoring
+- Documentation: 2 files (660 lines) - Refinement plan + session notes
 
 **Build Status**: ⏳ Pending test
 **Breaking Changes**: None (backward compatible)

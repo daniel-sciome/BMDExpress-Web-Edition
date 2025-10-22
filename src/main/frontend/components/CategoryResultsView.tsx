@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Spin, Row, Col, Tag, Select, Card } from 'antd';
+import { Spin, Row, Col, Tag, Collapse, Checkbox } from 'antd';
+import type { CheckboxValueType } from 'antd/es/checkbox/Group';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadCategoryResults } from '../store/slices/categoryResultsSlice';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
@@ -21,30 +22,12 @@ interface CategoryResultsViewProps {
   resultName: string;
 }
 
-// Chart type constants - matching BMDExpress-3 desktop app
-const CHART_TYPES = {
-  DEFAULT: 'Default Charts',
-  UMAP_SEMANTIC: 'UMAP Semantic Space',
-  CURVE_OVERLAY: 'Curve Overlay',
-  RANGE_PLOT: 'Range Plot',
-  BUBBLE_CHART: 'Bubble Chart',
-  BMD_BMDL_BARCHARTS: 'BMD and BMDL Bar Charts',
-  ACCUMULATION_CHARTS: 'Accumulation Charts',
-  BEST_MODEL_PIE: 'Best Models Pie Chart',
-  MEAN_HISTOGRAMS: 'Mean Histograms',
-  MEDIAN_HISTOGRAMS: 'Median Histograms',
-  BMD_BMDL_SCATTER: 'BMD vs BMDL Scatter Plots',
-  VIOLIN: 'Violin Plot Per Category',
-  VIOLIN_PLOT_DATASET: 'Global Violin Plot',
-  VENN_DIAGRAM: 'Venn Diagram',
-} as const;
-
 export default function CategoryResultsView({ projectId, resultName }: CategoryResultsViewProps) {
   const dispatch = useAppDispatch();
   const { loading, error, data } = useAppSelector((state) => state.categoryResults);
   const [annotation, setAnnotation] = useState<AnalysisAnnotationDto | null>(null);
-  const [selectedChartType, setSelectedChartType] = useState<string>(CHART_TYPES.DEFAULT);
   const [availableResults, setAvailableResults] = useState<string[]>([]);
+  const [visibleCharts, setVisibleCharts] = useState<CheckboxValueType[]>(['1']); // Default Charts visible by default
 
   useEffect(() => {
     if (projectId && resultName) {
@@ -103,10 +86,20 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   }
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '1rem' }}>
-      {/* Formatted header with annotation metadata */}
+    <>
+      <style>
+        {`
+          .ant-tabs-content,
+          .ant-tabs-content-holder,
+          .ant-tabs-tabpane {
+            height: 100%;
+          }
+        `}
+      </style>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {/* Formatted header with annotation metadata */}
       {annotation && annotation.parseSuccess ? (
-        <div style={{ marginBottom: '1rem', flexShrink: 0 }}>
+        <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
           <h2 style={{ marginBottom: '0.5rem' }}>{annotation.chemical || 'Unknown Chemical'}</h2>
           <h3 style={{ marginBottom: '0.5rem', fontWeight: 'normal', color: '#666' }}>{annotation.displayName}</h3>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
@@ -134,7 +127,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           </p>
         </div>
       ) : (
-        <div style={{ marginBottom: '1rem', flexShrink: 0 }}>
+        <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
           <h2 style={{ marginBottom: '0.5rem' }}>Category Results: {resultName}</h2>
           <p style={{ margin: '0 0 0 0', color: '#666' }}>
             Project: {projectId} | {data.length} categories
@@ -142,97 +135,159 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         </div>
       )}
 
-      {/* Charts in scrolling container */}
-      <Card
-        title="Visualizations"
-        style={{ marginBottom: '1.5rem' }}
-        extra={
-          <Select
-            value={selectedChartType}
-            onChange={setSelectedChartType}
-            style={{ width: 250 }}
-            options={Object.values(CHART_TYPES).map(type => ({
-              label: type,
-              value: type,
-            }))}
-          />
-        }
-      >
+      {/* Single scrollable container for both charts and table */}
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        minHeight: 0,
+        padding: '1rem'
+      }}>
+        {/* Charts Collection */}
         <div style={{
-          maxHeight: '600px',
-          overflowY: 'auto',
-          overflowX: 'hidden'
+          marginBottom: '1.5rem',
+          border: '1px solid #d9d9d9',
+          borderRadius: '8px',
+          padding: '12px'
         }}>
-          {/* Render selected chart(s) */}
-          {selectedChartType === CHART_TYPES.DEFAULT && (
-            <Row gutter={16}>
-              <Col xs={24} xl={12}>
-                <BMDvsPValueScatter />
-              </Col>
-              <Col xs={24} xl={12}>
-                <BMDBoxPlot />
-              </Col>
-            </Row>
-          )}
-
-          {selectedChartType === CHART_TYPES.UMAP_SEMANTIC && <UmapScatterPlot />}
-
-          {selectedChartType === CHART_TYPES.CURVE_OVERLAY && (
-            <PathwayCurveViewer projectId={projectId} resultName={resultName} />
-          )}
-
-          {selectedChartType === CHART_TYPES.RANGE_PLOT && <RangePlot />}
-
-          {selectedChartType === CHART_TYPES.BUBBLE_CHART && <BubbleChart />}
-
-          {selectedChartType === CHART_TYPES.BEST_MODEL_PIE && (
-            <BestModelsPieChart projectId={projectId} resultName={resultName} />
-          )}
-
-          {selectedChartType === CHART_TYPES.BMD_BMDL_BARCHARTS && <BarCharts />}
-
-          {selectedChartType === CHART_TYPES.ACCUMULATION_CHARTS && <AccumulationCharts />}
-
-          {selectedChartType === CHART_TYPES.MEAN_HISTOGRAMS && (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-              Mean Histograms - Coming Soon
+          {/* Chart Visibility Controls */}
+          <div style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid #f0f0f0' }}>
+            <div style={{ marginBottom: '8px', fontWeight: 600, color: '#000' }}>Select Charts to Display:</div>
+            <div style={{ overflowX: 'auto', overflowY: 'hidden' }}>
+              <Checkbox.Group
+                value={visibleCharts}
+                onChange={setVisibleCharts}
+              >
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'nowrap', minWidth: 'max-content' }}>
+                  <Checkbox value="1">Default Charts</Checkbox>
+                  <Checkbox value="2">UMAP Semantic Space</Checkbox>
+                  <Checkbox value="3">Curve Overlay</Checkbox>
+                  <Checkbox value="4">Range Plot</Checkbox>
+                  <Checkbox value="5">Bubble Chart</Checkbox>
+                  <Checkbox value="6">Best Models Pie</Checkbox>
+                  <Checkbox value="7">Bar Charts</Checkbox>
+                  <Checkbox value="8">Accumulation Charts</Checkbox>
+                  <Checkbox value="9">Mean Histograms</Checkbox>
+                  <Checkbox value="10">Median Histograms</Checkbox>
+                  <Checkbox value="11">BMD vs BMDL Scatter</Checkbox>
+                  <Checkbox value="12">Violin Per Category</Checkbox>
+                  <Checkbox value="13">Global Violin Plot</Checkbox>
+                  <Checkbox value="14">Venn Diagram</Checkbox>
+                </div>
+              </Checkbox.Group>
             </div>
-          )}
+          </div>
 
-          {selectedChartType === CHART_TYPES.MEDIAN_HISTOGRAMS && (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-              Median Histograms - Coming Soon
-            </div>
-          )}
-
-          {selectedChartType === CHART_TYPES.BMD_BMDL_SCATTER && (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-              BMD vs BMDL Scatter Plots - Coming Soon
-            </div>
-          )}
-
-          {selectedChartType === CHART_TYPES.VIOLIN && (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-              Violin Plot Per Category - Coming Soon
-            </div>
-          )}
-
-          {selectedChartType === CHART_TYPES.VIOLIN_PLOT_DATASET && (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-              Global Violin Plot - Coming Soon
-            </div>
-          )}
-
-          {selectedChartType === CHART_TYPES.VENN_DIAGRAM && (
-            <VennDiagram projectId={projectId} availableResults={availableResults} />
-          )}
+          {/* Chart Panels - Only render checked charts */}
+          <Collapse
+            items={[
+              visibleCharts.includes('1') && {
+                key: '1',
+                label: 'Default Charts',
+                children: (
+                  <Row gutter={16}>
+                    <Col xs={24} xl={12}>
+                      <BMDvsPValueScatter />
+                    </Col>
+                    <Col xs={24} xl={12}>
+                      <BMDBoxPlot />
+                    </Col>
+                  </Row>
+                ),
+              },
+              visibleCharts.includes('2') && {
+                key: '2',
+                label: 'UMAP Semantic Space',
+                children: <UmapScatterPlot />,
+              },
+              visibleCharts.includes('3') && {
+                key: '3',
+                label: 'Curve Overlay',
+                children: <PathwayCurveViewer projectId={projectId} resultName={resultName} />,
+              },
+              visibleCharts.includes('4') && {
+                key: '4',
+                label: 'Range Plot',
+                children: <RangePlot />,
+              },
+              visibleCharts.includes('5') && {
+                key: '5',
+                label: 'Bubble Chart',
+                children: <BubbleChart />,
+              },
+              visibleCharts.includes('6') && {
+                key: '6',
+                label: 'Best Models Pie Chart',
+                children: <BestModelsPieChart projectId={projectId} resultName={resultName} />,
+              },
+              visibleCharts.includes('7') && {
+                key: '7',
+                label: 'BMD and BMDL Bar Charts',
+                children: <BarCharts />,
+              },
+              visibleCharts.includes('8') && {
+                key: '8',
+                label: 'Accumulation Charts',
+                children: <AccumulationCharts />,
+              },
+              visibleCharts.includes('9') && {
+                key: '9',
+                label: 'Mean Histograms',
+                children: (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+                    Mean Histograms - Coming Soon
+                  </div>
+                ),
+              },
+              visibleCharts.includes('10') && {
+                key: '10',
+                label: 'Median Histograms',
+                children: (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+                    Median Histograms - Coming Soon
+                  </div>
+                ),
+              },
+              visibleCharts.includes('11') && {
+                key: '11',
+                label: 'BMD vs BMDL Scatter Plots',
+                children: (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+                    BMD vs BMDL Scatter Plots - Coming Soon
+                  </div>
+                ),
+              },
+              visibleCharts.includes('12') && {
+                key: '12',
+                label: 'Violin Plot Per Category',
+                children: (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+                    Violin Plot Per Category - Coming Soon
+                  </div>
+                ),
+              },
+              visibleCharts.includes('13') && {
+                key: '13',
+                label: 'Global Violin Plot',
+                children: (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+                    Global Violin Plot - Coming Soon
+                  </div>
+                ),
+              },
+              visibleCharts.includes('14') && {
+                key: '14',
+                label: 'Venn Diagram',
+                children: <VennDiagram projectId={projectId} availableResults={availableResults} />,
+              },
+            ].filter(Boolean)}
+          />
         </div>
-      </Card>
 
-      {/* Table at the bottom */}
-      <div style={{ flexShrink: 0 }}>
+        {/* Table */}
         <CategoryResultsGrid />
       </div>
     </div>
+    </>
   );
 }
