@@ -4,7 +4,7 @@
     <!-- Project from https://start.vaadin.com/5438f5d1-b26e-46b5-b289-5cab94e77b28 -->
     <groupId>com.sciome</groupId>
     <artifactId>bmdexpress-web</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>0.0.1-SNAPSHOT</version>
     <packaging>jar</packaging>
     
     <properties>
