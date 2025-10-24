@@ -162,15 +162,15 @@ const categoryResultsSlice = createSlice({
       });
     },
 
-    selectAllCategories: (state) => {
-      // Select all filtered categories (uses current filtered data)
-      // Note: This action marks intent; actual selection happens via selector
-      state.selectedCategoryIds = new Set(state.data.map(cat => cat.categoryId).filter(Boolean) as string[]);
+    selectAllCategories: (state, action: PayloadAction<string[] | undefined>) => {
+      // Select all categories (optionally provide specific IDs, otherwise uses all data)
+      const idsToSelect = action.payload || state.data.map(cat => cat.categoryId).filter(Boolean) as string[];
+      state.selectedCategoryIds = new Set(idsToSelect);
     },
 
-    invertSelection: (state) => {
-      // Invert selection (unselected become selected, selected become unselected)
-      const allIds = new Set(state.data.map(cat => cat.categoryId).filter(Boolean) as string[]);
+    invertSelection: (state, action: PayloadAction<string[] | undefined>) => {
+      // Invert selection within a given set of IDs (or all data if not provided)
+      const allIds = action.payload || state.data.map(cat => cat.categoryId).filter(Boolean) as string[];
       const newSelection = new Set<string>();
 
       allIds.forEach(id => {
