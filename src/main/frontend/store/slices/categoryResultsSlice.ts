@@ -11,6 +11,11 @@ interface Filters {
   minGenesInCategory?: number;
   fisherPValueMax?: number;
   foldChangeMin?: number;
+  // Master Filter fields (Phase 1)
+  percentageMin?: number;
+  genesPassedFiltersMin?: number;
+  allGenesMin?: number;
+  allGenesMax?: number;
 }
 
 // State interface
@@ -27,6 +32,9 @@ interface CategoryResultsState {
   // Analysis parameters (from AnalysisInfo notes)
   analysisParameters: string[];
   parametersLoading: boolean;
+
+  // Analysis type (from annotation - used to conditionally apply master filters)
+  analysisType: string | null;
 
   // Filters
   filters: Filters;
@@ -58,6 +66,7 @@ const initialState: CategoryResultsState = {
   resultName: null,
   analysisParameters: [],
   parametersLoading: false,
+  analysisType: null,
   filters: {},
   selectedCategoryIds: new Set<string>(),
   selectedUmapGoIds: new Set<string>(),
@@ -116,6 +125,11 @@ const categoryResultsSlice = createSlice({
 
     clearFilters: (state) => {
       state.filters = {};
+    },
+
+    // Set analysis type (for conditional filter application)
+    setAnalysisType: (state, action: PayloadAction<string | null>) => {
+      state.analysisType = action.payload;
     },
 
     // Selection actions (using category IDs)
@@ -213,6 +227,7 @@ const categoryResultsSlice = createSlice({
 export const {
   setFilters,
   clearFilters,
+  setAnalysisType,
   setSelectedCategoryIds,
   toggleCategorySelection,
   clearSelection,
@@ -239,14 +254,23 @@ const selectPageSize = (state: RootState) => state.categoryResults.pageSize;
 
 // Memoized selectors
 export const selectFilteredData = createSelector(
-  [selectData, selectFilters],
-  (data, filters) => {
+  [selectData, selectFilters, (state: RootState) => state.categoryResults.analysisType],
+  (data, filters, analysisType) => {
     return data.filter(row => {
       if (filters.bmdMin !== undefined && row.bmdMean !== undefined && row.bmdMean < filters.bmdMin) return false;
       if (filters.bmdMax !== undefined && row.bmdMean !== undefined && row.bmdMean > filters.bmdMax) return false;
       if (filters.pValueMax !== undefined && row.fishersExactTwoTailPValue !== undefined && row.fishersExactTwoTailPValue > filters.pValueMax) return false;
       if (filters.minGenesInCategory !== undefined && row.genesThatPassedAllFilters !== undefined && row.genesThatPassedAllFilters < filters.minGenesInCategory) return false;
       if (filters.fisherPValueMax !== undefined && row.fishersExactTwoTailPValue !== undefined && row.fishersExactTwoTailPValue > filters.fisherPValueMax) return false;
+
+      // Master Filter fields (Phase 1) - skip for GENE analyses
+      if (analysisType !== 'GENE') {
+        if (filters.percentageMin !== undefined && row.percentage !== undefined && row.percentage < filters.percentageMin) return false;
+        if (filters.genesPassedFiltersMin !== undefined && row.genesThatPassedAllFilters !== undefined && row.genesThatPassedAllFilters < filters.genesPassedFiltersMin) return false;
+        if (filters.allGenesMin !== undefined && row.geneAllCount !== undefined && row.geneAllCount < filters.allGenesMin) return false;
+        if (filters.allGenesMax !== undefined && row.geneAllCount !== undefined && row.geneAllCount > filters.allGenesMax) return false;
+      }
+
       return true;
     });
   }

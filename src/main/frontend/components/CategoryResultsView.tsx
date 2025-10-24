@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Spin, Row, Col, Tag, Collapse, Checkbox } from 'antd';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { loadCategoryResults, loadAnalysisParameters } from '../store/slices/categoryResultsSlice';
+import { loadCategoryResults, loadAnalysisParameters, setAnalysisType } from '../store/slices/categoryResultsSlice';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
 import CategoryResultsGrid from './CategoryResultsGrid';
@@ -15,6 +15,7 @@ import BestModelsPieChart from './charts/BestModelsPieChart';
 import PathwayCurveViewer from './PathwayCurveViewer';
 import VennDiagram from './charts/VennDiagram';
 import UmapScatterPlot from './charts/UmapScatterPlot';
+import MasterFilter from './MasterFilter';
 
 interface CategoryResultsViewProps {
   projectId: string;
@@ -57,6 +58,13 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
       setAnnotation(null);
     }
   };
+
+  // Update analysisType in Redux when annotation changes
+  useEffect(() => {
+    if (annotation) {
+      dispatch(setAnalysisType(annotation.analysisType || null));
+    }
+  }, [annotation, dispatch]);
 
   if (loading) {
     return (
@@ -144,6 +152,13 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           <p style={{ margin: '0 0 0 0', color: '#666' }}>
             Project: {projectId} | {data.length} categories
           </p>
+        </div>
+      )}
+
+      {/* Master Filter - Phase 1 (skip for GENE analyses) */}
+      {annotation && annotation.analysisType !== 'GENE' && (
+        <div style={{ padding: '0 1rem', flexShrink: 0 }}>
+          <MasterFilter />
         </div>
       )}
 
