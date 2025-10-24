@@ -1,9 +1,17 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Table, Collapse, Checkbox, Popover, Button, Space } from 'antd';
-import { SettingOutlined } from '@ant-design/icons';
+import { Table, Collapse, Checkbox, Popover, Button, Space, Tag } from 'antd';
+import { SettingOutlined, CheckSquareOutlined, CloseSquareOutlined, SwapOutlined } from '@ant-design/icons';
 import type { TableProps, ColumnsType } from 'antd/es/table';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { selectSortedData, setSelectedCategoryIds } from '../store/slices/categoryResultsSlice';
+import {
+  selectSortedData,
+  setSelectedCategoryIds,
+  selectAllCategories,
+  clearSelection,
+  invertSelection,
+  selectIsAnythingSelected,
+  selectSelectedCount
+} from '../store/slices/categoryResultsSlice';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 
 // Import utilities, types, and column visibility helpers
@@ -39,6 +47,10 @@ export default function CategoryResultsGrid() {
   const dispatch = useAppDispatch();
   const allData = useAppSelector(selectSortedData);
   const selectedCategoryIds = useAppSelector((state) => state.categoryResults.selectedCategoryIds);
+
+  // Phase 7: Selection state from Phase 3 selectors
+  const isAnythingSelected = useAppSelector(selectIsAnythingSelected);
+  const selectedCount = useAppSelector(selectSelectedCount);
 
   // Filter toggle state - default OFF (show all rows like desktop)
   const [hideRowsWithoutBMD, setHideRowsWithoutBMD] = useState(false);
@@ -76,6 +88,23 @@ export default function CategoryResultsGrid() {
   const handleSelectionChange = (selectedRowKeys: React.Key[]) => {
     const categoryIds = selectedRowKeys.map(key => String(key));
     dispatch(setSelectedCategoryIds(categoryIds));
+  };
+
+  // Phase 7: Bulk selection handlers (operate on filtered data only)
+  const handleSelectAll = () => {
+    // Get all visible category IDs (after Master Filter and hideRowsWithoutBMD)
+    const visibleIds = data.map(cat => cat.categoryId).filter(Boolean) as string[];
+    dispatch(selectAllCategories(visibleIds));
+  };
+
+  const handleClearSelection = () => {
+    dispatch(clearSelection());
+  };
+
+  const handleInvertSelection = () => {
+    // Invert within visible categories only
+    const visibleIds = data.map(cat => cat.categoryId).filter(Boolean) as string[];
+    dispatch(invertSelection(visibleIds));
   };
 
   // Row selection configuration
@@ -314,6 +343,54 @@ export default function CategoryResultsGrid() {
           onClick={(e) => e.stopPropagation()}
         >
           <span>Category Results ({data.length} categories{hideRowsWithoutBMD ? ` / ${allData.length} total` : ''})</span>
+
+          {/* Phase 7: Selection Counter */}
+          {isAnythingSelected && (
+            <Tag color="blue">
+              Selected: {selectedCount} of {data.length}
+            </Tag>
+          )}
+
+          {/* Phase 7: Bulk Selection Buttons */}
+          <Space.Compact size="small">
+            <Button
+              icon={<CheckSquareOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSelectAll();
+              }}
+              size="small"
+              title="Select all visible categories"
+            >
+              Select All
+            </Button>
+            <Button
+              icon={<SwapOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleInvertSelection();
+              }}
+              size="small"
+              disabled={!isAnythingSelected}
+              title="Invert selection"
+            >
+              Invert
+            </Button>
+            <Button
+              icon={<CloseSquareOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClearSelection();
+              }}
+              size="small"
+              disabled={!isAnythingSelected}
+              danger
+              title="Clear selection"
+            >
+              Clear
+            </Button>
+          </Space.Compact>
+
           <Checkbox
             checked={hideRowsWithoutBMD}
             onChange={(e) => setHideRowsWithoutBMD(e.target.checked)}
