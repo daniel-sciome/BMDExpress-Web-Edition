@@ -14,9 +14,42 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        // Ignore Set in selectedCategoryIds - Sets are not serializable
-        ignoredPaths: ['categoryResults.selectedCategoryIds'],
-        ignoredActions: ['categoryResults/setSelectedCategoryIds', 'categoryResults/toggleCategorySelection'],
+        // Ignore Set objects - Sets are not serializable but Immer supports them
+        ignoredPaths: [
+          'categoryResults.selectedCategoryIds',
+          'categoryResults.selectedUmapGoIds',
+          'categoryResults.reactiveSelection.category.selectedIds',
+          'categoryResults.reactiveSelection.cluster.selectedIds',
+        ],
+        ignoredActions: [
+          // Legacy selection actions
+          'categoryResults/setSelectedCategoryIds',
+          'categoryResults/toggleCategorySelection',
+          'categoryResults/clearSelection',
+          'categoryResults/toggleMultipleCategoryIds',
+          'categoryResults/selectAllCategories',
+          'categoryResults/invertSelection',
+          // Reactive selection actions
+          'categoryResults/setReactiveSelection',
+          'categoryResults/toggleReactiveSelection',
+          'categoryResults/clearReactiveSelection',
+          // UMAP selection actions
+          'categoryResults/setSelectedUmapGoIds',
+          'categoryResults/toggleUmapGoIdSelection',
+          'categoryResults/clearUmapSelection',
+          // Async actions that clear Sets
+          'categoryResults/load/pending',
+          'categoryResults/load/fulfilled',
+          'categoryResults/load/rejected',
+          'categoryResults/loadParameters/pending',
+          'categoryResults/loadParameters/fulfilled',
+          'categoryResults/loadParameters/rejected',
+          // Other actions
+          'categoryResults/setAnalysisType',
+          'categoryResults/setFilters',
+          'navigation/setSelectedProject',
+          'navigation/setSelectedCategoryResult',
+        ],
       },
     }),
 });
