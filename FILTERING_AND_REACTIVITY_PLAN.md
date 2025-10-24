@@ -108,47 +108,205 @@
   Deliverable: Robust selection state management
 
   ---
-  Phase 4: Chart Reactivity - Core Infrastructure
+  Phase 4: Chart Reactivity - Core Infrastructure (REDESIGNED)
 
-  Goal: Reusable highlighting/dimming logic for all charts
+  Goal: Generic "reactive-to" abstraction for multi-dimensional selection
+
+  Concept: Components declare what they're "reactive to" (categoryId, clusterId, etc.)
+  and automatically update when that selection changes anywhere in the app.
 
   Tasks:
 
-  1. Create Chart Utilities (components/charts/utils/chartReactivity.ts)
-  export function getTraceOpacity(
-    categoryId: string,
-    selectedIds: Set<string>,
-    mode: 'highlight' | 'dim' | 'hide'
-  ): number;
+  1. Define Reactive Types (types/reactiveTypes.ts)
+  export type ReactiveType = 'categoryId' | 'clusterId';
 
-  export function getTraceColor(
-    categoryId: string,
-    selectedIds: Set<string>,
-    baseColor: string
-  ): string;
+  export interface ReactiveState {
+    selectedIds: Set<string | number>;
+    source: 'table' | 'umap' | 'chart' | null;
+  }
 
-  export function applySelectionStyles(
-    plotData: any[],
-    selectedIds: Set<string>,
-    idField: string
-  ): any[];
-  2. Create useChartSelection Hook (components/charts/hooks/useChartSelection.ts)
-  export function useChartSelection() {
-    const selectedIds = useAppSelector(state => state.categoryResults.selectedCategoryIds);
+  export interface ReactiveSelectionMap {
+    category: ReactiveState;
+    cluster: ReactiveState;
+  }
+
+  2. Extend Redux State (categoryResultsSlice.ts)
+  interface CategoryResultsState {
+    // Replace existing selection Sets with typed structure
+    reactiveSelection: {
+      category: {
+        selectedIds: Set<string>;
+        source: 'table' | 'umap' | 'chart' | null;
+      };
+      cluster: {
+        selectedIds: Set<number>;
+        source: 'umap' | null;
+      };
+    };
+    // Keep legacy for backward compatibility during migration
+    selectedCategoryIds: Set<string>;  // Alias to reactiveSelection.category.selectedIds
+  }
+
+  // Add actions
+  setReactiveSelection(type: 'category' | 'cluster', ids: any[], source: string)
+  toggleReactiveSelection(type: 'category' | 'cluster', id: any)
+  clearReactiveSelection(type: 'category' | 'cluster')
+
+  3. Create useReactiveState Hook (components/charts/hooks/useReactiveState.ts)
+  export function useReactiveState(reactTo: 'categoryId' | 'clusterId') {
     const dispatch = useAppDispatch();
+    const selectedIds = useAppSelector(state => {
+      if (reactTo === 'categoryId') return state.categoryResults.reactiveSelection.category.selectedIds;
+      if (reactTo === 'clusterId') return state.categoryResults.reactiveSelection.cluster.selectedIds;
+    });
 
-    const handleClick = (categoryId: string, isMultiSelect: boolean) => {
+    const isSelected = (id: any) => selectedIds.has(id);
+    const isAnythingSelected = selectedIds.size > 0;
+
+    const handleSelect = (id: any, isMultiSelect: boolean, source: string) => {
+      const type = reactTo === 'categoryId' ? 'category' : 'cluster';
       if (isMultiSelect) {
-        dispatch(toggleCategorySelection(categoryId));
+        dispatch(toggleReactiveSelection(type, id));
       } else {
-        dispatch(setSelectedCategoryIds([categoryId]));
+        dispatch(setReactiveSelection(type, [id], source));
       }
     };
 
-    return { selectedIds, handleClick, isSelected };
+    const handleMultiSelect = (ids: any[], source: string) => {
+      const type = reactTo === 'categoryId' ? 'category' : 'cluster';
+      dispatch(setReactiveSelection(type, ids, source));
+    };
+
+    return {
+      selectedIds,
+      isSelected,
+      isAnythingSelected,
+      handleSelect,
+      handleMultiSelect,
+      source: reactTo === 'categoryId'
+        ? state.categoryResults.reactiveSelection.category.source
+        : state.categoryResults.reactiveSelection.cluster.source
+    };
   }
 
-  Deliverable: Reusable chart reactivity infrastructure
+  4. Create Generic Reactive Utilities (components/charts/utils/reactiveStyles.ts)
+  export function applyReactiveStyles<T>(
+    data: T[],
+    idField: keyof T,
+    selectedIds: Set<any>,
+    mode: 'highlight' | 'dim' | 'hide'
+  ): Partial<PlotlyStyle>[] {
+    return data.map(item => {
+      const id = item[idField];
+      const isSelected = selectedIds.has(id);
+      const hasSelection = selectedIds.size > 0;
+
+      if (!hasSelection) {
+        // No selection - all full opacity
+        return { opacity: 1.0, line: { width: 0 } };
+      }
+
+      if (isSelected) {
+        // Selected - highlight
+        return { opacity: 1.0, line: { width: 2, color: '#fff' } };
+      }
+
+      // Not selected - apply mode
+      switch (mode) {
+        case 'highlight': return { opacity: 1.0 };
+        case 'dim': return { opacity: 0.15 };
+        case 'hide': return { opacity: 0 };
+      }
+    });
+  }
+
+  export function getReactiveColor(
+    id: any,
+    selectedIds: Set<any>,
+    baseColor: string,
+    highlightColor?: string
+  ): string {
+    if (selectedIds.size === 0) return baseColor;
+    return selectedIds.has(id) ? (highlightColor || baseColor) : baseColor;
+  }
+
+  export function getReactiveOpacity(
+    id: any,
+    selectedIds: Set<any>,
+    mode: 'highlight' | 'dim' | 'hide'
+  ): number {
+    if (selectedIds.size === 0) return 1.0;
+    if (selectedIds.has(id)) return 1.0;
+    switch (mode) {
+      case 'highlight': return 1.0;
+      case 'dim': return 0.15;
+      case 'hide': return 0;
+    }
+  }
+
+  5. Create Category-Cluster Bridge Utilities (store/slices/selectionBridge.ts)
+  // Utilities to translate between category and cluster selections
+
+  export const selectCategoriesInClusters = createSelector(
+    [
+      (state: RootState) => state.categoryResults.reactiveSelection.cluster.selectedIds,
+      selectCategoryDataWithUmap
+    ],
+    (clusterIds, categoriesWithUmap) => {
+      // Return all categories in the selected clusters
+      return categoriesWithUmap
+        .filter(cat => cat.cluster_id && clusterIds.has(cat.cluster_id))
+        .map(cat => cat.categoryId)
+        .filter(Boolean) as string[];
+    }
+  );
+
+  export const selectClustersOfCategories = createSelector(
+    [
+      (state: RootState) => state.categoryResults.reactiveSelection.category.selectedIds,
+      selectCategoryDataWithUmap
+    ],
+    (categoryIds, categoriesWithUmap) => {
+      // Return clusters containing any selected categories
+      const clusters = new Set<number | string>();
+      categoriesWithUmap.forEach(cat => {
+        if (cat.categoryId && categoryIds.has(cat.categoryId) && cat.cluster_id !== undefined) {
+          clusters.add(cat.cluster_id);
+        }
+      });
+      return clusters;
+    }
+  );
+
+  6. Migration Strategy
+  - Keep existing selectedCategoryIds as alias to reactiveSelection.category.selectedIds
+  - Keep existing selectedUmapGoIds temporarily for UMAP priority logic
+  - Gradually migrate components to useReactiveState
+  - Phase out old selection state in Phase 9
+
+  Deliverable: Generic reactive infrastructure supporting multiple selection types
+
+  ---
+  Key Design Benefits:
+
+  1. Charts declare intent: "I'm reactive to categoryId" or "I'm reactive to clusterId"
+  2. Single abstraction handles all selection types (current and future)
+  3. Bridge utilities enable cross-dimension reactivity (cluster → categories, etc.)
+  4. Source tracking allows debugging and priority logic
+  5. Backward compatible during migration
+  6. Extensible to future types (geneId, pathwayId, etc.)
+
+  Example Usage:
+
+  // Chart reactive to individual categories
+  const { selectedIds, handleSelect } = useReactiveState('categoryId');
+
+  // UMAP chart reactive to both categories AND clusters
+  const categoryState = useReactiveState('categoryId');
+  const clusterState = useReactiveState('clusterId');
+
+  // Click category → highlights that category in all charts
+  // Click cluster → highlights all categories in that cluster
 
   ---
   Phase 5: Update Individual Charts
