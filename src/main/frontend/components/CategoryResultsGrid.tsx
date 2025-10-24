@@ -109,9 +109,14 @@ export default function CategoryResultsGrid() {
 
   // Row selection configuration
   const rowSelection: TableProps<CategoryAnalysisResultDto>['rowSelection'] = {
+    type: 'checkbox',
     selectedRowKeys: selectedKeys,
     onChange: handleSelectionChange,
     preserveSelectedRowKeys: true,
+    // Allow selection from the start - no restrictions
+    getCheckboxProps: () => ({
+      disabled: false,
+    }),
   };
 
   // Build columns dynamically based on visibility state

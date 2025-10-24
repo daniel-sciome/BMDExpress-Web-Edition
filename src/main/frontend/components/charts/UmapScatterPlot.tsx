@@ -1,12 +1,13 @@
 // UmapScatterPlot.tsx
 // UMAP scatter plot showing GO term semantic embeddings with interactive selection
+// Phase 4: Uses reactive selection infrastructure
 
 import React, { useMemo, useCallback } from 'react';
 import Plot from 'react-plotly.js';
 import { Card, Button, Space, Tag, Tooltip } from 'antd';
 import { ClearOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import { useAppDispatch, useAppSelector } from 'Frontend/store/hooks';
-import { setSelectedUmapGoIds, clearUmapSelection } from 'Frontend/store/slices/categoryResultsSlice';
+import { useAppSelector } from 'Frontend/store/hooks';
+import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveState';
 import { umapDataService } from 'Frontend/data/umapDataService';
 import type { ReferenceUmapItem } from 'Frontend/data/referenceUmapData';
 
@@ -21,11 +22,11 @@ interface UmapScatterPlotProps {
  * Supports interactive selection via box/lasso select
  */
 export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) {
-  const dispatch = useAppDispatch();
+  // Phase 4: Use reactive state hook - UMAP reacts to category selections
+  const categoryState = useReactiveState('categoryId');
 
   // Get current analysis results to highlight which GO terms are present
   const analysisCategories = useAppSelector(state => state.categoryResults.data);
-  const selectedUmapGoIds = useAppSelector(state => state.categoryResults.selectedUmapGoIds);
 
   // Create a set of GO IDs that are in the current analysis
   const analysisGoIds = useMemo(() => {
@@ -125,7 +126,10 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
     });
 
     // Create a trace for each cluster (analysis points - highlighted)
+    // Phase 4: Apply reactive styling based on category selection
     Array.from(analysisClusterGroups.entries()).forEach(([clusterId, points]) => {
+      const hasSelection = categoryState.selectedIds.size > 0;
+
       result.push({
         x: points.map(p => p.UMAP_1),
         y: points.map(p => p.UMAP_2),
@@ -134,11 +138,21 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
         type: 'scatter',
         name: `Cluster ${clusterId} (in analysis)`,
         marker: {
-          size: 8,
+          size: points.map(p => {
+            const isSelected = categoryState.isSelected(p.go_id);
+            return hasSelection && isSelected ? 10 : 8;
+          }),
           color: clusterColors[clusterId],
-          opacity: 1.0,
+          opacity: points.map(p => {
+            const isSelected = categoryState.isSelected(p.go_id);
+            if (!hasSelection) return 1.0;
+            return isSelected ? 1.0 : 0.15;
+          }),
           line: {
-            width: selectedUmapGoIds.size > 0 ? 0 : 1,
+            width: points.map(p => {
+              const isSelected = categoryState.isSelected(p.go_id);
+              return hasSelection && isSelected ? 2 : (hasSelection ? 0 : 1);
+            }),
             color: '#fff'
           },
         },
@@ -150,15 +164,16 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
     });
 
     return result;
-  }, [referencePoints, analysisPoints, clusterColors, selectedUmapGoIds.size]);
+  }, [referencePoints, analysisPoints, clusterColors, categoryState.selectedIds.size, categoryState.isSelected]);
 
   // Handle Plotly selection events
+  // Phase 4: Use reactive selection actions
   const handleSelected = useCallback((event: any) => {
     if (!event || !event.points || event.points.length === 0) {
       return;
     }
 
-    // Extract GO IDs from selected points
+    // Extract GO IDs from selected points (categoryIds)
     const selectedGoIds: string[] = [];
     event.points.forEach((point: any) => {
       // Only include points from analysis (they have customdata)
@@ -167,20 +182,20 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
       }
     });
 
-    console.log('[UmapScatterPlot] Selected GO IDs:', selectedGoIds);
-    dispatch(setSelectedUmapGoIds(selectedGoIds));
-  }, [dispatch]);
+    console.log('[UmapScatterPlot] Selected category IDs (GO IDs):', selectedGoIds);
+    categoryState.handleMultiSelect(selectedGoIds, 'umap');
+  }, [categoryState]);
 
   // Handle deselect (user clicks outside selection)
   const handleDeselect = useCallback(() => {
     console.log('[UmapScatterPlot] Selection cleared');
-    dispatch(clearUmapSelection());
-  }, [dispatch]);
+    categoryState.handleClear();
+  }, [categoryState]);
 
   // Handle clear button
   const handleClearSelection = useCallback(() => {
-    dispatch(clearUmapSelection());
-  }, [dispatch]);
+    categoryState.handleClear();
+  }, [categoryState]);
 
   // Layout configuration
   const layout: any = {
@@ -230,9 +245,9 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
         <Space>
           <Tag color="blue">{analysisPoints.length} in analysis</Tag>
           <Tag color="default">{referencePoints.length} reference</Tag>
-          {selectedUmapGoIds.size > 0 && (
+          {categoryState.isAnythingSelected && (
             <>
-              <Tag color="orange">{selectedUmapGoIds.size} selected</Tag>
+              <Tag color="orange">{categoryState.selectedIds.size} selected</Tag>
               <Button
                 size="small"
                 icon={<ClearOutlined />}

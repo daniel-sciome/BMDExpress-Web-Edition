@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk, createSelector, PayloadAction } from '@r
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import type { RootState } from '../store';
+import type { ReactiveSelectionMap, SelectionSource } from 'Frontend/types/reactiveTypes';
 
 // Filters interface
 interface Filters {
@@ -39,10 +40,12 @@ interface CategoryResultsState {
   // Filters
   filters: Filters;
 
-  // Selection (category IDs - primary state for cross-component reactivity)
-  selectedCategoryIds: Set<string>;
+  // Phase 4: Generic reactive selection state
+  reactiveSelection: ReactiveSelectionMap;
 
-  // UMAP selection (GO IDs selected from UMAP scatter plot - takes priority over table selection)
+  // Legacy selection state (kept for backward compatibility during migration)
+  // TODO: Phase 9 - remove these after full migration
+  selectedCategoryIds: Set<string>;
   selectedUmapGoIds: Set<string>;
 
   // Highlighting (for hover states)
@@ -68,6 +71,18 @@ const initialState: CategoryResultsState = {
   parametersLoading: false,
   analysisType: null,
   filters: {},
+  // Phase 4: Reactive selection state
+  reactiveSelection: {
+    category: {
+      selectedIds: new Set<string>(),
+      source: null,
+    },
+    cluster: {
+      selectedIds: new Set<number | string>(),
+      source: null,
+    },
+  },
+  // Legacy selection state (backward compatibility)
   selectedCategoryIds: new Set<string>(),
   selectedUmapGoIds: new Set<string>(),
   highlightedRow: null,
@@ -133,8 +148,12 @@ const categoryResultsSlice = createSlice({
     },
 
     // Selection actions (using category IDs)
+    // Phase 4: Legacy actions now sync to reactive state for backward compatibility
     setSelectedCategoryIds: (state, action: PayloadAction<string[]>) => {
       state.selectedCategoryIds = new Set(action.payload);
+      // Sync to reactive state
+      state.reactiveSelection.category.selectedIds = new Set(action.payload);
+      state.reactiveSelection.category.source = 'table';
     },
 
     toggleCategorySelection: (state, action: PayloadAction<string>) => {
@@ -144,13 +163,20 @@ const categoryResultsSlice = createSlice({
       } else {
         state.selectedCategoryIds.add(categoryId);
       }
+      // Sync to reactive state
+      state.reactiveSelection.category.selectedIds = new Set(state.selectedCategoryIds);
+      state.reactiveSelection.category.source = 'table';
     },
 
     clearSelection: (state) => {
       state.selectedCategoryIds.clear();
+      // Sync to reactive state
+      state.reactiveSelection.category.selectedIds.clear();
+      state.reactiveSelection.category.source = null;
     },
 
     // Phase 3: Selection helper actions
+    // Phase 4: Now sync to reactive state
     toggleMultipleCategoryIds: (state, action: PayloadAction<string[]>) => {
       const categoryIds = action.payload;
       categoryIds.forEach(id => {
@@ -160,12 +186,18 @@ const categoryResultsSlice = createSlice({
           state.selectedCategoryIds.add(id);
         }
       });
+      // Sync to reactive state
+      state.reactiveSelection.category.selectedIds = new Set(state.selectedCategoryIds);
+      state.reactiveSelection.category.source = 'table';
     },
 
     selectAllCategories: (state, action: PayloadAction<string[] | undefined>) => {
       // Select all categories (optionally provide specific IDs, otherwise uses all data)
       const idsToSelect = action.payload || state.data.map(cat => cat.categoryId).filter(Boolean) as string[];
       state.selectedCategoryIds = new Set(idsToSelect);
+      // Sync to reactive state
+      state.reactiveSelection.category.selectedIds = new Set(idsToSelect);
+      state.reactiveSelection.category.source = 'table';
     },
 
     invertSelection: (state, action: PayloadAction<string[] | undefined>) => {
@@ -180,6 +212,54 @@ const categoryResultsSlice = createSlice({
       });
 
       state.selectedCategoryIds = newSelection;
+      // Sync to reactive state
+      state.reactiveSelection.category.selectedIds = new Set(newSelection);
+      state.reactiveSelection.category.source = 'table';
+    },
+
+    // Phase 4: Generic reactive selection actions
+    setReactiveSelection: (
+      state,
+      action: PayloadAction<{ type: 'category' | 'cluster'; ids: any[]; source: SelectionSource }>
+    ) => {
+      const { type, ids, source } = action.payload;
+      state.reactiveSelection[type].selectedIds = new Set(ids);
+      state.reactiveSelection[type].source = source;
+
+      // Backward compatibility: sync category selection to legacy state
+      if (type === 'category') {
+        state.selectedCategoryIds = new Set(ids as string[]);
+      }
+    },
+
+    toggleReactiveSelection: (
+      state,
+      action: PayloadAction<{ type: 'category' | 'cluster'; id: any }>
+    ) => {
+      const { type, id } = action.payload;
+      const selectedIds = state.reactiveSelection[type].selectedIds;
+
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+      } else {
+        selectedIds.add(id);
+      }
+
+      // Backward compatibility: sync category selection to legacy state
+      if (type === 'category') {
+        state.selectedCategoryIds = new Set(state.reactiveSelection.category.selectedIds as Set<string>);
+      }
+    },
+
+    clearReactiveSelection: (state, action: PayloadAction<'category' | 'cluster'>) => {
+      const type = action.payload;
+      state.reactiveSelection[type].selectedIds.clear();
+      state.reactiveSelection[type].source = null;
+
+      // Backward compatibility: sync category selection to legacy state
+      if (type === 'category') {
+        state.selectedCategoryIds.clear();
+      }
     },
 
     // UMAP selection actions (GO IDs selected from UMAP scatter plot)
@@ -233,8 +313,14 @@ const categoryResultsSlice = createSlice({
         state.data = action.payload;
         state.projectId = action.meta.arg.projectId;
         state.resultName = action.meta.arg.resultName;
+        // Clear legacy selection state
         state.selectedCategoryIds.clear();
         state.selectedUmapGoIds.clear();
+        // Clear reactive selection state
+        state.reactiveSelection.category.selectedIds.clear();
+        state.reactiveSelection.category.source = null;
+        state.reactiveSelection.cluster.selectedIds.clear();
+        state.reactiveSelection.cluster.source = null;
         state.highlightedRow = null;
       })
       .addCase(loadCategoryResults.rejected, (state, action) => {
@@ -266,6 +352,10 @@ export const {
   toggleMultipleCategoryIds,
   selectAllCategories,
   invertSelection,
+  // Phase 4: Reactive selection actions
+  setReactiveSelection,
+  toggleReactiveSelection,
+  clearReactiveSelection,
   setSelectedUmapGoIds,
   toggleUmapGoIdSelection,
   clearUmapSelection,
