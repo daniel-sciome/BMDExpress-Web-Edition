@@ -150,6 +150,38 @@ const categoryResultsSlice = createSlice({
       state.selectedCategoryIds.clear();
     },
 
+    // Phase 3: Selection helper actions
+    toggleMultipleCategoryIds: (state, action: PayloadAction<string[]>) => {
+      const categoryIds = action.payload;
+      categoryIds.forEach(id => {
+        if (state.selectedCategoryIds.has(id)) {
+          state.selectedCategoryIds.delete(id);
+        } else {
+          state.selectedCategoryIds.add(id);
+        }
+      });
+    },
+
+    selectAllCategories: (state) => {
+      // Select all filtered categories (uses current filtered data)
+      // Note: This action marks intent; actual selection happens via selector
+      state.selectedCategoryIds = new Set(state.data.map(cat => cat.categoryId).filter(Boolean) as string[]);
+    },
+
+    invertSelection: (state) => {
+      // Invert selection (unselected become selected, selected become unselected)
+      const allIds = new Set(state.data.map(cat => cat.categoryId).filter(Boolean) as string[]);
+      const newSelection = new Set<string>();
+
+      allIds.forEach(id => {
+        if (!state.selectedCategoryIds.has(id)) {
+          newSelection.add(id);
+        }
+      });
+
+      state.selectedCategoryIds = newSelection;
+    },
+
     // UMAP selection actions (GO IDs selected from UMAP scatter plot)
     setSelectedUmapGoIds: (state, action: PayloadAction<string[]>) => {
       state.selectedUmapGoIds = new Set(action.payload);
@@ -231,6 +263,9 @@ export const {
   setSelectedCategoryIds,
   toggleCategorySelection,
   clearSelection,
+  toggleMultipleCategoryIds,
+  selectAllCategories,
+  invertSelection,
   setSelectedUmapGoIds,
   toggleUmapGoIdSelection,
   clearUmapSelection,
@@ -333,5 +368,37 @@ export const selectChartData = createSelector(
 
     // Default: return all data (no filtering)
     return allData;
+  }
+);
+
+// Phase 3: Derived selection selectors
+export const selectIsAnythingSelected = createSelector(
+  [
+    (state: RootState) => state.categoryResults.selectedCategoryIds,
+    (state: RootState) => state.categoryResults.selectedUmapGoIds
+  ],
+  (categoryIds, umapGoIds) => {
+    return categoryIds.size > 0 || umapGoIds.size > 0;
+  }
+);
+
+export const selectSelectedCount = createSelector(
+  [
+    (state: RootState) => state.categoryResults.selectedCategoryIds,
+    (state: RootState) => state.categoryResults.selectedUmapGoIds
+  ],
+  (categoryIds, umapGoIds) => {
+    // UMAP selection takes precedence (as per selectChartData logic)
+    if (umapGoIds.size > 0) {
+      return umapGoIds.size;
+    }
+    return categoryIds.size;
+  }
+);
+
+export const selectUnselectedCount = createSelector(
+  [selectFilteredData, selectSelectedCount],
+  (allData, selectedCount) => {
+    return allData.length - selectedCount;
   }
 );
