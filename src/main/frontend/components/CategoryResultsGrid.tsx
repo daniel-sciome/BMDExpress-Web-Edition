@@ -52,6 +52,23 @@ export default function CategoryResultsGrid() {
   const isAnythingSelected = useAppSelector(selectIsAnythingSelected);
   const selectedCount = useAppSelector(selectSelectedCount);
 
+  // Debug logging
+  useEffect(() => {
+    console.log('[CategoryResultsGrid] Component mounted/updated with data:', {
+      dataLength: allData.length,
+      selectedCount: selectedCategoryIds.size,
+      firstCategory: allData[0]?.categoryDescription || 'none',
+      firstCategoryId: allData[0]?.categoryId || 'none',
+      first5Categories: allData.slice(0, 5).map(c => ({
+        id: c.categoryId,
+        desc: c.categoryDescription?.substring(0, 40)
+      }))
+    });
+    return () => {
+      console.log('[CategoryResultsGrid] Component unmounting');
+    };
+  }, [allData.length, selectedCategoryIds.size]);
+
   // Filter toggle state - default OFF (show all rows like desktop)
   const [hideRowsWithoutBMD, setHideRowsWithoutBMD] = useState(false);
 

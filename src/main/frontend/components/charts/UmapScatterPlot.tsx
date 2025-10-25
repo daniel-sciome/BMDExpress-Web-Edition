@@ -7,6 +7,7 @@ import Plot from 'react-plotly.js';
 import { Card, Button, Space, Tag, Tooltip } from 'antd';
 import { ClearOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useAppSelector } from 'Frontend/store/hooks';
+import { selectFilteredData } from 'Frontend/store/slices/categoryResultsSlice';
 import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveState';
 import { umapDataService } from 'Frontend/data/umapDataService';
 import type { ReferenceUmapItem } from 'Frontend/data/referenceUmapData';
@@ -25,32 +26,38 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
   // Phase 4: Use reactive state hook - UMAP reacts to category selections
   const categoryState = useReactiveState('categoryId');
 
-  // Get current analysis results to highlight which GO terms are present
-  const analysisCategories = useAppSelector(state => state.categoryResults.data);
+  // Get FILTERED analysis results (after Master Filter is applied)
+  const filteredCategories = useAppSelector(selectFilteredData);
 
-  // Create a set of GO IDs that are in the current analysis
-  const analysisGoIds = useMemo(() => {
-    return new Set(analysisCategories.map(cat => cat.categoryId).filter(Boolean) as string[]);
-  }, [analysisCategories]);
+  // Debug logging
+  React.useEffect(() => {
+    console.log('[UmapScatterPlot] Component mounted/updated:', {
+      filteredCount: filteredCategories.length,
+      selectedCount: categoryState.selectedIds.size,
+      firstCategory: filteredCategories[0]?.categoryDescription || 'none',
+      firstCategoryId: filteredCategories[0]?.categoryId || 'none',
+      first5Categories: filteredCategories.slice(0, 5).map(c => ({
+        id: c.categoryId,
+        desc: c.categoryDescription?.substring(0, 40)
+      }))
+    });
+    return () => {
+      console.log('[UmapScatterPlot] Component unmounting');
+    };
+  }, [filteredCategories.length, categoryState.selectedIds.size]);
+
+  // Create a set of GO IDs that pass the Master Filter
+  const filteredGoIds = useMemo(() => {
+    return new Set(filteredCategories.map(cat => cat.categoryId).filter(Boolean) as string[]);
+  }, [filteredCategories]);
 
   // Get all UMAP reference data
   const allUmapData = useMemo(() => umapDataService.getAllData(), []);
 
-  // Separate data into analysis categories vs. reference-only
-  const { analysisPoints, referencePoints } = useMemo(() => {
-    const analysis: ReferenceUmapItem[] = [];
-    const reference: ReferenceUmapItem[] = [];
-
-    allUmapData.forEach(item => {
-      if (analysisGoIds.has(item.go_id)) {
-        analysis.push(item);
-      } else {
-        reference.push(item);
-      }
-    });
-
-    return { analysisPoints: analysis, referencePoints: reference };
-  }, [allUmapData, analysisGoIds]);
+  // Filter to only categories that pass the Master Filter
+  const filteredPoints = useMemo(() => {
+    return allUmapData.filter(item => filteredGoIds.has(item.go_id));
+  }, [allUmapData, filteredGoIds]);
 
   // Get unique cluster IDs and create color mapping
   const clusterColors = useMemo(() => {
@@ -84,59 +91,45 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
   const traces = useMemo(() => {
     const result = [];
 
-    // Group reference points by cluster
-    const clusterGroups = new Map<string | number, ReferenceUmapItem[]>();
-    referencePoints.forEach(point => {
+    // Layer 1: Backdrop - ALL reference points in light gray (entire UMAP space)
+    result.push({
+      x: allUmapData.map(p => p.UMAP_1),
+      y: allUmapData.map(p => p.UMAP_2),
+      text: allUmapData.map(p => `${p.go_id}: ${p.go_term}<br>Cluster: ${p.cluster_id}`),
+      mode: 'markers',
+      type: 'scatter',
+      name: 'Reference Space',
+      marker: {
+        size: 3,
+        color: '#d0d0d0', // Light gray
+        opacity: 0.4,
+        line: { width: 0 },
+      },
+      hoverinfo: 'text',
+      showlegend: true,
+    });
+
+    // Layer 2: Overlay - Only filtered categories, grouped by cluster, with reactive styling
+    const filteredClusterGroups = new Map<string | number, ReferenceUmapItem[]>();
+    filteredPoints.forEach(point => {
       const clusterId = point.cluster_id;
-      if (!clusterGroups.has(clusterId)) {
-        clusterGroups.set(clusterId, []);
+      if (!filteredClusterGroups.has(clusterId)) {
+        filteredClusterGroups.set(clusterId, []);
       }
-      clusterGroups.get(clusterId)!.push(point);
+      filteredClusterGroups.get(clusterId)!.push(point);
     });
 
-    // Create a trace for each cluster (reference points)
-    Array.from(clusterGroups.entries()).forEach(([clusterId, points]) => {
-      result.push({
-        x: points.map(p => p.UMAP_1),
-        y: points.map(p => p.UMAP_2),
-        text: points.map(p => `${p.go_id}: ${p.go_term}<br>Cluster: ${clusterId}`),
-        mode: 'markers',
-        type: 'scatter',
-        name: `Cluster ${clusterId}`,
-        marker: {
-          size: 4,
-          color: clusterColors[clusterId],
-          opacity: 0.3,
-          line: { width: 0 },
-        },
-        hoverinfo: 'text',
-        showlegend: true,
-        legendgroup: `cluster_${clusterId}`,
-      });
-    });
-
-    // Group analysis points by cluster
-    const analysisClusterGroups = new Map<string | number, ReferenceUmapItem[]>();
-    analysisPoints.forEach(point => {
-      const clusterId = point.cluster_id;
-      if (!analysisClusterGroups.has(clusterId)) {
-        analysisClusterGroups.set(clusterId, []);
-      }
-      analysisClusterGroups.get(clusterId)!.push(point);
-    });
-
-    // Create a trace for each cluster (analysis points - highlighted)
-    // Phase 4: Apply reactive styling based on category selection
-    Array.from(analysisClusterGroups.entries()).forEach(([clusterId, points]) => {
+    // Create a trace for each cluster (filtered points with reactive styling)
+    Array.from(filteredClusterGroups.entries()).forEach(([clusterId, points]) => {
       const hasSelection = categoryState.selectedIds.size > 0;
 
       result.push({
         x: points.map(p => p.UMAP_1),
         y: points.map(p => p.UMAP_2),
-        text: points.map(p => `${p.go_id}: ${p.go_term}<br>Cluster: ${clusterId}<br><b>IN ANALYSIS</b>`),
+        text: points.map(p => `${p.go_id}: ${p.go_term}<br>Cluster: ${clusterId}<br><b>FILTERED</b>`),
         mode: 'markers',
         type: 'scatter',
-        name: `Cluster ${clusterId} (in analysis)`,
+        name: `Cluster ${clusterId}`,
         marker: {
           size: points.map(p => {
             const isSelected = categoryState.isSelected(p.go_id);
@@ -157,14 +150,14 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
           },
         },
         hoverinfo: 'text',
-        showlegend: false,
+        showlegend: true,
         legendgroup: `cluster_${clusterId}`,
         customdata: points.map(p => p.go_id),
       });
     });
 
     return result;
-  }, [referencePoints, analysisPoints, clusterColors, categoryState.selectedIds.size, categoryState.isSelected]);
+  }, [allUmapData, filteredPoints, clusterColors, categoryState.selectedIds.size, categoryState.isSelected]);
 
   // Handle Plotly selection events
   // Phase 4: Use reactive selection actions
@@ -243,8 +236,8 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
       }
       extra={
         <Space>
-          <Tag color="blue">{analysisPoints.length} in analysis</Tag>
-          <Tag color="default">{referencePoints.length} reference</Tag>
+          <Tag color="blue">{filteredPoints.length} filtered</Tag>
+          <Tag color="default">{allUmapData.length} reference</Tag>
           {categoryState.isAnythingSelected && (
             <>
               <Tag color="orange">{categoryState.selectedIds.size} selected</Tag>
@@ -274,8 +267,8 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
         <p>
           <strong>How to use:</strong> Use the lasso or box select tool to select GO terms.
           All visualizations will update to show only the selected categories.
-          Large opaque points are categories in your current analysis.
-          Small transparent points are reference GO terms not in your analysis.
+          Small light gray points form the backdrop (entire UMAP reference space).
+          Colored points are categories that pass the Master Filter.
         </p>
       </div>
     </Card>

@@ -24,12 +24,26 @@ interface CategoryResultsViewProps {
 
 export default function CategoryResultsView({ projectId, resultName }: CategoryResultsViewProps) {
   const dispatch = useAppDispatch();
-  const { loading, error, data, analysisParameters } = useAppSelector((state) => state.categoryResults);
+  const { loading, error, data, analysisParameters, filters } = useAppSelector((state) => state.categoryResults);
   const [annotation, setAnnotation] = useState<AnalysisAnnotationDto | null>(null);
   const [availableResults, setAvailableResults] = useState<string[]>([]);
   const [visibleCharts, setVisibleCharts] = useState(['1']); // Default Charts visible by default
 
+  // Debug logging for component mounting and props changes
   useEffect(() => {
+    console.log('[CategoryResultsView] Component mounted/updated with:', {
+      projectId,
+      resultName,
+      dataLength: data.length,
+      masterFilters: filters
+    });
+    return () => {
+      console.log('[CategoryResultsView] Component unmounting');
+    };
+  }, [projectId, resultName, data.length, filters]);
+
+  useEffect(() => {
+    console.log('[CategoryResultsView] Loading data for:', { projectId, resultName });
     if (projectId && resultName) {
       dispatch(loadCategoryResults({ projectId, resultName }));
       dispatch(loadAnalysisParameters({ projectId, resultName }));
@@ -50,11 +64,13 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   };
 
   const loadAnnotation = async () => {
+    console.log('[CategoryResultsView] Loading annotation for:', { projectId, resultName });
     try {
       const ann = await CategoryResultsService.getCategoryResultAnnotation(projectId, resultName);
+      console.log('[CategoryResultsView] Annotation loaded:', ann);
       setAnnotation(ann || null);
     } catch (error) {
-      console.error('Failed to load annotation:', error);
+      console.error('[CategoryResultsView] Failed to load annotation:', error);
       setAnnotation(null);
     }
   };
@@ -212,12 +228,12 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                 key: '1',
                 label: 'Default Charts',
                 children: (
-                  <Row gutter={16}>
+                  <Row gutter={16} key={`${projectId}-${resultName}`}>
                     <Col xs={24} xl={12}>
-                      <BMDvsPValueScatter />
+                      <BMDvsPValueScatter key={`${projectId}-${resultName}-scatter`} />
                     </Col>
                     <Col xs={24} xl={12}>
-                      <BMDBoxPlot />
+                      <BMDBoxPlot key={`${projectId}-${resultName}-box`} />
                     </Col>
                   </Row>
                 ),
@@ -225,37 +241,37 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
               visibleCharts.includes('2') && {
                 key: '2',
                 label: 'UMAP Semantic Space',
-                children: <UmapScatterPlot />,
+                children: <UmapScatterPlot key={`${projectId}-${resultName}`} />,
               },
               visibleCharts.includes('3') && {
                 key: '3',
                 label: 'Curve Overlay',
-                children: <PathwayCurveViewer projectId={projectId} resultName={resultName} />,
+                children: <PathwayCurveViewer key={`${projectId}-${resultName}`} projectId={projectId} resultName={resultName} />,
               },
               visibleCharts.includes('4') && {
                 key: '4',
                 label: 'Range Plot',
-                children: <RangePlot />,
+                children: <RangePlot key={`${projectId}-${resultName}`} />,
               },
               visibleCharts.includes('5') && {
                 key: '5',
                 label: 'Bubble Chart',
-                children: <BubbleChart />,
+                children: <BubbleChart key={`${projectId}-${resultName}`} />,
               },
               visibleCharts.includes('6') && {
                 key: '6',
                 label: 'Best Models Pie Chart',
-                children: <BestModelsPieChart projectId={projectId} resultName={resultName} />,
+                children: <BestModelsPieChart key={`${projectId}-${resultName}`} projectId={projectId} resultName={resultName} />,
               },
               visibleCharts.includes('7') && {
                 key: '7',
                 label: 'BMD and BMDL Bar Charts',
-                children: <BarCharts />,
+                children: <BarCharts key={`${projectId}-${resultName}`} />,
               },
               visibleCharts.includes('8') && {
                 key: '8',
                 label: 'Accumulation Charts',
-                children: <AccumulationCharts />,
+                children: <AccumulationCharts key={`${projectId}-${resultName}`} />,
               },
               visibleCharts.includes('9') && {
                 key: '9',
@@ -305,14 +321,14 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
               visibleCharts.includes('14') && {
                 key: '14',
                 label: 'Venn Diagram',
-                children: <VennDiagram projectId={projectId} availableResults={availableResults} />,
+                children: <VennDiagram key={`${projectId}-${resultName}`} projectId={projectId} availableResults={availableResults} />,
               },
             ].filter(Boolean)}
           />
         </div>
 
         {/* Table */}
-        <CategoryResultsGrid />
+        <CategoryResultsGrid key={`${projectId}-${resultName}`} />
       </div>
     </div>
     </>
