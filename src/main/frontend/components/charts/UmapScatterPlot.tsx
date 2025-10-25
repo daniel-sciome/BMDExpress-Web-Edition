@@ -91,7 +91,7 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
   const traces = useMemo(() => {
     const result = [];
 
-    // Layer 1: Backdrop - ALL reference points in light gray (entire UMAP space)
+    // Layer 1: Backdrop - ALL reference points in black (entire UMAP space)
     result.push({
       x: allUmapData.map(p => p.UMAP_1),
       y: allUmapData.map(p => p.UMAP_2),
@@ -101,7 +101,7 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
       name: 'Reference Space',
       marker: {
         size: 3,
-        color: '#d0d0d0', // Light gray
+        color: '#000000', // Black
         opacity: 0.4,
         line: { width: 0 },
       },
