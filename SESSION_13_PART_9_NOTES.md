@@ -284,6 +284,206 @@ Four methods for creating native Excel Venn diagrams:
 - **Professional formatting** - Bold headers, colored backgrounds, proper column widths
 - **Timestamped filenames** - Easy to track multiple exports
 
+## Accumulation Charts Refactor (Session Continuation Part 2)
+
+### Overview
+Fixed critical issues with AccumulationCharts component to properly display background and foreground layers with correct axis scaling, matching the UMAP scatter plot behavior.
+
+### Problem Statement
+The accumulation charts had two major issues:
+1. **Axis Auto-Scaling**: Selected categories appeared in different positions than on the background curve because Plotly auto-scaled axes independently for each trace
+2. **Connected Lines**: Selected categories were being drawn as connected cumulative curves by cluster, creating separate lines instead of individual markers on the background curve
+
+### Root Causes
+
+**Issue 1: Axis Scaling Misalignment**
+- The xaxis configuration only specified `type: 'log'` without a fixed range
+- Plotly auto-scaled each trace independently based on its data
+- When selected categories had a different value range than all categories, they appeared at different x-positions
+- User feedback: "the selected categories should be markers coincident with the markers on the background curve. instead, they're in different places"
+
+**Issue 2: Inappropriate Cumulative Curves**
+- Selected categories were grouped by cluster and each cluster got its own cumulative distribution curve
+- This created misleading visualizations where each cluster had separate 0-100% curves
+- Should have been individual markers positioned on the background curve
+- User feedback: "the markers are being connected by cluster. they should not"
+
+### Solutions Implemented
+
+#### Fix 1: Fixed Axis Range Based on Background Data (AccumulationCharts.tsx:120-136, 217)
+
+**Code Changes**:
+```typescript
+// Calculate x-axis range from background data (for fixed axis scaling)
+let xAxisRange: [number, number] | undefined;
+
+if (allValues.length > 0) {
+  const allX: number[] = [];
+  const allY: number[] = [];
+  const totalCount = allValues.length;
+
+  allValues.forEach((item, index) => {
+    allX.push(item.value);
+    allY.push(((index + 1) / totalCount) * 100);
+  });
+
+  // Calculate fixed x-axis range in log space
+  const xMin = Math.min(...allX);
+  const xMax = Math.max(...allX);
+  xAxisRange = [Math.log10(xMin), Math.log10(xMax)];
+
+  traces.push({
+    // ... background trace
+  });
+}
+
+// Later in layout:
+xaxis: {
+  title: { text: 'BMD Value' },
+  type: 'log',
+  range: xAxisRange, // Fixed range based on background data
+  gridcolor: '#e0e0e0',
+}
+```
+
+**Result**: All traces now share the same fixed x-axis scale derived from the complete dataset, ensuring markers align with background curve positions.
+
+#### Fix 2: Individual Markers Instead of Connected Lines (AccumulationCharts.tsx:154-204)
+
+**Before**: Created cumulative curves for each cluster
+```typescript
+// WRONG APPROACH - separate cumulative curves per cluster
+byCluster.forEach((clusterData, clusterId) => {
+  const clusterValues = clusterData
+    .map(row => (row as any)[config.field])
+    .filter(v => v != null && v > 0)
+    .sort((a: number, b: number) => a - b);
+
+  if (clusterValues.length > 0) {
+    const clusterX: number[] = [];
+    const clusterY: number[] = [];
+    const clusterTotal = clusterValues.length;
+
+    clusterValues.forEach((value, index) => {
+      clusterX.push(value);
+      clusterY.push(((index + 1) / clusterTotal) * 100);
+    });
+
+    traces.push({
+      type: 'scatter',
+      mode: 'lines', // WRONG - connects points
+      // ...
+    });
+  }
+});
+```
+
+**After**: Position each marker at its location on the background curve
+```typescript
+// CORRECT APPROACH - individual markers at background positions
+selectedData.forEach(row => {
+  const value = (row as any)[config.field];
+  if (value == null || value <= 0) return;
+
+  // Find position on background cumulative curve
+  const index = allValues.findIndex(item => item.categoryId === row.categoryId);
+  if (index === -1) return;
+
+  const cumulativePercent = ((index + 1) / allValues.length) * 100;
+
+  const umapItem = umapDataService.getByGoId(row.categoryId || '');
+  const clusterId = umapItem?.cluster_id ?? -1;
+
+  if (!byCluster.has(clusterId)) {
+    byCluster.set(clusterId, []);
+  }
+  byCluster.get(clusterId)!.push({
+    x: value,
+    y: cumulativePercent,
+    categoryId: row.categoryId || ''
+  });
+});
+
+// Create a marker trace for each cluster (no lines)
+byCluster.forEach((points, clusterId) => {
+  const color = clusterColors[clusterId] || '#999999';
+
+  traces.push({
+    type: 'scatter',
+    mode: 'markers', // CORRECT - no connecting lines
+    x: points.map(p => p.x),
+    y: points.map(p => p.y),
+    marker: {
+      color: color,
+      size: 8,
+      symbol: 'circle',
+      line: {
+        color: 'white',
+        width: 1
+      }
+    },
+    name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}`,
+    // ...
+  });
+});
+```
+
+**Key Changes**:
+1. Find each selected category's index in the sorted background data
+2. Calculate its cumulative percentage using the same formula as background: `((index + 1) / allValues.length) * 100`
+3. Use `mode: 'markers'` instead of `mode: 'lines'` - no connecting lines
+4. Group by cluster only for color coding, not for separate cumulative curves
+
+#### Fix 3: TypeScript Type Correction
+
+**Issue**: TypeScript errors for cluster_id type mismatch
+```
+Argument of type 'string | number' is not assignable to parameter of type 'number'.
+```
+
+**Fix**: Changed Map type to accept both string and number cluster IDs
+```typescript
+// BEFORE:
+const byCluster = new Map<number, Array<{x: number, y: number, categoryId: string}>>();
+
+// AFTER:
+const byCluster = new Map<string | number, Array<{x: number, y: number, categoryId: string}>>();
+```
+
+This matches the type used for `clusterColors` and reflects that cluster_id can be either string or number.
+
+### Files Modified
+1. `src/main/frontend/components/charts/AccumulationCharts.tsx` - Fixed axis scaling and marker display
+
+### Visual Behavior Changes
+
+**Before**:
+- Gray background curve (all categories)
+- Colored foreground curves (one per cluster, each 0-100%)
+- Selected categories appeared at wrong x-positions due to auto-scaling
+- Misleading: suggested each cluster had its own distribution
+
+**After**:
+- Gray background cumulative curve (all categories, sorted by BMD value)
+- Individual colored markers (not connected) positioned exactly on background curve
+- Markers colored by cluster membership (same palette as UMAP)
+- Fixed axis range ensures perfect alignment with background
+- Clear visualization: shows which categories are selected and their cluster membership
+
+### User Experience Improvements
+1. **Visual Consistency** - Now matches UMAP behavior with background/foreground layers
+2. **Accurate Positioning** - Markers appear at correct positions on cumulative curve
+3. **Clear Interpretation** - No misleading separate cumulative curves per cluster
+4. **Cluster Identification** - Easy to see cluster membership via marker colors
+5. **Legend Integration** - Shows cluster colors matching UMAP visualization
+
+### Testing Recommendations
+1. Open any category result → Select multiple categories from table → Check Accumulation Charts
+2. Verify gray background curve appears immediately (all categories)
+3. Verify colored markers appear at exact positions on background curve
+4. Select categories from different clusters → Verify different colored markers
+5. Compare marker colors with UMAP cluster colors → Verify consistency
+
 ## Future Enhancements
 - Add more multi-set comparison tools (heatmaps, parallel coordinates, etc.)
 - Add statistical comparison metrics across multiple datasets

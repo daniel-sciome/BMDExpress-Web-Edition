@@ -136,7 +136,7 @@
       "workbox-core": "7.3.0",
       "workbox-precaching": "7.3.0"
     },
-    "hash": "8d1d3f02d4a475f91bf99001673f5ee92e944443ce216efba7cc25e5ade7a81f"
+    "hash": "946ad14211a97d02bd61a92cc2f89942d2a0872877431bdbbc44b99656649056"
   },
   "overrides": {
     "@vaadin/bundles": "$@vaadin/bundles",
@@ -241,6 +241,8 @@
     "@ant-design/charts": "$@ant-design/charts",
     "@types/react-resizable": "$@types/react-resizable",
     "react-resizable": "$react-resizable",
-    "xlsx": "$xlsx"
+    "xlsx": "$xlsx",
+    "exceljs": "$exceljs",
+    "html2canvas": "$html2canvas"
   }
 }
