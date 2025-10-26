@@ -13,7 +13,6 @@ import BarCharts from './charts/BarCharts';
 import AccumulationCharts from './charts/AccumulationCharts';
 import BestModelsPieChart from './charts/BestModelsPieChart';
 import PathwayCurveViewer from './PathwayCurveViewer';
-import VennDiagram from './charts/VennDiagram';
 import UmapScatterPlot from './charts/UmapScatterPlot';
 import MasterFilter from './MasterFilter';
 
@@ -26,7 +25,6 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   const dispatch = useAppDispatch();
   const { loading, error, data, analysisParameters, filters } = useAppSelector((state) => state.categoryResults);
   const [annotation, setAnnotation] = useState<AnalysisAnnotationDto | null>(null);
-  const [availableResults, setAvailableResults] = useState<string[]>([]);
   const [visibleCharts, setVisibleCharts] = useState(['1']); // Default Charts visible by default
 
   // Debug logging for component mounting and props changes
@@ -48,20 +46,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
       dispatch(loadCategoryResults({ projectId, resultName }));
       dispatch(loadAnalysisParameters({ projectId, resultName }));
       loadAnnotation();
-      loadAvailableResults();
     }
   }, [dispatch, projectId, resultName]);
-
-  const loadAvailableResults = async () => {
-    try {
-      const results = await CategoryResultsService.getCategoryResultNames(projectId);
-      if (results && Array.isArray(results)) {
-        setAvailableResults(results.filter((r): r is string => typeof r === 'string'));
-      }
-    } catch (err) {
-      console.error('Failed to load available results:', err);
-    }
-  };
 
   const loadAnnotation = async () => {
     console.log('[CategoryResultsView] Loading annotation for:', { projectId, resultName });
@@ -215,7 +201,6 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                   <Checkbox value="11">BMD vs BMDL Scatter</Checkbox>
                   <Checkbox value="12">Violin Per Category</Checkbox>
                   <Checkbox value="13">Global Violin Plot</Checkbox>
-                  <Checkbox value="14">Venn Diagram</Checkbox>
                 </div>
               </Checkbox.Group>
             </div>
@@ -317,11 +302,6 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                     Global Violin Plot - Coming Soon
                   </div>
                 ),
-              },
-              visibleCharts.includes('14') && {
-                key: '14',
-                label: 'Venn Diagram',
-                children: <VennDiagram key={`${projectId}-${resultName}`} projectId={projectId} availableResults={availableResults} />,
               },
             ].filter(Boolean)}
           />

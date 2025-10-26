@@ -3,11 +3,12 @@ import { Tree } from 'antd';
 import type { TreeDataNode } from 'antd';
 import { ProjectService, CategoryResultsService } from 'Frontend/generated/endpoints';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { setSelectedProject, setSelectedCategoryResult } from '../store/slices/navigationSlice';
+import { setSelectedProject, setSelectedAnalysisType, setSelectedCategoryResult } from '../store/slices/navigationSlice';
 
 export default function ProjectTreeSidebar() {
   const dispatch = useAppDispatch();
   const selectedProject = useAppSelector((state) => state.navigation.selectedProject);
+  const selectedAnalysisType = useAppSelector((state) => state.navigation.selectedAnalysisType);
   const selectedCategoryResult = useAppSelector((state) => state.navigation.selectedCategoryResult);
 
   const [treeData, setTreeData] = useState<TreeDataNode[]>([]);
@@ -22,14 +23,28 @@ export default function ProjectTreeSidebar() {
 
   // Update selected keys when Redux state changes
   useEffect(() => {
+    let newKeys: React.Key[] = [];
+
     if (selectedCategoryResult && selectedProject) {
-      setSelectedKeys([`${selectedProject}::${selectedCategoryResult}`]);
+      // Individual result selected
+      newKeys = [`${selectedProject}::${selectedCategoryResult}`];
+      console.log('[ProjectTreeSidebar] Setting selectedKeys to individual result:', newKeys);
+    } else if (selectedAnalysisType && selectedProject) {
+      // Analysis type selected (multiset view)
+      newKeys = [`${selectedProject}::type::${selectedAnalysisType}`];
+      console.log('[ProjectTreeSidebar] Setting selectedKeys to analysis type:', newKeys);
     } else if (selectedProject) {
-      setSelectedKeys([selectedProject]);
+      // Just project selected
+      newKeys = [selectedProject];
+      console.log('[ProjectTreeSidebar] Setting selectedKeys to project:', newKeys);
     } else {
-      setSelectedKeys([]);
+      // Nothing selected
+      newKeys = [];
+      console.log('[ProjectTreeSidebar] Clearing selectedKeys');
     }
-  }, [selectedProject, selectedCategoryResult]);
+
+    setSelectedKeys(newKeys);
+  }, [selectedProject, selectedAnalysisType, selectedCategoryResult]);
 
   const loadProjects = async () => {
     try {
@@ -42,6 +57,7 @@ export default function ProjectTreeSidebar() {
         title: projectId,
         key: projectId,
         isLeaf: false,
+        selectable: false,  // Project nodes are NOT selectable, only expandable
         children: [], // Will be loaded on expand
       }));
 
@@ -153,29 +169,39 @@ export default function ProjectTreeSidebar() {
   };
 
   const onSelect = (selectedKeys: React.Key[], info: any) => {
-    if (selectedKeys.length === 0) return;
+    console.log('[ProjectTreeSidebar] onSelect called with keys:', selectedKeys);
+
+    if (selectedKeys.length === 0) {
+      console.log('[ProjectTreeSidebar] Empty selection, ignoring');
+      return;
+    }
 
     const key = selectedKeys[0] as string;
+    console.log('[ProjectTreeSidebar] Selected key:', key);
 
-    // Check if it's a category result (contains ::)
-    if (key.includes('::')) {
-      const parts = key.split('::');
-
-      // Check if it's a category type node (format: projectId::type::typeName)
-      if (parts.length === 3 && parts[1] === 'type') {
-        // It's a category type node - just expand/collapse, don't select
-        return;
-      }
-
-      // It's a category result (format: projectId::resultName)
-      const [projectId, resultName] = parts;
-      dispatch(setSelectedProject(projectId));
-      dispatch(setSelectedCategoryResult(resultName));
-    } else {
-      // It's a project
-      dispatch(setSelectedProject(key));
-      dispatch(setSelectedCategoryResult(null));
+    // All selectable nodes contain :: (projects are non-selectable)
+    if (!key.includes('::')) {
+      console.warn('[ProjectTreeSidebar] Unexpected selection of non-:: key:', key);
+      return;
     }
+
+    const parts = key.split('::');
+
+    // Check if it's a category type node (format: projectId::type::typeName)
+    if (parts.length === 3 && parts[1] === 'type') {
+      // It's a category type node - SELECT IT for multi-set view
+      const [projectId, , analysisType] = parts;
+      console.log('[ProjectTreeSidebar] Type node selected:', { projectId, analysisType });
+      dispatch(setSelectedProject(projectId));
+      dispatch(setSelectedAnalysisType(analysisType));
+      return;
+    }
+
+    // It's a category result (format: projectId::resultName)
+    const [projectId, resultName] = parts;
+    console.log('[ProjectTreeSidebar] Individual result selected:', { projectId, resultName });
+    dispatch(setSelectedProject(projectId));
+    dispatch(setSelectedCategoryResult(resultName));
   };
 
   const onExpand = (expandedKeys: React.Key[]) => {
