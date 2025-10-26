@@ -1,3 +1,18 @@
+/**
+ * Venn Diagram Component
+ *
+ * Displays Venn diagram showing category overlaps across 2-5 category analysis results.
+ *
+ * LOCATION: This component is used in CategoryAnalysisMultisetView, which displays
+ * when user selects an analysis type group in the sidebar (e.g., "GO Biological Process").
+ *
+ * RATIONALE: Venn diagrams compare multiple datasets, so they belong in a multi-set view,
+ * not in the single-dataset CategoryResultsView. The multi-set view provides proper context
+ * for cross-dataset comparisons by showing all available results of a specific analysis type.
+ *
+ * NAVIGATION PATH: Sidebar → Project → Analysis Type Group → CategoryAnalysisMultisetView → VennDiagram
+ */
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Select, Button, Table, Collapse, Alert, Spin } from 'antd';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
@@ -39,22 +54,64 @@ export default function VennDiagram({ projectId, availableResults }: VennDiagram
 
   // Prepare Venn diagram data format for @ant-design/charts
   const vennChartData = useMemo(() => {
-    if (!vennData || !vennData.overlaps || !vennData.setNames) return null;
+    console.log('[VennDiagram] Processing vennData:', vennData);
+
+    if (!vennData || !vennData.overlaps || !vennData.setNames) {
+      console.log('[VennDiagram] Missing vennData, overlaps, or setNames');
+      return null;
+    }
 
     // Transform backend data to Venn chart format
-    // Backend provides keys like "A", "B", "A,B", "A,B,C"
-    // Venn expects: { sets: ['A'], size: count, label: 'A' }
-    const chartData = Object.entries(vennData.overlaps).map(([key, count]) => {
-      const setLabels = (key as string).split(',');
+    // Backend provides INTERSECTION counts: "A" (unique to A), "A,B" (overlap), etc.
+    // Venn library expects TOTAL SET SIZES
 
-      return {
-        sets: setLabels,
-        size: count as number,
-        label: key
-      };
+    const setCount = vennData.setCount;
+    const setLabels = Array.from({ length: setCount }, (_, i) => String.fromCharCode(65 + i)); // ['A', 'B', 'C', ...]
+    const overlaps = vennData.overlaps;
+
+    // Calculate total size for each set by summing all intersections containing that set
+    const setTotals = new Map<string, number>();
+
+    setLabels.forEach(label => {
+      let total = 0;
+      // Sum all overlaps that include this set
+      Object.entries(overlaps).forEach(([key, count]) => {
+        const sets = key.split(',');
+        if (sets.includes(label)) {
+          total += count as number;
+        }
+      });
+      setTotals.set(label, total);
+      console.log(`[VennDiagram] Set ${label} total size: ${total}`);
     });
 
-    console.log('Venn chart data:', chartData);
+    // Build chart data: individual sets with totals, plus all overlaps
+    const chartData: Array<{sets: string[], size: number, label: string}> = [];
+
+    // Add individual sets with their TOTAL sizes
+    setLabels.forEach(label => {
+      chartData.push({
+        sets: [label],
+        size: setTotals.get(label) || 0,
+        label: label
+      });
+    });
+
+    // Add all overlaps (2+ sets)
+    Object.entries(overlaps).forEach(([key, count]) => {
+      const sets = key.split(',');
+      if (sets.length > 1) {
+        chartData.push({
+          sets: sets,
+          size: count as number,
+          label: key
+        });
+      }
+    });
+
+    console.log('[VennDiagram] Chart data prepared:', chartData);
+    console.log('[VennDiagram] Chart data length:', chartData.length);
+    console.log('[VennDiagram] Full chart data JSON:', JSON.stringify(chartData, null, 2));
     return chartData;
   }, [vennData]);
 
@@ -188,17 +245,28 @@ export default function VennDiagram({ projectId, availableResults }: VennDiagram
             </h4>
 
             {/* Venn Diagram Visualization */}
-            {vennChartData && vennChartData.length > 0 && (
-              <div style={{ marginBottom: '2rem' }}>
-                <Venn
-                  data={vennChartData}
-                  setsField="sets"
-                  sizeField="size"
-                  width={800}
-                  height={500}
-                />
-              </div>
-            )}
+            {(() => {
+              console.log('[VennDiagram] Rendering check - vennChartData:', vennChartData);
+              console.log('[VennDiagram] Rendering check - length:', vennChartData?.length);
+
+              if (vennChartData && vennChartData.length > 0) {
+                console.log('[VennDiagram] Rendering Venn chart with data:', vennChartData);
+                return (
+                  <div style={{ marginBottom: '2rem' }}>
+                    <Venn
+                      data={vennChartData}
+                      setsField="sets"
+                      sizeField="size"
+                      width={800}
+                      height={500}
+                    />
+                  </div>
+                );
+              } else {
+                console.log('[VennDiagram] NOT rendering Venn chart - data missing or empty');
+                return null;
+              }
+            })()}
 
             <p style={{ color: '#666', marginBottom: '1rem' }}>
               The Venn diagram above shows the overlaps between selected category analysis results. The table below provides detailed counts and category names for each combination.
