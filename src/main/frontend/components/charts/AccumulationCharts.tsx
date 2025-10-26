@@ -108,7 +108,7 @@ export default function AccumulationCharts() {
     const chartsData = chartConfigs.map(config => {
       const traces: any[] = [];
 
-      // Layer 1: Background - ALL categories (gray)
+      // Layer 1: Background - ALL categories (colored by cluster)
       const allValues = allData
         .map((row: CategoryAnalysisResultDto) => ({
           value: (row as any)[config.field],
@@ -121,33 +121,49 @@ export default function AccumulationCharts() {
       let xAxisRange: [number, number] | undefined;
 
       if (allValues.length > 0) {
-        const allX: number[] = [];
-        const allY: number[] = [];
-        const totalCount = allValues.length;
-
-        allValues.forEach((item, index) => {
-          allX.push(item.value);
-          allY.push(((index + 1) / totalCount) * 100);
-        });
-
         // Calculate fixed x-axis range in log space
+        const allX = allValues.map(item => item.value);
         const xMin = Math.min(...allX);
         const xMax = Math.max(...allX);
         xAxisRange = [Math.log10(xMin), Math.log10(xMax)];
 
-        traces.push({
-          type: 'scatter',
-          mode: 'lines',
-          x: allX,
-          y: allY,
-          line: {
-            color: '#d0d0d0',
-            width: 2,
-          },
-          fill: 'tozeroy',
-          fillcolor: '#f0f0f0',
-          name: 'All Categories',
-          hovertemplate: 'Value: %{x:.4f}<br>Cumulative %: %{y:.1f}%<extra></extra>',
+        // Group ALL categories by cluster for background traces
+        const backgroundByCluster = new Map<string | number, Array<{x: number, y: number, categoryId: string}>>();
+
+        allValues.forEach((item, index) => {
+          const umapItem = umapDataService.getByGoId(item.categoryId || '');
+          const clusterId = umapItem?.cluster_id ?? -1;
+          const cumulativePercent = ((index + 1) / allValues.length) * 100;
+
+          if (!backgroundByCluster.has(clusterId)) {
+            backgroundByCluster.set(clusterId, []);
+          }
+          backgroundByCluster.get(clusterId)!.push({
+            x: item.value,
+            y: cumulativePercent,
+            categoryId: item.categoryId || ''
+          });
+        });
+
+        // Create background traces for each cluster (small markers)
+        backgroundByCluster.forEach((points, clusterId) => {
+          const color = clusterColors[clusterId] || '#999999';
+
+          traces.push({
+            type: 'scatter',
+            mode: 'markers',
+            x: points.map(p => p.x),
+            y: points.map(p => p.y),
+            marker: {
+              color: color,
+              size: 4,
+              symbol: 'circle',
+              opacity: 0.4,
+            },
+            name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}`,
+            hovertemplate: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}<br>Value: %{x:.4f}<br>Cumulative %: %{y:.1f}%<extra></extra>`,
+            showlegend: false, // Hide background from legend
+          });
         });
       }
 
@@ -179,7 +195,7 @@ export default function AccumulationCharts() {
           });
         });
 
-        // Create a marker trace for each cluster (no lines)
+        // Create a marker trace for each cluster (larger, highlighted markers)
         byCluster.forEach((points, clusterId) => {
           const color = clusterColors[clusterId] || '#999999';
 
@@ -190,15 +206,16 @@ export default function AccumulationCharts() {
             y: points.map(p => p.y),
             marker: {
               color: color,
-              size: 8,
+              size: 10,
               symbol: 'circle',
+              opacity: 1.0,
               line: {
                 color: 'white',
-                width: 1
+                width: 2
               }
             },
-            name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}`,
-            hovertemplate: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}<br>Value: %{x:.4f}<br>Cumulative %: %{y:.1f}%<extra></extra>`,
+            name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId} (Selected)`,
+            hovertemplate: `<b>SELECTED</b><br>Cluster ${clusterId === -1 ? 'Outliers' : clusterId}<br>Value: %{x:.4f}<br>Cumulative %: %{y:.1f}%<extra></extra>`,
           });
         });
       }

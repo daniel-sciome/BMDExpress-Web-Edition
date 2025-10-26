@@ -457,32 +457,111 @@ This matches the type used for `clusterColors` and reflects that cluster_id can 
 
 ### Visual Behavior Changes
 
-**Before**:
+**Before (Original)**:
 - Gray background curve (all categories)
 - Colored foreground curves (one per cluster, each 0-100%)
 - Selected categories appeared at wrong x-positions due to auto-scaling
 - Misleading: suggested each cluster had its own distribution
 
-**After**:
+**After (First Fix)**:
 - Gray background cumulative curve (all categories, sorted by BMD value)
 - Individual colored markers (not connected) positioned exactly on background curve
 - Markers colored by cluster membership (same palette as UMAP)
 - Fixed axis range ensures perfect alignment with background
 - Clear visualization: shows which categories are selected and their cluster membership
 
+**Final (Cluster-Colored Background)**:
+- Background layer: Small, semi-transparent markers (size: 4, opacity: 0.4) for ALL categories, colored by cluster
+- Foreground layer: Larger, fully opaque markers (size: 10, opacity: 1.0) for SELECTED categories, colored by cluster
+- White borders on selected markers (width: 2) to distinguish from background
+- Background markers hidden from legend (`showlegend: false`)
+- Selected markers shown in legend with "(Selected)" suffix
+- Fixed axis range ensures all markers positioned on same cumulative distribution
+- Cluster membership visible at all times, not just for selected categories
+
+#### Fix 4: Cluster-Colored Background Markers (Added in Session Continuation Part 3)
+
+**User Request**: "the range plot should be colored by cluster"
+
+**Implementation**:
+```typescript
+// Group ALL categories by cluster for background traces
+const backgroundByCluster = new Map<string | number, Array<{x: number, y: number, categoryId: string}>>();
+
+allValues.forEach((item, index) => {
+  const umapItem = umapDataService.getByGoId(item.categoryId || '');
+  const clusterId = umapItem?.cluster_id ?? -1;
+  const cumulativePercent = ((index + 1) / allValues.length) * 100;
+
+  if (!backgroundByCluster.has(clusterId)) {
+    backgroundByCluster.set(clusterId, []);
+  }
+  backgroundByCluster.get(clusterId)!.push({
+    x: item.value,
+    y: cumulativePercent,
+    categoryId: item.categoryId || ''
+  });
+});
+
+// Create background traces for each cluster (small markers)
+backgroundByCluster.forEach((points, clusterId) => {
+  const color = clusterColors[clusterId] || '#999999';
+
+  traces.push({
+    type: 'scatter',
+    mode: 'markers',
+    x: points.map(p => p.x),
+    y: points.map(p => p.y),
+    marker: {
+      color: color,
+      size: 4,           // Small background markers
+      symbol: 'circle',
+      opacity: 0.4,      // Semi-transparent
+    },
+    name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}`,
+    showlegend: false,   // Hide from legend
+  });
+});
+```
+
+**Foreground Enhancement**:
+```typescript
+// Selected markers - larger and more prominent
+marker: {
+  color: color,
+  size: 10,              // Larger than background (4)
+  symbol: 'circle',
+  opacity: 1.0,          // Fully opaque (vs 0.4 background)
+  line: {
+    color: 'white',
+    width: 2             // White border for visibility
+  }
+}
+```
+
+**Visual Result**:
+- Background shows cluster distribution across all categories
+- Selected categories stand out with larger size, full opacity, and white borders
+- Consistent color palette with UMAP throughout
+- Instant visual feedback on cluster membership for all data
+
 ### User Experience Improvements
-1. **Visual Consistency** - Now matches UMAP behavior with background/foreground layers
+1. **Visual Consistency** - Now matches UMAP behavior with background/foreground layers colored by cluster
 2. **Accurate Positioning** - Markers appear at correct positions on cumulative curve
 3. **Clear Interpretation** - No misleading separate cumulative curves per cluster
-4. **Cluster Identification** - Easy to see cluster membership via marker colors
-5. **Legend Integration** - Shows cluster colors matching UMAP visualization
+4. **Cluster Identification** - Easy to see cluster membership via marker colors for ALL categories
+5. **Legend Integration** - Shows selected clusters only, avoiding legend clutter
+6. **Selection Highlighting** - Larger markers with white borders make selections obvious
+7. **Cluster Distribution Visibility** - Background layer reveals cluster patterns in cumulative distribution
 
 ### Testing Recommendations
-1. Open any category result → Select multiple categories from table → Check Accumulation Charts
-2. Verify gray background curve appears immediately (all categories)
-3. Verify colored markers appear at exact positions on background curve
-4. Select categories from different clusters → Verify different colored markers
+1. Open any category result → Check Accumulation Charts without selecting anything
+2. Verify all categories appear as small, semi-transparent colored markers by cluster
+3. Select multiple categories from table → Verify larger, bright markers appear
+4. Select categories from different clusters → Verify different colored markers with white borders
 5. Compare marker colors with UMAP cluster colors → Verify consistency
+6. Hover over markers → Verify "SELECTED" label appears for selected categories
+7. Check legend → Verify only selected clusters appear, with "(Selected)" suffix
 
 ## Future Enhancements
 - Add more multi-set comparison tools (heatmaps, parallel coordinates, etc.)
