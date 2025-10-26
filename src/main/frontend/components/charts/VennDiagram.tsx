@@ -13,11 +13,14 @@
  * NAVIGATION PATH: Sidebar → Project → Analysis Type Group → CategoryAnalysisMultisetView → VennDiagram
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, Select, Button, Table, Collapse, Alert, Spin } from 'antd';
+import { DownloadOutlined } from '@ant-design/icons';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import { useAppSelector } from '../../store/hooks';
 import { Venn } from '@ant-design/charts';
+import ExcelJS from 'exceljs';
+import html2canvas from 'html2canvas';
 
 const { Option } = Select;
 const { Panel } = Collapse;
@@ -32,6 +35,7 @@ export default function VennDiagram({ projectId, availableResults }: VennDiagram
   const [vennData, setVennData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const vennDiagramRef = useRef<HTMLDivElement>(null);
 
   const handleGenerate = async () => {
     if (selectedResults.length < 2 || selectedResults.length > 5) {
@@ -49,6 +53,261 @@ export default function VennDiagram({ projectId, availableResults }: VennDiagram
       console.error('Error generating Venn diagram:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExportToExcel = async () => {
+    if (!vennData || !vennData.overlaps || !vennData.setNames) {
+      setError('No data available to export');
+      return;
+    }
+
+    try {
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'BMDExpress Web';
+      workbook.created = new Date();
+
+      // Capture Venn diagram as image
+      let imageId: number | null = null;
+      let imageWidth = 800;
+      let imageHeight = 500;
+      if (vennDiagramRef.current) {
+        try {
+          const canvas = await html2canvas(vennDiagramRef.current, {
+            backgroundColor: '#ffffff',
+            scale: 2, // Higher quality
+          });
+
+          // Get actual canvas dimensions (divide by 2 because scale: 2 doubles the size)
+          imageWidth = canvas.width / 2;
+          imageHeight = canvas.height / 2;
+          console.log('[VennDiagram] Captured canvas dimensions:', canvas.width, 'x', canvas.height);
+          console.log('[VennDiagram] Display dimensions for Excel:', imageWidth, 'x', imageHeight);
+
+          const base64Image = canvas.toDataURL('image/png');
+
+          // Remove the data:image/png;base64, prefix
+          const base64Data = base64Image.split(',')[1];
+
+          // Add image to workbook
+          imageId = workbook.addImage({
+            base64: base64Data,
+            extension: 'png',
+          });
+          console.log('[VennDiagram] Captured and added diagram image, ID:', imageId);
+        } catch (err) {
+          console.warn('[VennDiagram] Failed to capture diagram image:', err);
+        }
+      }
+
+      // Sheet 1: Summary - Set names, mappings, and diagram image
+      const summarySheet = workbook.addWorksheet('Summary');
+
+      // Add header information
+      summarySheet.addRow(['Venn Diagram Export Summary']);
+      summarySheet.addRow(['Project:', projectId]);
+      summarySheet.addRow(['Generated:', new Date().toLocaleString()]);
+      summarySheet.addRow([]);
+
+      if (imageId !== null) {
+        summarySheet.addRow(['Diagram Image:']);
+        summarySheet.addRow([]);
+
+        // Set column widths BEFORE adding image to prevent squishing
+        // Make columns wide enough to accommodate the 800px image
+        summarySheet.getColumn(1).width = 30;
+        summarySheet.getColumn(2).width = 30;
+        summarySheet.getColumn(3).width = 30;
+        summarySheet.getColumn(4).width = 30;
+        summarySheet.getColumn(5).width = 30;
+        summarySheet.getColumn(6).width = 30;
+
+        // Embed the image starting at row 7, using actual captured dimensions
+        summarySheet.addImage(imageId, {
+          tl: { col: 0, row: 6 }, // top-left at A7
+          ext: { width: imageWidth, height: imageHeight }, // Use actual canvas dimensions
+          editAs: 'oneCell' // Prevent Excel from resizing based on cell dimensions
+        });
+
+        // Add spacing rows to push the legend below the image
+        for (let i = 0; i < 28; i++) {
+          summarySheet.addRow([]);
+        }
+      } else {
+        summarySheet.addRow(['Diagram Image: Not available']);
+        summarySheet.addRow([]);
+      }
+
+      // Add set mapping legend
+      summarySheet.addRow(['Set Label', 'Analysis Result Name']);
+      vennData.setNames.forEach((name: string, index: number) => {
+        summarySheet.addRow([String.fromCharCode(65 + index), name]);
+      });
+
+      // Style the summary sheet
+      summarySheet.getRow(1).font = { bold: true, size: 14 };
+      // Column widths already set above if image exists, otherwise set them now
+      if (imageId === null) {
+        summarySheet.getColumn(1).width = 20;
+        summarySheet.getColumn(2).width = 50;
+      }
+
+      // Sheet 2: Instructions for creating native Venn diagrams in Excel
+      const instructionsSheet = workbook.addWorksheet('Instructions');
+
+      const instructions = [
+        ['How to Create a Native Venn Diagram in Excel'],
+        [],
+        ['Note: The "Summary" sheet contains a PNG image of the Venn diagram from BMDExpress Web.'],
+        ['If you need an interactive/editable Venn diagram in Excel, follow these instructions:'],
+        [],
+        ['METHOD 1: Using Excel Add-ins (Recommended)'],
+        ['1. Open Excel and go to Insert > Get Add-ins (or Insert > Office Add-ins)'],
+        ['2. Search for "Venn Diagram" in the Office Add-ins store'],
+        ['3. Popular options include:'],
+        ['   - "Lucidchart Diagrams" - Professional diagramming tool'],
+        ['   - "ChartExpo" - Specialized chart add-in with Venn diagrams'],
+        ['   - "Power-user" - Advanced charting and productivity add-in'],
+        ['4. Install your chosen add-in and follow its instructions'],
+        ['5. Use the overlap counts from the "Overlaps" sheet as input data'],
+        [],
+        ['METHOD 2: Manual Drawing with Shapes'],
+        ['1. Go to Insert > Shapes > select Circle'],
+        ['2. Draw 2-5 circles (depending on your set count)'],
+        ['3. Right-click each circle > Format Shape > Fill > Set transparency to 50%'],
+        ['4. Assign different colors to each circle'],
+        ['5. Position circles to overlap according to your data'],
+        ['6. Add text boxes with labels and counts from the "Overlaps" sheet'],
+        [],
+        ['METHOD 3: Online Tools (Export as Image)'],
+        ['1. Visit online Venn diagram creators:'],
+        ['   - venndiagram.app'],
+        ['   - bioinformatics.psb.ugent.be/webtools/Venn/'],
+        ['   - meta-chart.com/venn'],
+        ['2. Input your data from the "Overlaps" sheet'],
+        ['3. Generate and download the diagram as an image'],
+        ['4. Insert the image into Excel: Insert > Pictures'],
+        [],
+        ['METHOD 4: Using SmartArt (Limited)'],
+        ['1. Go to Insert > SmartArt > Relationship'],
+        ['2. Select a circular relationship diagram (not a true Venn)'],
+        ['3. Customize text and colors'],
+        ['Note: This is not a true Venn diagram but may be useful for simple cases'],
+        [],
+        ['DATA REFERENCE:'],
+        ['- See "Overlaps" sheet for counts of each set combination'],
+        ['- See sheets named after sets (A, B, A_B, etc.) for detailed category lists'],
+        ['- Set labels are defined in the "Summary" sheet'],
+      ];
+
+      instructions.forEach(row => {
+        instructionsSheet.addRow(row);
+      });
+
+      instructionsSheet.getRow(1).font = { bold: true, size: 14 };
+      instructionsSheet.getColumn(1).width = 100;
+
+      // Sort keys to show individual sets first, then combinations
+      const sortedKeys = Object.keys(vennData.overlaps).sort((a, b) => {
+        const aCount = a.split(',').length;
+        const bCount = b.split(',').length;
+        if (aCount !== bCount) return aCount - bCount;
+        return a.localeCompare(b);
+      });
+
+      // Sheet 3: Overlaps - All combinations with counts
+      const overlapsSheet = workbook.addWorksheet('Overlaps');
+      overlapsSheet.addRow(['Set Combination', 'Analysis Results', 'Count', 'Description']);
+
+      // Style header row
+      overlapsSheet.getRow(1).font = { bold: true };
+      overlapsSheet.getRow(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD9EAD3' }
+      };
+
+      sortedKeys.forEach(key => {
+        const count = vennData.overlaps[key];
+        const setLabels = key.split(',');
+        const setNames = setLabels.map(label => {
+          const index = label.charCodeAt(0) - 'A'.charCodeAt(0);
+          return vennData.setNames?.[index] || label;
+        });
+
+        const description = setLabels.length === 1
+          ? `Categories unique to ${setNames[0]}`
+          : `Categories shared by: ${setNames.join(' AND ')}`;
+
+        overlapsSheet.addRow([key, setNames.join(' ∩ '), count, description]);
+      });
+
+      // Auto-fit columns
+      overlapsSheet.getColumn(1).width = 20;
+      overlapsSheet.getColumn(2).width = 50;
+      overlapsSheet.getColumn(3).width = 10;
+      overlapsSheet.getColumn(4).width = 60;
+
+      // Sheets 4+: Detailed category lists for each overlap
+      sortedKeys.forEach(key => {
+        const items = vennData.overlapItems?.[key] || [];
+        if (items.length === 0) return;
+
+        const setLabels = key.split(',');
+        const setNames = setLabels.map(label => {
+          const index = label.charCodeAt(0) - 'A'.charCodeAt(0);
+          return vennData.setNames?.[index] || label;
+        });
+
+        // Sheet name must be <= 31 chars and not contain special chars
+        let sheetName = key.replace(/,/g, '_');
+        if (sheetName.length > 31) {
+          sheetName = sheetName.substring(0, 31);
+        }
+
+        const itemSheet = workbook.addWorksheet(sheetName);
+
+        itemSheet.addRow([setLabels.length === 1 ? 'Unique Categories' : 'Shared Categories']);
+        itemSheet.addRow(['Set(s):', key]);
+        itemSheet.addRow(['Analysis Result(s):', setNames.join(' ∩ ')]);
+        itemSheet.addRow(['Count:', items.length]);
+        itemSheet.addRow([]);
+        itemSheet.addRow(['Category ID']);
+
+        items.forEach((item: string) => {
+          itemSheet.addRow([item]);
+        });
+
+        // Style
+        itemSheet.getRow(1).font = { bold: true, size: 12 };
+        itemSheet.getRow(6).font = { bold: true };
+        itemSheet.getRow(6).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFD9EAD3' }
+        };
+        itemSheet.getColumn(1).width = 50;
+        itemSheet.getColumn(2).width = 50;
+      });
+
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+      const filename = `VennDiagram_${projectId}_${timestamp}.xlsx`;
+
+      // Write and download the file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      console.log(`[VennDiagram] Exported to ${filename}`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to export to Excel');
+      console.error('Error exporting to Excel:', err);
     }
   };
 
@@ -211,14 +470,24 @@ export default function VennDiagram({ projectId, availableResults }: VennDiagram
             ))}
           </Select>
 
-          <Button
-            type="primary"
-            onClick={handleGenerate}
-            disabled={selectedResults.length < 2 || selectedResults.length > 5}
-            loading={loading}
-          >
-            Generate Venn Diagram
-          </Button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <Button
+              type="primary"
+              onClick={handleGenerate}
+              disabled={selectedResults.length < 2 || selectedResults.length > 5}
+              loading={loading}
+            >
+              Generate Venn Diagram
+            </Button>
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={handleExportToExcel}
+              disabled={!vennData}
+              title="Export Venn diagram data to Excel"
+            >
+              Export to Excel
+            </Button>
+          </div>
         </div>
 
         {error && (
@@ -252,7 +521,13 @@ export default function VennDiagram({ projectId, availableResults }: VennDiagram
               if (vennChartData && vennChartData.length > 0) {
                 console.log('[VennDiagram] Rendering Venn chart with data:', vennChartData);
                 return (
-                  <div style={{ marginBottom: '2rem' }}>
+                  <div ref={vennDiagramRef} style={{
+                    marginBottom: '2rem',
+                    display: 'inline-block',
+                    width: '800px',
+                    height: '500px',
+                    overflow: 'hidden'
+                  }}>
                     <Venn
                       data={vennChartData}
                       setsField="sets"

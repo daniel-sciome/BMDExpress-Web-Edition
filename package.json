@@ -29,6 +29,8 @@
     "construct-style-sheets-polyfill": "3.1.0",
     "d3": "^7.9.0",
     "date-fns": "2.29.3",
+    "exceljs": "^4.4.0",
+    "html2canvas": "^1.4.1",
     "lit": "3.3.1",
     "plotly.js": "^3.1.2",
     "proj4": "2.15.0",
@@ -37,7 +39,8 @@
     "react-plotly.js": "^2.6.0",
     "react-redux": "^9.2.0",
     "react-resizable": "^3.0.5",
-    "react-router": "7.6.3"
+    "react-router": "7.6.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@babel/preset-react": "7.27.1",
@@ -133,7 +136,7 @@
       "workbox-core": "7.3.0",
       "workbox-precaching": "7.3.0"
     },
-    "hash": "46be096d5624661b9e242c2e6e660ccb93f35c77c97341d75fc9d1afedb73928"
+    "hash": "8d1d3f02d4a475f91bf99001673f5ee92e944443ce216efba7cc25e5ade7a81f"
   },
   "overrides": {
     "@vaadin/bundles": "$@vaadin/bundles",
@@ -237,6 +240,7 @@
     "d3": "$d3",
     "@ant-design/charts": "$@ant-design/charts",
     "@types/react-resizable": "$@types/react-resizable",
-    "react-resizable": "$react-resizable"
+    "react-resizable": "$react-resizable",
+    "xlsx": "$xlsx"
   }
 }
