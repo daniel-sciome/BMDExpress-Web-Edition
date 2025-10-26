@@ -563,6 +563,164 @@ marker: {
 6. Hover over markers → Verify "SELECTED" label appears for selected categories
 7. Check legend → Verify only selected clusters appear, with "(Selected)" suffix
 
+## RangePlot Cluster Coloring (Session Continuation Part 4)
+
+### Overview
+Updated RangePlot component to color both markers and confidence interval error bars by cluster membership, maintaining visual consistency with UMAP and AccumulationCharts.
+
+### Problem Statement
+RangePlot displayed top 20 most significant pathways with BMD values and confidence intervals (BMDL-BMDU), but used a single blue color (#1890ff) for all markers and error bars. This missed the opportunity to show cluster membership patterns in the most significant pathways.
+
+**User Request**: "ok. now the range plots. they should be colored by cluster"
+
+### Implementation
+
+#### Changes Made (RangePlot.tsx)
+
+1. **Added Imports**:
+```typescript
+import React, { useEffect, useState, useMemo } from 'react';
+import { umapDataService } from 'Frontend/data/umapDataService';
+```
+
+2. **Added Cluster Colors Palette**:
+```typescript
+// Get cluster colors (same as UMAP and AccumulationCharts)
+const clusterColors = useMemo(() => {
+  const clusters = umapDataService.getAllClusterIds();
+  const colors: Record<string | number, string> = {};
+
+  const palette = [
+    '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+    // ... full 40-color palette
+  ];
+
+  clusters.forEach((clusterId, index) => {
+    if (clusterId === -1) {
+      colors[clusterId] = '#999999';
+    } else {
+      colors[clusterId] = palette[index % palette.length];
+    }
+  });
+
+  return colors;
+}, []);
+```
+
+3. **Grouped Data by Cluster**:
+```typescript
+// Group categories by cluster
+const byCluster = new Map<string | number, CategoryAnalysisResultDto[]>();
+
+topCategories.forEach((row: CategoryAnalysisResultDto) => {
+  const umapItem = umapDataService.getByGoId(row.categoryId || '');
+  const clusterId = umapItem?.cluster_id ?? -1;
+
+  if (!byCluster.has(clusterId)) {
+    byCluster.set(clusterId, []);
+  }
+  byCluster.get(clusterId)!.push(row);
+});
+```
+
+4. **Created Cluster-Colored Traces**:
+```typescript
+// Create a trace for each cluster
+const traces: any[] = [];
+
+byCluster.forEach((clusterData, clusterId) => {
+  const color = clusterColors[clusterId] || '#999999';
+
+  traces.push({
+    type: 'scatter',
+    mode: 'markers',
+    x: bmdValues,
+    y: categories,
+    error_x: {
+      type: 'data',
+      symmetric: false,
+      array: errorPlus,
+      arrayminus: errorMinus,
+      color: color,           // Cluster-colored error bars
+      thickness: 2,
+      width: 4,
+    },
+    marker: {
+      color: color,           // Cluster-colored markers
+      size: 8,
+      symbol: 'circle',
+    },
+    name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}`,
+    hovertemplate:
+      '<b>%{y}</b><br>' +
+      `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}<br>` +
+      'BMD: %{x:.4f}<br>' +
+      'BMDL: %{customdata[0]:.4f}<br>' +
+      'BMDU: %{customdata[1]:.4f}<br>' +
+      '<extra></extra>',
+  });
+});
+```
+
+5. **Added Legend**:
+```typescript
+showlegend: true,
+legend: {
+  x: 1.02,          // Position to right of plot
+  xanchor: 'left',
+  y: 1,
+},
+```
+
+### Visual Changes
+
+**Before**:
+- All 20 pathways shown in single blue color (#1890ff)
+- No cluster identification visible
+- Legend not present
+- Could not see cluster distribution patterns
+
+**After**:
+- Each cluster gets its own color (markers + error bars)
+- Multiple traces, one per cluster present in top 20
+- Legend shows which clusters are represented
+- Hover tooltip displays cluster ID
+- Color consistency with UMAP and AccumulationCharts
+
+### Technical Details
+
+**Why Separate Traces per Cluster**:
+Plotly's error_x configuration applies to entire trace, not per-point. To color error bars differently, each cluster needs its own trace. This approach ensures:
+- Markers and error bars use same color
+- Legend automatically shows cluster names
+- Hover interactions work correctly per cluster
+
+**Data Flow**:
+1. Select top 20 pathways by p-value (most significant)
+2. Look up cluster ID for each pathway via umapDataService
+3. Group pathways by cluster
+4. Create one Plotly trace per cluster
+5. Apply cluster color to both markers and error bars
+
+### Visual Benefits
+
+1. **Cluster Distribution Visibility** - See which clusters dominate the most significant pathways
+2. **Pattern Recognition** - Identify if certain clusters have consistently lower/higher BMD values
+3. **Visual Consistency** - Same color palette across all chart types (UMAP, Accumulation, Range)
+4. **Quick Identification** - Color coding enables instant recognition of cluster membership
+5. **Legend Integration** - Shows which clusters appear in top 20 pathways
+
+### Files Modified
+1. `src/main/frontend/components/charts/RangePlot.tsx` - Added cluster coloring for markers and error bars
+
+### Testing Recommendations
+1. Open any category result → Check Range Plot checkbox
+2. Verify top 20 pathways appear colored by cluster
+3. Verify error bars match marker colors for each pathway
+4. Hover over points → Verify cluster ID appears in tooltip
+5. Check legend → Verify cluster names and colors match UMAP
+6. Compare with UMAP → Verify same color is used for each cluster ID
+
 ## Future Enhancements
 - Add more multi-set comparison tools (heatmaps, parallel coordinates, etc.)
 - Add statistical comparison metrics across multiple datasets
