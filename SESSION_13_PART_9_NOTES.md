@@ -155,8 +155,137 @@ setLabels.forEach(label => {
 4. Switch between type groups and individual results → verify selection state updates correctly
 5. Expand/collapse projects → verify no unintended navigation occurs
 
+## Excel Export Feature (Added in Session Continuation)
+
+### Overview
+Implemented comprehensive Excel export functionality for Venn diagram data with embedded PNG image and detailed instructions.
+
+### Implementation Details
+
+**Libraries Used**:
+- `exceljs` - Full-featured Excel workbook creation with image embedding support
+- `html2canvas` - Captures rendered Venn diagram as PNG image
+
+**Export File Structure**:
+1. **Summary Sheet** - Project metadata, embedded Venn diagram image, set label legend
+2. **Instructions Sheet** - Four methods for creating native Venn diagrams in Excel
+3. **Overlaps Sheet** - Formatted table with all set combinations and counts
+4. **Detail Sheets** - One sheet per overlap (A, B, A_B, etc.) with complete category lists
+
+### Technical Challenges and Solutions
+
+#### Challenge 1: Image Embedding Not Working
+**Problem**: Initial implementation used `xlsx` library which lacks image embedding support
+
+**Solution**: Switched to `exceljs` library with full image support
+```typescript
+const imageId = workbook.addImage({
+  base64: base64Data,
+  extension: 'png',
+});
+
+summarySheet.addImage(imageId, {
+  tl: { col: 0, row: 6 },
+  ext: { width: imageWidth, height: imageHeight },
+  editAs: 'oneCell'
+});
+```
+
+#### Challenge 2: Image Squished Horizontally
+**Problem**: Excel was compressing image horizontally to fit narrow column widths
+
+**Root Cause**: Hardcoded 800x500 dimensions didn't match actual canvas size
+
+**Solutions Applied**:
+1. Set wider column widths (30 units) before adding image
+2. Use `editAs: 'oneCell'` to prevent cell-based resizing
+3. Capture actual canvas dimensions and use them for image size
+4. Account for `scale: 2` by dividing captured dimensions by 2
+
+```typescript
+// Capture at 2x scale for quality
+const canvas = await html2canvas(vennDiagramRef.current, {
+  backgroundColor: '#ffffff',
+  scale: 2,
+});
+
+// Use actual dimensions divided by scale factor
+imageWidth = canvas.width / 2;
+imageHeight = canvas.height / 2;
+```
+
+#### Challenge 3: Asymmetric Background
+**Problem**: Captured image had irregular whitespace around diagram
+
+**Root Cause**: html2canvas captured entire div with extra padding from chart library
+
+**Solution**: Constrain div to exact dimensions matching Venn chart
+```typescript
+<div ref={vennDiagramRef} style={{
+  marginBottom: '2rem',
+  display: 'inline-block',
+  width: '800px',
+  height: '500px',
+  overflow: 'hidden'
+}}>
+  <Venn
+    data={vennChartData}
+    setsField="sets"
+    sizeField="size"
+    width={800}
+    height={500}
+  />
+</div>
+```
+
+### Excel Export Contents
+
+**Summary Sheet**:
+- Project name and timestamp
+- Embedded PNG of Venn diagram (proper aspect ratio, high quality)
+- Legend mapping set labels (A, B, C...) to analysis result names
+
+**Instructions Sheet**:
+Four methods for creating native Excel Venn diagrams:
+1. **Excel Add-ins** (Recommended) - Lucidchart, ChartExpo, Power-user
+2. **Manual Drawing** - Using Excel shapes with transparency
+3. **Online Tools** - venndiagram.app, bioinformatics tools, meta-chart
+4. **SmartArt** - Limited circular relationship diagrams
+
+**Overlaps Sheet**:
+- Set combination labels (A, B, A,B, etc.)
+- Full analysis result names
+- Category counts
+- Descriptions (unique vs shared)
+- Formatted with bold headers and colored backgrounds
+
+**Detail Sheets** (one per overlap):
+- Sheet name based on set combination (A, B, A_B, etc.)
+- Complete list of all category IDs
+- Metadata (set labels, analysis names, counts)
+- Formatted with headers and styling
+
+### Export Workflow
+
+1. User generates Venn diagram in web interface
+2. Clicks "Export to Excel" button
+3. System captures diagram as high-quality PNG (2x scale)
+4. Creates Excel workbook with multiple sheets
+5. Embeds PNG image in Summary sheet at correct dimensions
+6. Populates all data sheets with formatting
+7. Downloads .xlsx file with timestamp in filename
+
+### User Experience
+
+- **Single button click** - All data and visualization exported together
+- **Embedded image** - Diagram visible immediately in Summary sheet
+- **Complete data** - All overlap combinations and category lists included
+- **Helpful instructions** - Four methods to create editable diagrams
+- **Professional formatting** - Bold headers, colored backgrounds, proper column widths
+- **Timestamped filenames** - Easy to track multiple exports
+
 ## Future Enhancements
 - Add more multi-set comparison tools (heatmaps, parallel coordinates, etc.)
-- Add export functionality for Venn diagram results
 - Add statistical comparison metrics across multiple datasets
 - Add batch operations on selected datasets
+- Consider PDF export option with embedded vector graphics
