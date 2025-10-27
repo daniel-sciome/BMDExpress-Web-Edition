@@ -47,45 +47,144 @@ export default function BMDvsPValueScatter() {
   const textData = data.map(row => row.categoryDescription || row.categoryId || 'Unknown');
   const categoryIds = data.map(row => row.categoryId || '');
 
-  // Group data by cluster
-  const byCluster = new Map<string | number, number[]>();
+  const hasSelection = selectedCategoryIds.size > 0;
+
+  // Calculate fixed axis ranges from all data
+  const xRange = useMemo(() => {
+    if (xData.length === 0) return undefined;
+    const validX = xData.filter(x => x > 0);
+    if (validX.length === 0) return undefined;
+    const xMin = Math.min(...validX);
+    const xMax = Math.max(...validX);
+    return [Math.log10(xMin) - 0.5, Math.log10(xMax) + 0.5];
+  }, [xData]);
+
+  const yRange = useMemo(() => {
+    if (yData.length === 0) return undefined;
+    const validY = yData.filter(y => y > 0);
+    if (validY.length === 0) return undefined;
+    const yMin = Math.min(...validY);
+    const yMax = Math.max(...validY);
+    const padding = (yMax - yMin) * 0.1;
+    return [Math.max(0, yMin - padding), yMax + padding];
+  }, [yData]);
+
+  // Separate selected and unselected indices
+  const selectedIndices: number[] = [];
+  const unselectedIndices: number[] = [];
 
   data.forEach((row, idx) => {
-    const umapItem = umapDataService.getByGoId(row.categoryId || '');
-    const clusterId = umapItem?.cluster_id ?? -1;
-
-    if (!byCluster.has(clusterId)) {
-      byCluster.set(clusterId, []);
+    if (selectedCategoryIds.has(row.categoryId || '')) {
+      selectedIndices.push(idx);
+    } else {
+      unselectedIndices.push(idx);
     }
-    byCluster.get(clusterId)!.push(idx);
   });
 
-  // Build traces - one per cluster
+  // Build traces
   const traces: any[] = [];
 
-  byCluster.forEach((indices, clusterId) => {
-    const color = clusterColors[clusterId] || '#999999';
-
+  // Layer 1: Unselected points (always shown, gray and small like UMAP)
+  if (unselectedIndices.length > 0) {
     traces.push({
-      x: indices.map(i => xData[i]),
-      y: indices.map(i => yData[i]),
-      text: indices.map(i => textData[i]),
-      customdata: indices.map(i => categoryIds[i]),
+      x: unselectedIndices.map(i => xData[i]),
+      y: unselectedIndices.map(i => yData[i]),
+      text: unselectedIndices.map(i => textData[i]),
+      customdata: unselectedIndices.map(i => categoryIds[i]),
       type: 'scatter',
       mode: 'markers',
       marker: {
-        color: color,
-        size: 8,
+        color: 'rgba(128, 128, 128, 0.3)',
+        size: 4,
         line: {
-          color: 'white',
-          width: 1,
+          color: 'rgba(128, 128, 128, 0.5)',
+          width: 0.5,
         },
       },
-      hovertemplate: `<b>%{text}</b><br>Cluster ${clusterId === -1 ? 'Outliers' : clusterId}<br>BMD Mean: %{x:.4f}<br>-log10(p): %{y:.4f}<extra></extra>`,
-      name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}`,
-      showlegend: clusterId !== -1, // Hide outliers from legend
+      hovertemplate: '<b>%{text}</b><br>BMD Mean: %{x:.4f}<br>-log10(p): %{y:.4f}<extra></extra>',
+      name: 'Unselected',
+      showlegend: false,
     });
-  });
+  }
+
+  // Layer 2: Selected points grouped by cluster (colored and normal size)
+  if (hasSelection && selectedIndices.length > 0) {
+    // Group selected indices by cluster
+    const selectedByCluster = new Map<string | number, number[]>();
+
+    selectedIndices.forEach(idx => {
+      const row = data[idx];
+      const umapItem = umapDataService.getByGoId(row.categoryId || '');
+      const clusterId = umapItem?.cluster_id ?? -1;
+
+      if (!selectedByCluster.has(clusterId)) {
+        selectedByCluster.set(clusterId, []);
+      }
+      selectedByCluster.get(clusterId)!.push(idx);
+    });
+
+    // Create trace for each cluster with selected points
+    selectedByCluster.forEach((indices, clusterId) => {
+      const color = clusterColors[clusterId] || '#999999';
+
+      traces.push({
+        x: indices.map(i => xData[i]),
+        y: indices.map(i => yData[i]),
+        text: indices.map(i => textData[i]),
+        customdata: indices.map(i => categoryIds[i]),
+        type: 'scatter',
+        mode: 'markers',
+        marker: {
+          color: color,
+          size: 8,
+          line: {
+            color: 'white',
+            width: 1,
+          },
+        },
+        hovertemplate: `<b>%{text}</b><br>Cluster ${clusterId === -1 ? 'Outliers' : clusterId}<br>BMD Mean: %{x:.4f}<br>-log10(p): %{y:.4f}<extra></extra>`,
+        name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}`,
+        showlegend: clusterId !== -1, // Hide outliers from legend
+      });
+    });
+  } else {
+    // No selection - show all points colored by cluster
+    const byCluster = new Map<string | number, number[]>();
+
+    data.forEach((row, idx) => {
+      const umapItem = umapDataService.getByGoId(row.categoryId || '');
+      const clusterId = umapItem?.cluster_id ?? -1;
+
+      if (!byCluster.has(clusterId)) {
+        byCluster.set(clusterId, []);
+      }
+      byCluster.get(clusterId)!.push(idx);
+    });
+
+    byCluster.forEach((indices, clusterId) => {
+      const color = clusterColors[clusterId] || '#999999';
+
+      traces.push({
+        x: indices.map(i => xData[i]),
+        y: indices.map(i => yData[i]),
+        text: indices.map(i => textData[i]),
+        customdata: indices.map(i => categoryIds[i]),
+        type: 'scatter',
+        mode: 'markers',
+        marker: {
+          color: color,
+          size: 8,
+          line: {
+            color: 'white',
+            width: 1,
+          },
+        },
+        hovertemplate: `<b>%{text}</b><br>Cluster ${clusterId === -1 ? 'Outliers' : clusterId}<br>BMD Mean: %{x:.4f}<br>-log10(p): %{y:.4f}<extra></extra>`,
+        name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}`,
+        showlegend: clusterId !== -1,
+      });
+    });
+  }
 
   const handlePlotClick = (event: any) => {
     if (event.points && event.points.length > 0) {
@@ -112,17 +211,20 @@ export default function BMDvsPValueScatter() {
           title: 'BMD vs Fisher Exact P-Value (Colored by Cluster)',
           xaxis: {
             title: 'BMD Mean',
+            type: 'log',
+            range: xRange, // Fixed range based on all data
             gridcolor: '#e0e0e0',
           },
           yaxis: {
             title: '-log10(Fisher Exact P-Value)',
+            range: yRange, // Fixed range based on all data
             gridcolor: '#e0e0e0',
           },
           hovermode: 'closest',
           plot_bgcolor: '#fafafa',
           paper_bgcolor: 'white',
           margin: { l: 60, r: 30, t: 50, b: 60 },
-          showlegend: true,
+          showlegend: hasSelection, // Only show legend when there's a selection
           legend: {
             x: 1.02,
             y: 1,

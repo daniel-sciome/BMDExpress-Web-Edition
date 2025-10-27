@@ -721,8 +721,460 @@ Plotly's error_x configuration applies to entire trace, not per-point. To color 
 5. Check legend → Verify cluster names and colors match UMAP
 6. Compare with UMAP → Verify same color is used for each cluster ID
 
+## BMDBoxPlot Cluster Coloring (Session Continuation Part 5)
+
+### Overview
+Redesigned BMDBoxPlot component to display black box-and-whisker plots with cluster-colored, horizontally jittered markers overlaid at the same positions, providing clear visualization of BMD distributions while revealing cluster membership patterns.
+
+### Problem Statement
+The BMDBoxPlot used a multi-colored box plot scheme, but the user wanted to:
+1. Simplify to black boxes for cleaner visualization
+2. Add cluster-colored markers (like other charts)
+3. Show markers aligned with boxes but with horizontal jitter to prevent overlap
+
+**User Requests**:
+1. "let's do the same for the Default Charts. the boxplot's current color scheme will have to be discarded. just use black, but cluster color for the markers, size 12"
+2. "not quite right. the colored markers should be aligned with the box and whisker. make them size 6 instead of 12, and jitter horizontally"
+
+### Implementation
+
+#### Changes Made (BMDBoxPlot.tsx)
+
+1. **Black Box Plots at Numeric Positions**:
+```typescript
+// Create black box plots (no individual points shown by box)
+if (allValues.bmd.length > 0) {
+  traces.push({
+    x: Array(allValues.bmd.length).fill(0),  // Position at x=0
+    y: allValues.bmd,
+    type: 'box',
+    name: 'BMD Mean',
+    marker: { color: 'black' },
+    line: { color: 'black' },
+    fillcolor: 'rgba(0, 0, 0, 0.1)',
+    boxpoints: false,  // Don't show points on box itself
+    boxmean: 'sd',
+    showlegend: true,
+    legendgroup: 'bmd',
+    legendgrouptitle: { text: 'Categories' },
+  });
+}
+```
+
+2. **Manual Horizontal Jitter for Cluster Markers**:
+```typescript
+const addClusterPoints = (items, xPosition, categoryName) => {
+  // Group by cluster
+  const byCluster = new Map<string | number, DataPoint[]>();
+
+  items.forEach(item => {
+    if (item.value === undefined) return;
+
+    const umapItem = umapDataService.getByGoId(item.categoryId || '');
+    const clusterId = umapItem?.cluster_id ?? -1;
+
+    if (!byCluster.has(clusterId)) {
+      byCluster.set(clusterId, []);
+    }
+    byCluster.get(clusterId)!.push({
+      value: item.value,
+      categoryId: item.categoryId,
+      x: xPosition
+    });
+  });
+
+  // Create scatter trace for each cluster with manual jitter
+  byCluster.forEach((points, clusterId) => {
+    const color = clusterColors[clusterId] || '#999999';
+
+    // Add random jitter to x positions (±0.15 around the box position)
+    const jitteredX = points.map(() => xPosition + (Math.random() - 0.5) * 0.3);
+
+    traces.push({
+      x: jitteredX,
+      y: points.map(p => p.value),
+      type: 'scatter',
+      mode: 'markers',
+      marker: {
+        color: color,
+        size: 6,
+        symbol: 'circle',
+        line: {
+          color: 'white',
+          width: 1
+        }
+      },
+      name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}`,
+      hovertemplate: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}<br>Value: %{y:.4f}<extra></extra>`,
+      showlegend: false,  // Hide from legend but link to category
+      legendgroup: categoryName,  // Link to category box plot
+    });
+  });
+};
+
+// Add scatter points for each box plot category
+addClusterPoints(allValuesWithCategories.bmd, 0, 'bmd');   // BMD at x=0
+addClusterPoints(allValuesWithCategories.bmdl, 1, 'bmdl'); // BMDL at x=1
+addClusterPoints(allValuesWithCategories.bmdu, 2, 'bmdu'); // BMDU at x=2
+```
+
+3. **Numeric X-Axis with Category Labels**:
+```typescript
+xaxis: {
+  title: '',
+  tickmode: 'array',
+  tickvals: [0, 1, 2],
+  ticktext: ['BMD Mean', 'BMDL Mean', 'BMDU Mean'],
+}
+```
+
+4. **Legend Groups for Toggle Control**:
+```typescript
+// Box plot
+legendgroup: 'bmd',
+
+// Associated markers
+legendgroup: 'bmd',  // Same group name
+showlegend: false,    // Don't show in legend separately
+```
+
+Clicking a category legend item (e.g., "BMD Mean") hides both the box and all associated cluster markers.
+
+### Technical Challenges and Solutions
+
+#### Challenge 1: Plotly's Jitter Parameter Didn't Work
+**Problem**: Used `jitter: 0.3` parameter which doesn't work for scatter plots
+
+**Solution**: Implemented manual jitter using random offsets:
+```typescript
+const jitteredX = points.map(() => xPosition + (Math.random() - 0.5) * 0.3);
+```
+
+#### Challenge 2: Markers Not Linked to Box Visibility
+**Problem**: Clicking category legend item only hid box, not associated markers
+
+**Solution**: Used same `legendgroup` value for box and its markers:
+```typescript
+// Box gets legendgroup 'bmd'
+legendgroup: 'bmd',
+
+// All markers for BMD get same group
+legendgroup: 'bmd',
+showlegend: false,  // Don't show separately
+```
+
+#### Challenge 3: Categorical vs Numeric X-Axis
+**Problem**: Initially used categorical x-axis which prevented proper marker alignment
+
+**Solution**: Changed to numeric positions (0, 1, 2) with explicit tick labels
+
+### Visual Behavior
+
+**Before**:
+- Multi-colored box plots (BMD, BMDL, BMDU each had different color)
+- No cluster information visible
+- No individual data points shown
+
+**After**:
+- Black box-and-whisker plots for clean visualization
+- Cluster-colored markers (size 6) with white borders
+- Horizontal jitter (±0.15) prevents marker overlap
+- Markers aligned with box plots (same y-values)
+- Legend allows toggling category visibility (hides both box and markers)
+- Consistent cluster colors with UMAP and other charts
+
+### Files Modified
+1. `src/main/frontend/components/charts/BMDBoxPlot.tsx` - Black boxes, cluster markers, jitter, legend groups
+
+## BMDvsPValueScatter Cluster Coloring (Session Continuation Part 6)
+
+### Overview
+Updated BMDvsPValueScatter to use UMAP-like layering behavior: always show all points as gray background, with selected points colored by cluster as foreground layer. Also fixed axis rescaling to maintain consistent scale regardless of selection.
+
+### Problem Statement
+BMDvsPValueScatter showed only colored points for selected categories, with no context of the full dataset. When selecting/deselecting, the axes would rescale, causing points to jump around.
+
+**User Requests**:
+1. "color the other default chart by cluster"
+2. "okay. now on the bmdvspvaluescatter, always show all points. when points are of the selected categoryies they're colored. otherwise gray and small, lik the umap"
+3. "dont rescale the bmd pvalue plot"
+
+### Implementation
+
+#### Changes Made (BMDvsPValueScatter.tsx)
+
+1. **Two-Layer Rendering System**:
+
+**Layer 1: Unselected Points (Always Shown)**
+```typescript
+// Layer 1: Unselected points (always shown, gray and small like UMAP)
+if (unselectedIndices.length > 0) {
+  traces.push({
+    x: unselectedIndices.map(i => xData[i]),
+    y: unselectedIndices.map(i => yData[i]),
+    type: 'scatter',
+    mode: 'markers',
+    marker: {
+      color: 'rgba(128, 128, 128, 0.3)',
+      size: 4,
+      line: {
+        color: 'rgba(128, 128, 128, 0.5)',
+        width: 0.5,
+      },
+    },
+    showlegend: false,
+  });
+}
+```
+
+**Layer 2: Selected Points by Cluster**
+```typescript
+// Layer 2: Selected points grouped by cluster (colored and normal size)
+if (hasSelection && selectedIndices.length > 0) {
+  const selectedByCluster = new Map<string | number, number[]>();
+
+  selectedIndices.forEach(idx => {
+    const row = data[idx];
+    const umapItem = umapDataService.getByGoId(row.categoryId || '');
+    const clusterId = umapItem?.cluster_id ?? -1;
+
+    if (!selectedByCluster.has(clusterId)) {
+      selectedByCluster.set(clusterId, []);
+    }
+    selectedByCluster.get(clusterId)!.push(idx);
+  });
+
+  selectedByCluster.forEach((indices, clusterId) => {
+    const color = clusterColors[clusterId] || '#999999';
+
+    traces.push({
+      marker: {
+        color: color,
+        size: 8,
+        line: {
+          color: 'white',
+          width: 1,
+        },
+      },
+      name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}`,
+      showlegend: clusterId !== -1,  // Hide outliers from legend
+    });
+  });
+}
+```
+
+2. **Fixed Axis Ranges**:
+```typescript
+// Calculate fixed axis ranges from all data
+const xRange = useMemo(() => {
+  if (xData.length === 0) return undefined;
+  const validX = xData.filter(x => x > 0);
+  if (validX.length === 0) return undefined;
+  const xMin = Math.min(...validX);
+  const xMax = Math.max(...validX);
+  return [Math.log10(xMin) - 0.5, Math.log10(xMax) + 0.5];
+}, [xData]);
+
+const yRange = useMemo(() => {
+  if (yData.length === 0) return undefined;
+  const validY = yData.filter(y => y > 0);
+  if (validY.length === 0) return undefined;
+  const yMin = Math.min(...validY);
+  const yMax = Math.max(...validY);
+  const padding = (yMax - yMin) * 0.1;
+  return [Math.max(0, yMin - padding), yMax + padding];
+}, [yData]);
+
+// Apply to layout
+xaxis: {
+  type: 'log',
+  range: xRange,  // Fixed range based on all data
+},
+yaxis: {
+  range: yRange,  // Fixed range based on all data
+}
+```
+
+3. **Conditional Legend Display**:
+```typescript
+showlegend: hasSelection,  // Only show legend when there's a selection
+```
+
+### Visual Behavior
+
+**Before**:
+- Only showed selected points (no context)
+- Axes rescaled with each selection/deselection
+- Points jumped around on the plot
+- No background layer
+
+**After**:
+- Always shows all points as gray background (size 4, opacity 0.3)
+- Selected points colored by cluster (size 8, full opacity)
+- White borders on selected points for visibility
+- Fixed axes prevent rescaling - points stay in same positions
+- Legend appears only when categories are selected
+- Matches UMAP layering pattern exactly
+
+### Files Modified
+1. `src/main/frontend/components/charts/BMDvsPValueScatter.tsx` - Background layer, fixed axes, cluster coloring
+
+## BMDBoxPlot Selection-Based Rescaling and Cluster Legend (Session Continuation Part 7)
+
+### Overview
+Added dynamic rescaling to BMDBoxPlot that zooms to selected categories when present, plus a display-only cluster color legend showing which colors represent which clusters.
+
+### Problem Statement
+User wanted the box plot to automatically zoom in on selected data while still providing context through a cluster color reference legend.
+
+**User Request**: "when i change the category selection, i want to also rescale. i want 2 legends. the second one is for cluster color, but is just for display."
+
+### Implementation
+
+#### Changes Made (BMDBoxPlot.tsx)
+
+1. **Track Selected Categories**:
+```typescript
+import type { RootState } from '../../store/store';
+
+const selectedCategoryIds = useSelector((state: RootState) => state.categoryResults.selectedCategoryIds);
+```
+
+2. **Filter Selected Values for Rescaling**:
+```typescript
+// Filter for selected categories only (for rescaling)
+const hasSelection = selectedCategoryIds.size > 0;
+const selectedValuesWithCategories = useMemo(() => {
+  if (!hasSelection) return allValuesWithCategories;
+
+  return {
+    bmd: allValuesWithCategories.bmd.filter(item => selectedCategoryIds.has(item.categoryId || '')),
+    bmdl: allValuesWithCategories.bmdl.filter(item => selectedCategoryIds.has(item.categoryId || '')),
+    bmdu: allValuesWithCategories.bmdu.filter(item => selectedCategoryIds.has(item.categoryId || '')),
+  };
+}, [allValuesWithCategories, selectedCategoryIds, hasSelection]);
+
+const selectedValues = {
+  bmd: selectedValuesWithCategories.bmd.map(item => item.value!),
+  bmdl: selectedValuesWithCategories.bmdl.map(item => item.value!),
+  bmdu: selectedValuesWithCategories.bmdu.map(item => item.value!),
+};
+```
+
+3. **Dynamic Y-Axis Range Based on Selection**:
+```typescript
+// Calculate y-axis range - use selected data when available, otherwise all data
+const yAxisRange = useMemo(() => {
+  const dataToUse = hasSelection ? selectedValues : allValues;
+  const allBMDValues = [...dataToUse.bmd, ...dataToUse.bmdl, ...dataToUse.bmdu];
+  if (allBMDValues.length === 0) return undefined;
+  const yMin = Math.min(...allBMDValues);
+  const yMax = Math.max(...allBMDValues);
+  const padding = (yMax - yMin) * 0.1;
+  return [Math.max(0, yMin - padding), yMax + padding];
+}, [allValues, selectedValues, hasSelection]);
+```
+
+**Result**: Y-axis automatically zooms to selected data range when categories are selected, showing full range when no selection.
+
+4. **Cluster Color Legend (Display Only)**:
+```typescript
+// Add cluster color legend (display only, non-interactive)
+// Get all unique cluster IDs from the data
+const clustersInData = new Set<string | number>();
+allValuesWithCategories.bmd.forEach(item => {
+  const umapItem = umapDataService.getByGoId(item.categoryId || '');
+  const clusterId = umapItem?.cluster_id ?? -1;
+  clustersInData.add(clusterId);
+});
+allValuesWithCategories.bmdl.forEach(item => {
+  const umapItem = umapDataService.getByGoId(item.categoryId || '');
+  const clusterId = umapItem?.cluster_id ?? -1;
+  clustersInData.add(clusterId);
+});
+allValuesWithCategories.bmdu.forEach(item => {
+  const umapItem = umapDataService.getByGoId(item.categoryId || '');
+  const clusterId = umapItem?.cluster_id ?? -1;
+  clustersInData.add(clusterId);
+});
+
+// Sort cluster IDs (outliers last)
+const sortedClusters = Array.from(clustersInData).sort((a, b) => {
+  if (a === -1) return 1;
+  if (b === -1) return -1;
+  return Number(a) - Number(b);
+});
+
+// Add dummy traces for cluster legend (visible in legend only)
+sortedClusters.forEach((clusterId, index) => {
+  const color = clusterColors[clusterId] || '#999999';
+  const isFirst = index === 0;
+
+  traces.push({
+    x: [null],
+    y: [null],
+    type: 'scatter',
+    mode: 'markers',
+    marker: {
+      color: color,
+      size: 8,
+      symbol: 'circle',
+    },
+    name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}`,
+    showlegend: true,
+    legendgroup: 'clusters',
+    legendgrouptitle: isFirst ? { text: 'Cluster Colors' } : undefined,
+  });
+});
+```
+
+### Technical Details
+
+**Dummy Traces for Legend**:
+- Use `x: [null], y: [null]` to create traces that don't render any visible markers
+- Set `showlegend: true` to appear in legend
+- Group under "Cluster Colors" legend section using `legendgroup: 'clusters'`
+- Display only - clicking doesn't hide/show anything (no actual data)
+
+**Legend Structure**:
+1. **Categories** legend group:
+   - BMD Mean (interactive - toggles box + markers)
+   - BMDL Mean (interactive)
+   - BMDU Mean (interactive)
+
+2. **Cluster Colors** legend group:
+   - Cluster 0 (display only)
+   - Cluster 1 (display only)
+   - ... (all clusters present in data)
+   - Cluster Outliers (display only)
+
+### Visual Behavior
+
+**Selection Changes**:
+- **No selection**: Y-axis shows full data range (all BMD/BMDL/BMDU values)
+- **With selection**: Y-axis automatically zooms to selected categories' range
+- Smooth rescaling as categories are selected/deselected
+
+**Legend**:
+- Two distinct sections in legend sidebar
+- Categories section: Interactive (click to hide/show)
+- Cluster Colors section: Display-only reference
+- All clusters present in data shown with their colors
+
+### User Experience Benefits
+
+1. **Automatic Focus** - Selecting categories zooms the plot to their range automatically
+2. **Clear Reference** - Cluster color legend shows what each color means
+3. **No Manual Zoom** - No need to use Plotly zoom controls
+4. **Consistent Scaling** - Toggle button still available for fixed/auto scale preference
+5. **Visual Clarity** - Two distinct legend sections for different purposes
+
+### Files Modified
+1. `src/main/frontend/components/charts/BMDBoxPlot.tsx` - Selection-based rescaling, cluster color legend
+
 ## Future Enhancements
 - Add more multi-set comparison tools (heatmaps, parallel coordinates, etc.)
 - Add statistical comparison metrics across multiple datasets
 - Add batch operations on selected datasets
 - Consider PDF export option with embedded vector graphics
+- Add click-to-select interaction on box plot markers (like UMAP and scatter plot)

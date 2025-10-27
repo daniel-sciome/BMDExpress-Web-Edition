@@ -1,12 +1,16 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import Plot from 'react-plotly.js';
 import { useSelector } from 'react-redux';
+import { Button } from 'antd';
 import { selectChartData } from '../../store/slices/categoryResultsSlice';
 import { umapDataService } from 'Frontend/data/umapDataService';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
+import type { RootState } from '../../store/store';
 
 export default function BMDBoxPlot() {
   const data = useSelector(selectChartData);
+  const selectedCategoryIds = useSelector((state: RootState) => state.categoryResults.selectedCategoryIds);
+  const [useFixedScale, setUseFixedScale] = useState(true);
 
   // Get cluster colors (same as UMAP, AccumulationCharts, and RangePlot)
   const clusterColors = useMemo(() => {
@@ -51,6 +55,24 @@ export default function BMDBoxPlot() {
     bmdu: allValuesWithCategories.bmdu.map(item => item.value!),
   };
 
+  // Filter for selected categories only (for rescaling)
+  const hasSelection = selectedCategoryIds.size > 0;
+  const selectedValuesWithCategories = useMemo(() => {
+    if (!hasSelection) return allValuesWithCategories;
+
+    return {
+      bmd: allValuesWithCategories.bmd.filter(item => selectedCategoryIds.has(item.categoryId || '')),
+      bmdl: allValuesWithCategories.bmdl.filter(item => selectedCategoryIds.has(item.categoryId || '')),
+      bmdu: allValuesWithCategories.bmdu.filter(item => selectedCategoryIds.has(item.categoryId || '')),
+    };
+  }, [allValuesWithCategories, selectedCategoryIds, hasSelection]);
+
+  const selectedValues = {
+    bmd: selectedValuesWithCategories.bmd.map(item => item.value!),
+    bmdl: selectedValuesWithCategories.bmdl.map(item => item.value!),
+    bmdu: selectedValuesWithCategories.bmdu.map(item => item.value!),
+  };
+
   // Build traces
   const traces: any[] = [];
 
@@ -66,7 +88,9 @@ export default function BMDBoxPlot() {
       fillcolor: 'rgba(0, 0, 0, 0.1)',
       boxpoints: false, // Don't show points on box itself
       boxmean: 'sd',
-      showlegend: false,
+      showlegend: true,
+      legendgroup: 'bmd',
+      legendgrouptitle: { text: 'Categories' },
     });
   }
   if (allValues.bmdl.length > 0) {
@@ -80,7 +104,8 @@ export default function BMDBoxPlot() {
       fillcolor: 'rgba(0, 0, 0, 0.1)',
       boxpoints: false,
       boxmean: 'sd',
-      showlegend: false,
+      showlegend: true,
+      legendgroup: 'bmdl',
     });
   }
   if (allValues.bmdu.length > 0) {
@@ -94,14 +119,15 @@ export default function BMDBoxPlot() {
       fillcolor: 'rgba(0, 0, 0, 0.1)',
       boxpoints: false,
       boxmean: 'sd',
-      showlegend: false,
+      showlegend: true,
+      legendgroup: 'bmdu',
     });
   }
 
   // Add cluster-colored scatter points on top with manual horizontal jitter
   type DataPoint = { value: number; categoryId: string | undefined; x: number };
 
-  const addClusterPoints = (items: { value: number | undefined; categoryId: string | undefined }[], xPosition: number) => {
+  const addClusterPoints = (items: { value: number | undefined; categoryId: string | undefined }[], xPosition: number, categoryName: string) => {
     // Group by cluster
     const byCluster = new Map<string | number, DataPoint[]>();
 
@@ -144,15 +170,75 @@ export default function BMDBoxPlot() {
         },
         name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}`,
         hovertemplate: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}<br>Value: %{y:.4f}<extra></extra>`,
-        showlegend: clusterId !== -1, // Only show legend for actual clusters, not outliers
+        showlegend: false, // Hide from legend but link to category
+        legendgroup: categoryName, // Link to category box plot
       });
     });
   };
 
   // Add scatter points for each box plot category
-  addClusterPoints(allValuesWithCategories.bmd, 0); // BMD at x=0
-  addClusterPoints(allValuesWithCategories.bmdl, 1); // BMDL at x=1
-  addClusterPoints(allValuesWithCategories.bmdu, 2); // BMDU at x=2
+  addClusterPoints(allValuesWithCategories.bmd, 0, 'bmd'); // BMD at x=0
+  addClusterPoints(allValuesWithCategories.bmdl, 1, 'bmdl'); // BMDL at x=1
+  addClusterPoints(allValuesWithCategories.bmdu, 2, 'bmdu'); // BMDU at x=2
+
+  // Add cluster color legend (display only, non-interactive)
+  // Get all unique cluster IDs from the data
+  const clustersInData = new Set<string | number>();
+  allValuesWithCategories.bmd.forEach(item => {
+    const umapItem = umapDataService.getByGoId(item.categoryId || '');
+    const clusterId = umapItem?.cluster_id ?? -1;
+    clustersInData.add(clusterId);
+  });
+  allValuesWithCategories.bmdl.forEach(item => {
+    const umapItem = umapDataService.getByGoId(item.categoryId || '');
+    const clusterId = umapItem?.cluster_id ?? -1;
+    clustersInData.add(clusterId);
+  });
+  allValuesWithCategories.bmdu.forEach(item => {
+    const umapItem = umapDataService.getByGoId(item.categoryId || '');
+    const clusterId = umapItem?.cluster_id ?? -1;
+    clustersInData.add(clusterId);
+  });
+
+  // Sort cluster IDs (outliers last)
+  const sortedClusters = Array.from(clustersInData).sort((a, b) => {
+    if (a === -1) return 1;
+    if (b === -1) return -1;
+    return Number(a) - Number(b);
+  });
+
+  // Add dummy traces for cluster legend (visible in legend only)
+  sortedClusters.forEach((clusterId, index) => {
+    const color = clusterColors[clusterId] || '#999999';
+    const isFirst = index === 0;
+
+    traces.push({
+      x: [null],
+      y: [null],
+      type: 'scatter',
+      mode: 'markers',
+      marker: {
+        color: color,
+        size: 8,
+        symbol: 'circle',
+      },
+      name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}`,
+      showlegend: true,
+      legendgroup: 'clusters',
+      legendgrouptitle: isFirst ? { text: 'Cluster Colors' } : undefined,
+    });
+  });
+
+  // Calculate y-axis range - use selected data when available, otherwise all data
+  const yAxisRange = useMemo(() => {
+    const dataToUse = hasSelection ? selectedValues : allValues;
+    const allBMDValues = [...dataToUse.bmd, ...dataToUse.bmdl, ...dataToUse.bmdu];
+    if (allBMDValues.length === 0) return undefined;
+    const yMin = Math.min(...allBMDValues);
+    const yMax = Math.max(...allBMDValues);
+    const padding = (yMax - yMin) * 0.1;
+    return [Math.max(0, yMin - padding), yMax + padding];
+  }, [allValues, selectedValues, hasSelection]);
 
   // Calculate statistics for subtitle
   const getStats = (values: number[]) => {
@@ -169,14 +255,24 @@ export default function BMDBoxPlot() {
     : '';
 
   return (
-    <div style={{ width: '100%', height: '500px' }}>
-      <Plot
+    <div style={{ width: '100%' }}>
+      <div style={{ marginBottom: '8px' }}>
+        <Button
+          size="small"
+          onClick={() => setUseFixedScale(!useFixedScale)}
+        >
+          {useFixedScale ? 'Auto Scale' : 'Fixed Scale'}
+        </Button>
+      </div>
+      <div style={{ width: '100%', height: '500px' }}>
+        <Plot
         data={traces}
         layout={{
           title: `BMD Distribution (Colored by Cluster)<br><sub>${subtitle}</sub>`,
           yaxis: {
             title: 'Dose Value',
             gridcolor: '#e0e0e0',
+            ...(useFixedScale && yAxisRange ? { range: yAxisRange } : { autorange: true }),
           },
           xaxis: {
             title: '',
@@ -209,6 +305,7 @@ export default function BMDBoxPlot() {
         }}
         style={{ width: '100%', height: '100%' }}
       />
+      </div>
     </div>
   );
 }
