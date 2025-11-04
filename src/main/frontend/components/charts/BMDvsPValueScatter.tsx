@@ -1,14 +1,20 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import Plot from 'react-plotly.js';
-import { useSelector, useDispatch } from 'react-redux';
-import type { RootState, AppDispatch } from '../../store/store';
-import { selectChartData, toggleCategorySelection, setSelectedCategoryIds } from '../../store/slices/categoryResultsSlice';
+import { useSelector } from 'react-redux';
+import { selectChartData } from '../../store/slices/categoryResultsSlice';
 import { umapDataService } from 'Frontend/data/umapDataService';
+import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveState';
 
 export default function BMDvsPValueScatter() {
-  const dispatch = useDispatch<AppDispatch>();
+  // Use reactive state hook to sync with UMAP
+  const categoryState = useReactiveState('categoryId');
   const data = useSelector(selectChartData);
-  const selectedCategoryIds = useSelector((state: RootState) => state.categoryResults.selectedCategoryIds);
+
+  // Non-selected cluster display mode (same as UMAP)
+  const [nonSelectedDisplayMode, setNonSelectedDisplayMode] = React.useState<'full' | 'outline' | 'hidden'>('full');
+
+  // Background visibility state: 'full' -> 'dimmed' -> 'hidden' -> 'full'
+  const [backdropVisibility, setBackdropVisibility] = React.useState<'full' | 'dimmed' | 'hidden'>('full');
 
   // Get cluster colors (same as other charts)
   const clusterColors = useMemo(() => {
@@ -47,7 +53,14 @@ export default function BMDvsPValueScatter() {
   const textData = data.map(row => row.categoryDescription || row.categoryId || 'Unknown');
   const categoryIds = data.map(row => row.categoryId || '');
 
-  const hasSelection = selectedCategoryIds.size > 0;
+  const hasSelection = categoryState.selectedIds.size > 0;
+
+  // Reset display mode when selection is cleared
+  React.useEffect(() => {
+    if (!hasSelection) {
+      setNonSelectedDisplayMode('full');
+    }
+  }, [hasSelection]);
 
   // Calculate fixed axis ranges from all data
   const xRange = useMemo(() => {
@@ -69,88 +82,36 @@ export default function BMDvsPValueScatter() {
     return [Math.max(0, yMin - padding), yMax + padding];
   }, [yData]);
 
-  // Separate selected and unselected indices
-  const selectedIndices: number[] = [];
-  const unselectedIndices: number[] = [];
+  // Build traces with reactive styling (same as UMAP)
+  const traces = useMemo(() => {
+    const result: any[] = [];
 
-  data.forEach((row, idx) => {
-    if (selectedCategoryIds.has(row.categoryId || '')) {
-      selectedIndices.push(idx);
-    } else {
-      unselectedIndices.push(idx);
-    }
-  });
+    // Layer 1: Backdrop - ALL points in gray (like UMAP Reference Space)
+    const backdropOpacity = backdropVisibility === 'full' ? 0.4 : backdropVisibility === 'dimmed' ? 0.1 : 0;
+    const isBackdropHidden = backdropVisibility !== 'full';
 
-  // Build traces
-  const traces: any[] = [];
-
-  // Layer 1: Unselected points (always shown, gray and small like UMAP)
-  if (unselectedIndices.length > 0) {
-    traces.push({
-      x: unselectedIndices.map(i => xData[i]),
-      y: unselectedIndices.map(i => yData[i]),
-      text: unselectedIndices.map(i => textData[i]),
-      customdata: unselectedIndices.map(i => categoryIds[i]),
-      type: 'scatter',
+    result.push({
+      x: xData,
+      y: yData,
+      text: textData,
       mode: 'markers',
+      type: 'scatter',
+      name: 'Background',
       marker: {
-        color: 'rgba(128, 128, 128, 0.3)',
-        size: 4,
+        size: 3,
+        color: isBackdropHidden ? 'rgba(0,0,0,0)' : '#666666',
+        opacity: backdropOpacity,
         line: {
-          color: 'rgba(128, 128, 128, 0.5)',
-          width: 0.5,
+          width: isBackdropHidden ? 1 : 0,
+          color: '#666666'
         },
       },
       hovertemplate: '<b>%{text}</b><br>BMD Mean: %{x:.4f}<br>-log10(p): %{y:.4f}<extra></extra>',
-      name: 'Unselected',
-      showlegend: false,
-    });
-  }
-
-  // Layer 2: Selected points grouped by cluster (colored and normal size)
-  if (hasSelection && selectedIndices.length > 0) {
-    // Group selected indices by cluster
-    const selectedByCluster = new Map<string | number, number[]>();
-
-    selectedIndices.forEach(idx => {
-      const row = data[idx];
-      const umapItem = umapDataService.getByGoId(row.categoryId || '');
-      const clusterId = umapItem?.cluster_id ?? -1;
-
-      if (!selectedByCluster.has(clusterId)) {
-        selectedByCluster.set(clusterId, []);
-      }
-      selectedByCluster.get(clusterId)!.push(idx);
+      showlegend: true,
     });
 
-    // Create trace for each cluster with selected points
-    selectedByCluster.forEach((indices, clusterId) => {
-      const color = clusterColors[clusterId] || '#999999';
-
-      traces.push({
-        x: indices.map(i => xData[i]),
-        y: indices.map(i => yData[i]),
-        text: indices.map(i => textData[i]),
-        customdata: indices.map(i => categoryIds[i]),
-        type: 'scatter',
-        mode: 'markers',
-        marker: {
-          color: color,
-          size: 8,
-          line: {
-            color: 'white',
-            width: 1,
-          },
-        },
-        hovertemplate: `<b>%{text}</b><br>Cluster ${clusterId === -1 ? 'Outliers' : clusterId}<br>BMD Mean: %{x:.4f}<br>-log10(p): %{y:.4f}<extra></extra>`,
-        name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}`,
-        showlegend: clusterId !== -1, // Hide outliers from legend
-      });
-    });
-  } else {
-    // No selection - show all points colored by cluster
+    // Layer 2: Cluster traces with reactive styling
     const byCluster = new Map<string | number, number[]>();
-
     data.forEach((row, idx) => {
       const umapItem = umapDataService.getByGoId(row.categoryId || '');
       const clusterId = umapItem?.cluster_id ?? -1;
@@ -161,10 +122,38 @@ export default function BMDvsPValueScatter() {
       byCluster.get(clusterId)!.push(idx);
     });
 
+    // Create a trace for each cluster with reactive styling
     byCluster.forEach((indices, clusterId) => {
-      const color = clusterColors[clusterId] || '#999999';
+      // Check if ANY category from this cluster is selected
+      const isClusterSelected = hasSelection && indices.some(idx => categoryState.isSelected(categoryIds[idx]));
 
-      traces.push({
+      // Determine marker styling based on selection state and display mode
+      const baseColor = clusterColors[clusterId] || '#999999';
+      let markerColor = baseColor;
+      let markerSize = 8;
+      let markerLineWidth = 1;
+      let markerLineColor = 'white';
+      let markerOpacity = 1.0;
+
+      if (hasSelection && !isClusterSelected) {
+        // This cluster is NOT selected, apply non-selected display mode
+        if (nonSelectedDisplayMode === 'outline') {
+          // Outline mode: transparent fill with colored border
+          const rgb = [
+            parseInt(baseColor.slice(1, 3), 16),
+            parseInt(baseColor.slice(3, 5), 16),
+            parseInt(baseColor.slice(5, 7), 16)
+          ];
+          markerColor = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0)`;
+          markerLineWidth = 1;
+          markerLineColor = baseColor;
+        } else if (nonSelectedDisplayMode === 'hidden') {
+          // Hidden mode: set opacity to 0 but keep trace visible for legend
+          markerOpacity = 0;
+        }
+      }
+
+      result.push({
         x: indices.map(i => xData[i]),
         y: indices.map(i => yData[i]),
         text: indices.map(i => textData[i]),
@@ -172,21 +161,25 @@ export default function BMDvsPValueScatter() {
         type: 'scatter',
         mode: 'markers',
         marker: {
-          color: color,
-          size: 8,
+          color: markerColor,
+          size: markerSize,
+          opacity: markerOpacity,
           line: {
-            color: 'white',
-            width: 1,
+            color: markerLineColor,
+            width: markerLineWidth,
           },
         },
         hovertemplate: `<b>%{text}</b><br>Cluster ${clusterId === -1 ? 'Outliers' : clusterId}<br>BMD Mean: %{x:.4f}<br>-log10(p): %{y:.4f}<extra></extra>`,
-        name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}`,
-        showlegend: clusterId !== -1,
+        name: `Cluster ${clusterId}`,
+        showlegend: true,
+        legendgroup: `cluster_${clusterId}`,
       });
     });
-  }
 
-  const handlePlotClick = (event: any) => {
+    return result;
+  }, [data, xData, yData, textData, categoryIds, clusterColors, hasSelection, categoryState.selectedIds.size, categoryState.isSelected, nonSelectedDisplayMode, backdropVisibility]);
+
+  const handlePlotClick = useCallback((event: any) => {
     if (event.points && event.points.length > 0) {
       const point = event.points[0];
       const categoryId = point.customdata;
@@ -194,14 +187,121 @@ export default function BMDvsPValueScatter() {
       if (categoryId) {
         // Check if Ctrl/Cmd key is pressed for multi-select
         if (event.event?.ctrlKey || event.event?.metaKey) {
-          dispatch(toggleCategorySelection(categoryId));
+          categoryState.handleSelect(categoryId, true, 'chart');
         } else {
           // Single select - replace selection
-          dispatch(setSelectedCategoryIds([categoryId]));
+          categoryState.handleMultiSelect([categoryId], 'chart');
         }
       }
     }
-  };
+  }, [categoryState]);
+
+  // Handle legend click - same behavior as UMAP
+  const handleLegendClick = useCallback((event: any) => {
+    if (!event || event.curveNumber === undefined) {
+      return false;
+    }
+
+    // Get the trace that was clicked
+    const trace = traces[event.curveNumber];
+    if (!trace || !trace.name) {
+      return false;
+    }
+
+    // Handle Background clicks - 3-way toggle (like UMAP Reference Space)
+    if (trace.name === 'Background') {
+      setBackdropVisibility(current => {
+        if (current === 'full') {
+          console.log('[BMDvsPValueScatter] Background: full -> dimmed');
+          return 'dimmed';
+        } else if (current === 'dimmed') {
+          console.log('[BMDvsPValueScatter] Background: dimmed -> hidden');
+          return 'hidden';
+        } else {
+          console.log('[BMDvsPValueScatter] Background: hidden -> full');
+          return 'full';
+        }
+      });
+      return false; // Prevent default legend toggle
+    }
+
+    // Extract cluster ID from trace name (format: "Cluster X")
+    const clusterMatch = trace.name.match(/Cluster (\S+)/);
+    if (!clusterMatch) {
+      return false;
+    }
+
+    const clusterId = clusterMatch[1];
+
+    // Check if Cmd (Mac) or Ctrl (Windows/Linux) key is pressed for multi-select
+    const isMultiSelect = event.event?.ctrlKey || event.event?.metaKey;
+
+    console.log('[BMDvsPValueScatter] Legend clicked for cluster:', clusterId, 'multiselect:', isMultiSelect);
+
+    // Find all category IDs in this cluster
+    const categoriesInCluster = data
+      .filter(row => {
+        const umapItem = umapDataService.getByGoId(row.categoryId || '');
+        const rowClusterId = umapItem?.cluster_id ?? -1;
+        return String(rowClusterId) === clusterId;
+      })
+      .map(row => row.categoryId)
+      .filter(Boolean) as string[];
+
+    console.log('[BMDvsPValueScatter] Categories in cluster:', categoriesInCluster.length);
+
+    // Check if this cluster is currently selected
+    const isClusterSelected = categoriesInCluster.some(catId => categoryState.selectedIds.has(catId));
+
+    if (!isClusterSelected) {
+      // Cluster not selected - first click selects it AND makes non-selected markers outline
+      console.log('[BMDvsPValueScatter] Selecting cluster, non-selected -> outline');
+      setNonSelectedDisplayMode('outline');
+
+      if (isMultiSelect) {
+        // Multi-select: add to existing selection
+        const currentSelection = Array.from(categoryState.selectedIds);
+        const mergedSelection = [...new Set([...currentSelection, ...categoriesInCluster])];
+        categoryState.handleMultiSelect(mergedSelection, 'chart');
+      } else {
+        // Single select: replace selection
+        categoryState.handleMultiSelect(categoriesInCluster, 'chart');
+      }
+    } else {
+      // Cluster is selected - cycle through: outline -> hidden -> deselect
+      if (nonSelectedDisplayMode === 'outline') {
+        console.log('[BMDvsPValueScatter] Switching to hidden mode');
+        setNonSelectedDisplayMode('hidden');
+      } else if (nonSelectedDisplayMode === 'hidden') {
+        // hidden -> deselect
+        console.log('[BMDvsPValueScatter] Deselecting cluster');
+        setNonSelectedDisplayMode('full'); // Reset for next selection
+
+        if (isMultiSelect) {
+          // Multi-select: remove from selection
+          const currentSelection = Array.from(categoryState.selectedIds);
+          const categoriesInClusterSet = new Set(categoriesInCluster);
+          const newSelection = currentSelection.filter(catId => !categoriesInClusterSet.has(String(catId)));
+
+          if (newSelection.length > 0) {
+            categoryState.handleMultiSelect(newSelection, 'chart');
+          } else {
+            categoryState.handleClear();
+          }
+        } else {
+          // Single select: clear all
+          categoryState.handleClear();
+        }
+      } else {
+        // Should not happen, but if in 'full' mode, go to outline
+        console.log('[BMDvsPValueScatter] Unexpected state, switching to outline mode');
+        setNonSelectedDisplayMode('outline');
+      }
+    }
+
+    // Return false to prevent default legend toggle behavior
+    return false;
+  }, [traces, data, categoryState, nonSelectedDisplayMode]);
 
   return (
     <div style={{ width: '100%', height: '500px' }}>
@@ -224,7 +324,7 @@ export default function BMDvsPValueScatter() {
           plot_bgcolor: '#fafafa',
           paper_bgcolor: 'white',
           margin: { l: 60, r: 30, t: 50, b: 60 },
-          showlegend: hasSelection, // Only show legend when there's a selection
+          showlegend: true, // Always show legend for visibility toggle
           legend: {
             x: 1.02,
             y: 1,
@@ -245,6 +345,7 @@ export default function BMDvsPValueScatter() {
           },
         }}
         onClick={handlePlotClick}
+        onLegendClick={handleLegendClick}
         style={{ width: '100%', height: '100%' }}
       />
     </div>
