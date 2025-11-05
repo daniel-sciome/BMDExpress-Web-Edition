@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Card, Tag, Spin } from 'antd';
+import { Card, Tag, Spin, Collapse } from 'antd';
 import { Icon } from '@vaadin/react-components';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
 import VennDiagram from '../components/charts/VennDiagram';
+import AccumulationChartsComparison from '../components/charts/AccumulationChartsComparison';
+
+const { Panel } = Collapse;
 
 interface CategoryAnalysisMultisetViewProps {
   projectId: string;
@@ -141,32 +144,29 @@ export default function CategoryAnalysisMultisetView({
             ))}
           </div>
           <div style={{ marginTop: '1rem', color: '#666', fontSize: '13px' }}>
-            Use the Venn diagram below to compare overlapping categories across these results.
+            Use the comparison tools below to analyze overlaps and trends across these results.
           </div>
         </Card>
 
-        {/* Venn Diagram - Moved from CategoryResultsView */}
-        <VennDiagram
-          projectId={projectId}
-          availableResults={availableResults}
-        />
+        {/* Multi-Set Comparison Tools */}
+        <Collapse
+          defaultActiveKey={['venn', 'accumulation']}
+          style={{ marginBottom: '1rem' }}
+        >
+          <Panel header="Venn Diagram - Category Overlap Analysis" key="venn">
+            <VennDiagram
+              projectId={projectId}
+              availableResults={availableResults}
+            />
+          </Panel>
 
-        {/* Future: Other multi-set comparison tools */}
-        <div style={{
-          marginTop: '1rem',
-          padding: '1rem',
-          background: '#f5f5f5',
-          borderRadius: '4px',
-          color: '#666'
-        }}>
-          <strong>Future Multi-Set Comparisons:</strong>
-          <ul style={{ marginTop: '0.5rem', marginBottom: 0 }}>
-            <li>Upset plots for complex set relationships</li>
-            <li>Heatmaps showing category presence across results</li>
-            <li>Statistical overlap significance testing</li>
-            <li>Concordance analysis for shared categories</li>
-          </ul>
-        </div>
+          <Panel header="Accumulation Charts - Multi-Result Comparison" key="accumulation">
+            <AccumulationChartsComparison
+              projectId={projectId}
+              availableResults={availableResults}
+            />
+          </Panel>
+        </Collapse>
       </div>
     </div>
   );
