@@ -333,7 +333,7 @@ export default function AccumulationChartsComparison({
           displayModeBar: true,
           displaylogo: false,
           modeBarButtonsToRemove: ['select2d', 'lasso2d'],
-        },
+        } as any,
       };
     }).filter(chart => chart !== null);
   }, [comparisonData, clusterColors, markerSymbols, resultDisplayNames, hasSelection, selectedCluster, nonSelectedDisplayMode]);

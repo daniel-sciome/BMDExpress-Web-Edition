@@ -136,6 +136,11 @@ public class CategoryAnalysisResultDto {
     private String genes;
     private String geneSymbols;
 
+    // BMD lists (semicolon-separated values for violin plots)
+    private String bmdList;
+    private String bmdlList;
+    private String bmduList;
+
     // Default constructor for Hilla
     public CategoryAnalysisResultDto() {
     }
@@ -278,6 +283,11 @@ public class CategoryAnalysisResultDto {
         // Gene lists
         dto.setGenes(result.getGenes());
         dto.setGeneSymbols(result.getGeneSymbols());
+
+        // BMD lists (semicolon-separated values for violin plots)
+        dto.setBmdList(result.getBMDList());
+        dto.setBmdlList(result.getBMDLList());
+        dto.setBmduList(result.getBMDUList());
 
         return dto;
     }
@@ -1060,5 +1070,30 @@ public class CategoryAnalysisResultDto {
 
     public void setGeneSymbols(String geneSymbols) {
         this.geneSymbols = geneSymbols;
+    }
+
+    // BMD lists getters/setters
+    public String getBmdList() {
+        return bmdList;
+    }
+
+    public void setBmdList(String bmdList) {
+        this.bmdList = bmdList;
+    }
+
+    public String getBmdlList() {
+        return bmdlList;
+    }
+
+    public void setBmdlList(String bmdlList) {
+        this.bmdlList = bmdlList;
+    }
+
+    public String getBmduList() {
+        return bmduList;
+    }
+
+    public void setBmduList(String bmduList) {
+        this.bmduList = bmduList;
     }
 }

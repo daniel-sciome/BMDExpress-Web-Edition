@@ -15,6 +15,7 @@ import BestModelsPieChart from './charts/BestModelsPieChart';
 import PathwayCurveViewer from './PathwayCurveViewer';
 import UmapScatterPlot from './charts/UmapScatterPlot';
 import MasterFilter from './MasterFilter';
+import ViolinPlotPerCategory from './charts/ViolinPlotPerCategory';
 
 interface CategoryResultsViewProps {
   projectId: string;
@@ -288,11 +289,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
               visibleCharts.includes('12') && {
                 key: '12',
                 label: 'Violin Plot Per Category',
-                children: (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-                    Violin Plot Per Category - Coming Soon
-                  </div>
-                ),
+                children: <ViolinPlotPerCategory key={`${projectId}-${resultName}`} />,
               },
               visibleCharts.includes('13') && {
                 key: '13',
