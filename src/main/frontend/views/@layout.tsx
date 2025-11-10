@@ -27,7 +27,7 @@ function SidebarNav() {
         color: '#666',
         borderBottom: '1px solid #e0e0e0'
       }}>
-        Available Projects
+        BMD Express 3 Projects
       </h3>
       <ProjectTreeSidebar />
     </div>
@@ -38,9 +38,24 @@ export default function MainLayout() {
   return (
     <ErrorBoundary>
       <Provider store={store}>
+        <style>
+          {`
+            /* Wider sidebar drawer */
+            vaadin-app-layout::part(drawer) {
+              width: 300px;
+            }
+
+            /* Ensure scroller has proper overflow */
+            vaadin-scroller {
+              height: 100%;
+              overflow-y: auto;
+              overflow-x: hidden;
+            }
+          `}
+        </style>
         <AppLayout primarySection="drawer">
           <Header />
-          <Scroller slot="drawer">
+          <Scroller slot="drawer" style={{ height: '100%' }}>
             <SidebarNav />
           </Scroller>
           <Suspense fallback={<ProgressBar indeterminate={true} className="m-0" />}>
