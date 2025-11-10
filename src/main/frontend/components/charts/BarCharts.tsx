@@ -4,6 +4,7 @@ import { Row, Col } from 'antd';
 import { useAppSelector } from '../../store/hooks';
 import { selectChartData } from '../../store/slices/categoryResultsSlice';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
+import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 export default function BarCharts() {
   const data = useAppSelector(selectChartData);
@@ -82,25 +83,19 @@ export default function BarCharts() {
         xaxis: {
           title: { text: 'Value' },
           type: 'log',
-          gridcolor: '#e0e0e0',
+          gridcolor: DEFAULT_GRID_COLOR,
         },
         yaxis: {
           title: '',
           autorange: 'reversed',
           tickfont: { size: 9 },
-          gridcolor: '#e0e0e0',
+          gridcolor: DEFAULT_GRID_COLOR,
         },
         height: 500,
         margin: { l: 200, r: 50, t: 50, b: 50 },
-        plot_bgcolor: '#fafafa',
-        paper_bgcolor: 'white',
+        ...DEFAULT_LAYOUT_STYLES,
       },
-      config: {
-        responsive: true,
-        displayModeBar: true,
-        displaylogo: false,
-        modeBarButtonsToRemove: ['select2d', 'lasso2d'],
-      },
+      config: createPlotlyConfig(),
     }));
 
     setCharts(chartsData);

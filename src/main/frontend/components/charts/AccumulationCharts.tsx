@@ -7,6 +7,7 @@ import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveSt
 import { umapDataService } from 'Frontend/data/umapDataService';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import { useClusterColors, getClusterLabel } from './utils/clusterColors';
+import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 export default function AccumulationCharts() {
   // Get ALL filtered data (after Master Filter)
@@ -311,17 +312,16 @@ export default function AccumulationCharts() {
             title: { text: 'BMD Value' },
             type: 'log',
             range: xAxisRange, // Fixed range based on background data
-            gridcolor: '#e0e0e0',
+            gridcolor: DEFAULT_GRID_COLOR,
           },
           yaxis: {
             title: { text: 'Cumulative Percentage (%)' },
             range: [0, 100],
-            gridcolor: '#e0e0e0',
+            gridcolor: DEFAULT_GRID_COLOR,
           },
           height: 400,
           margin: { l: 70, r: 50, t: 50, b: 50 },
-          plot_bgcolor: '#fafafa',
-          paper_bgcolor: 'white',
+          ...DEFAULT_LAYOUT_STYLES,
           showlegend: true, // Always show legend for reactive interaction
           legend: {
             x: 1,
@@ -329,12 +329,7 @@ export default function AccumulationCharts() {
             y: 1,
           },
         },
-        config: {
-          responsive: true,
-          displayModeBar: true,
-          displaylogo: false,
-          modeBarButtonsToRemove: ['select2d', 'lasso2d'],
-        },
+        config: createPlotlyConfig(),
       };
     }).filter(chart => chart !== null);
 

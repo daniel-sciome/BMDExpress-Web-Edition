@@ -3,6 +3,7 @@ import Plot from 'react-plotly.js';
 import { useAppSelector } from '../../store/hooks';
 import { selectChartData } from '../../store/slices/categoryResultsSlice';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
+import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 export default function BubbleChart() {
   const data = useAppSelector(selectChartData);
@@ -90,26 +91,20 @@ export default function BubbleChart() {
       title: { text: 'BMD Median' },
       type: 'log',
       autorange: true,
-      gridcolor: '#e0e0e0',
+      gridcolor: DEFAULT_GRID_COLOR,
     },
     yaxis: {
       title: { text: '-log10(Fisher Two-Tail P-Value)' },
       autorange: true,
-      gridcolor: '#e0e0e0',
+      gridcolor: DEFAULT_GRID_COLOR,
     },
     height: 600,
     hovermode: 'closest',
-    plot_bgcolor: '#fafafa',
-    paper_bgcolor: 'white',
+    ...DEFAULT_LAYOUT_STYLES,
     showlegend: false,
   };
 
-  const config: any = {
-    responsive: true,
-    displayModeBar: true,
-    displaylogo: false,
-    modeBarButtonsToRemove: ['select2d', 'lasso2d'],
-  };
+  const config = createPlotlyConfig();
 
   return (
     <div style={{ width: '100%' }}>

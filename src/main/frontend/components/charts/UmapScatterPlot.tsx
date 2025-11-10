@@ -11,6 +11,7 @@ import { selectFilteredData } from 'Frontend/store/slices/categoryResultsSlice';
 import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveState';
 import { umapDataService } from 'Frontend/data/umapDataService';
 import { useClusterColors, getClusterLabel } from './utils/clusterColors';
+import { createPlotlyConfig } from './utils/plotlyConfig';
 import type { ReferenceUmapItem } from 'Frontend/data/referenceUmapData';
 
 interface UmapScatterPlotProps {
@@ -319,14 +320,11 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
     margin: { l: 60, r: 200, t: 80, b: 60 },
   };
 
-  // Config for Plotly
-  const config: any = {
-    displayModeBar: true,
+  // Config for Plotly - custom button removal for UMAP selection
+  const config = createPlotlyConfig({
     modeBarButtonsToAdd: [],
     modeBarButtonsToRemove: ['autoScale2d'],
-    displaylogo: false,
-    responsive: true,
-  };
+  });
 
   return (
     <Card

@@ -5,6 +5,7 @@ import { selectChartData } from '../../store/slices/categoryResultsSlice';
 import { umapDataService } from 'Frontend/data/umapDataService';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import { useClusterColors } from './utils/clusterColors';
+import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 export default function RangePlot() {
   const data = useAppSelector(selectChartData);
@@ -135,19 +136,18 @@ export default function RangePlot() {
       title: { text: 'BMD Value' },
       type: 'log',
       autorange: true,
-      gridcolor: '#e0e0e0',
+      gridcolor: DEFAULT_GRID_COLOR,
     },
     yaxis: {
       title: { text: 'Pathway/Category' },
       autorange: 'reversed', // Most significant at top
-      gridcolor: '#e0e0e0',
+      gridcolor: DEFAULT_GRID_COLOR,
       tickfont: { size: 10 },
     },
     height: Math.max(500, plotData[0]?.y?.length * 25 || 500),
     margin: { l: 300, r: 50, t: 80, b: 80 },
     hovermode: 'closest',
-    plot_bgcolor: '#fafafa',
-    paper_bgcolor: 'white',
+    ...DEFAULT_LAYOUT_STYLES,
     showlegend: true,
     legend: {
       x: 1.02,
@@ -156,12 +156,7 @@ export default function RangePlot() {
     },
   };
 
-  const config: any = {
-    responsive: true,
-    displayModeBar: true,
-    displaylogo: false,
-    modeBarButtonsToRemove: ['select2d', 'lasso2d'],
-  };
+  const config = createPlotlyConfig();
 
   return (
     <div style={{ width: '100%' }}>

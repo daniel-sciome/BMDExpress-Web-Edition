@@ -5,6 +5,7 @@ import { selectChartData } from '../../store/slices/categoryResultsSlice';
 import { umapDataService } from 'Frontend/data/umapDataService';
 import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveState';
 import { useClusterColors, getClusterLabel } from './utils/clusterColors';
+import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 export default function BMDvsPValueScatter() {
   // Use reactive state hook to sync with UMAP
@@ -290,16 +291,15 @@ export default function BMDvsPValueScatter() {
             title: 'BMD Mean',
             type: 'log',
             range: xRange, // Fixed range based on all data
-            gridcolor: '#e0e0e0',
+            gridcolor: DEFAULT_GRID_COLOR,
           },
           yaxis: {
             title: '-log10(Fisher Exact P-Value)',
             range: yRange, // Fixed range based on all data
-            gridcolor: '#e0e0e0',
+            gridcolor: DEFAULT_GRID_COLOR,
           },
           hovermode: 'closest',
-          plot_bgcolor: '#fafafa',
-          paper_bgcolor: 'white',
+          ...DEFAULT_LAYOUT_STYLES,
           margin: { l: 60, r: 30, t: 50, b: 60 },
           showlegend: true, // Always show legend for visibility toggle
           legend: {
@@ -309,18 +309,7 @@ export default function BMDvsPValueScatter() {
             yanchor: 'top',
           },
         } as any}
-        config={{
-          displayModeBar: true,
-          displaylogo: false,
-          modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-          toImageButtonOptions: {
-            format: 'png',
-            filename: 'bmd_vs_pvalue_scatter',
-            height: 1000,
-            width: 1200,
-            scale: 2,
-          },
-        }}
+        config={createPlotlyConfigWithExport('bmd_vs_pvalue_scatter')}
         onClick={handlePlotClick}
         onLegendClick={handleLegendClick}
         style={{ width: '100%', height: '100%' }}

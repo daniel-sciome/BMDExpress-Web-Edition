@@ -18,6 +18,7 @@ import { umapDataService } from 'Frontend/data/umapDataService';
 import { Alert, Select } from 'antd';
 import { useClusterColors } from './utils/clusterColors';
 import ClusterLegend from './ClusterLegend';
+import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 const { Option } = Select;
 
@@ -253,24 +254,11 @@ export default function ViolinPlotPerCategory() {
           },
           height: 600,
           margin: { l: 70, r: 50, t: 80, b: 350 },
-          plot_bgcolor: '#fafafa',
-          paper_bgcolor: 'white',
+          ...DEFAULT_LAYOUT_STYLES,
           showlegend: false, // Each violin is unique, no need for legend
           violinmode: 'group',
         } as any}
-        config={{
-          responsive: true,
-          displayModeBar: true,
-          displaylogo: false,
-          modeBarButtonsToRemove: ['select2d', 'lasso2d'],
-          toImageButtonOptions: {
-            format: 'png',
-            filename: 'violin_plot_per_category',
-            height: 1000,
-            width: 1600,
-            scale: 2,
-          },
-        } as any}
+        config={createPlotlyConfigWithExport('violin_plot_per_category', 'wide') as any}
         style={{ width: '100%', height: '100%' }}
         useResizeHandler={true}
       />

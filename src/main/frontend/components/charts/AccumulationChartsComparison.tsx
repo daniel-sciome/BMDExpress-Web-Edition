@@ -15,6 +15,7 @@ import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import Plot from 'react-plotly.js';
 import { umapDataService } from 'Frontend/data/umapDataService';
 import { useClusterColors, getClusterLabel } from './utils/clusterColors';
+import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 const { Option } = Select;
 
@@ -286,17 +287,16 @@ export default function AccumulationChartsComparison({
             title: { text: 'BMD Value' },
             type: 'log',
             range: xAxisRange,
-            gridcolor: '#e0e0e0',
+            gridcolor: DEFAULT_GRID_COLOR,
           },
           yaxis: {
             title: { text: 'Cumulative Percentage (%)' },
             range: [0, 100],
-            gridcolor: '#e0e0e0',
+            gridcolor: DEFAULT_GRID_COLOR,
           },
           height: 400,
           margin: { l: 70, r: 50, t: 50, b: 50 },
-          plot_bgcolor: '#fafafa',
-          paper_bgcolor: 'white',
+          ...DEFAULT_LAYOUT_STYLES,
           showlegend: true, // Show cluster legend
           legend: {
             x: 1.02,
@@ -305,12 +305,7 @@ export default function AccumulationChartsComparison({
             yanchor: 'top',
           },
         } as any,
-        config: {
-          responsive: true,
-          displayModeBar: true,
-          displaylogo: false,
-          modeBarButtonsToRemove: ['select2d', 'lasso2d'],
-        } as any,
+        config: createPlotlyConfig() as any,
       };
     }).filter(chart => chart !== null);
   }, [comparisonData, clusterColors, markerSymbols, resultDisplayNames, hasSelection, selectedCluster, nonSelectedDisplayMode]);
@@ -398,7 +393,7 @@ export default function AccumulationChartsComparison({
                 <Plot
                   data={chart.data}
                   layout={chart.layout}
-                  config={chart.config}
+                  config={chart.config as any}
                   style={{ width: '100%', height: '100%' }}
                   useResizeHandler={true}
                   onLegendClick={handleLegendClick}

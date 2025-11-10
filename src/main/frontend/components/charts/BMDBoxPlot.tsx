@@ -7,6 +7,7 @@ import { umapDataService } from 'Frontend/data/umapDataService';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import type { RootState } from '../../store/store';
 import { useClusterColors } from './utils/clusterColors';
+import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 export default function BMDBoxPlot() {
   const data = useSelector(selectChartData);
@@ -257,8 +258,7 @@ export default function BMDBoxPlot() {
             tickvals: [0, 1, 2],
             ticktext: ['BMD Mean', 'BMDL Mean', 'BMDU Mean'],
           },
-          plot_bgcolor: '#fafafa',
-          paper_bgcolor: 'white',
+          ...DEFAULT_LAYOUT_STYLES,
           margin: { l: 60, r: 30, t: 80, b: 60 },
           showlegend: true,
           legend: {
@@ -269,17 +269,7 @@ export default function BMDBoxPlot() {
           },
           boxmode: 'overlay', // Allow scatter points to overlay boxes
         } as any}
-        config={{
-          displayModeBar: true,
-          displaylogo: false,
-          toImageButtonOptions: {
-            format: 'png',
-            filename: 'bmd_box_plot',
-            height: 1000,
-            width: 1200,
-            scale: 2,
-          },
-        }}
+        config={createPlotlyConfigWithExport('bmd_box_plot')}
         style={{ width: '100%', height: '100%' }}
       />
       </div>

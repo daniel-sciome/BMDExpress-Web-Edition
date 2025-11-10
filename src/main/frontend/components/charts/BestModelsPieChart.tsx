@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Plot from 'react-plotly.js';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
+import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES } from './utils/plotlyConfig';
 
 interface BestModelsPieChartProps {
   projectId: string;
@@ -92,15 +93,10 @@ export default function BestModelsPieChart({ projectId, resultName }: BestModels
       x: 1.05,
       y: 0.5,
     },
-    paper_bgcolor: 'white',
+    ...DEFAULT_LAYOUT_STYLES,
   };
 
-  const config: any = {
-    responsive: true,
-    displayModeBar: true,
-    displaylogo: false,
-    modeBarButtonsToRemove: ['select2d', 'lasso2d'],
-  };
+  const config = createPlotlyConfig();
 
   return (
     <div style={{ width: '100%' }}>
