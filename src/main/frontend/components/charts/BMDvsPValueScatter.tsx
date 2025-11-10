@@ -3,6 +3,7 @@ import Plot from 'react-plotly.js';
 import { useSelector } from 'react-redux';
 import { selectChartData } from '../../store/slices/categoryResultsSlice';
 import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveState';
+import { useNonSelectedDisplayMode } from 'Frontend/components/charts/hooks/useNonSelectedDisplayMode';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
@@ -10,9 +11,10 @@ export default function BMDvsPValueScatter() {
   // Use reactive state hook to sync with UMAP
   const categoryState = useReactiveState('categoryId');
   const data = useSelector(selectChartData);
+  const hasSelection = categoryState.selectedIds.size > 0;
 
   // Non-selected cluster display mode (same as UMAP)
-  const [nonSelectedDisplayMode, setNonSelectedDisplayMode] = React.useState<'full' | 'outline' | 'hidden'>('full');
+  const [nonSelectedDisplayMode, setNonSelectedDisplayMode] = useNonSelectedDisplayMode(hasSelection);
 
   // Background visibility state: 'full' -> 'dimmed' -> 'hidden' -> 'full'
   const [backdropVisibility, setBackdropVisibility] = React.useState<'full' | 'dimmed' | 'hidden'>('full');
@@ -29,15 +31,6 @@ export default function BMDvsPValueScatter() {
   });
   const textData = data.map(row => row.categoryDescription || row.categoryId || 'Unknown');
   const categoryIds = data.map(row => row.categoryId || '');
-
-  const hasSelection = categoryState.selectedIds.size > 0;
-
-  // Reset display mode when selection is cleared
-  React.useEffect(() => {
-    if (!hasSelection) {
-      setNonSelectedDisplayMode('full');
-    }
-  }, [hasSelection]);
 
   // Calculate fixed axis ranges from all data
   const xRange = useMemo(() => {

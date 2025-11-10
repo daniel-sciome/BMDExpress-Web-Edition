@@ -14,6 +14,7 @@ import { Card, Select, Button, Alert, Spin, Row, Col } from 'antd';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import Plot from 'react-plotly.js';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
+import { useNonSelectedDisplayMode } from './hooks/useNonSelectedDisplayMode';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 const { Option } = Select;
@@ -35,18 +36,11 @@ export default function AccumulationChartsComparison({
 
   // Cluster selection state (shared across all charts)
   const [selectedCluster, setSelectedCluster] = useState<string | number | null>(null);
-  const [nonSelectedDisplayMode, setNonSelectedDisplayMode] = useState<'full' | 'outline' | 'hidden'>('full');
+  const hasSelection = selectedCluster !== null;
+  const [nonSelectedDisplayMode, setNonSelectedDisplayMode] = useNonSelectedDisplayMode(hasSelection);
 
   // Marker symbols for different datasets
   const markerSymbols = ['circle', 'square', 'diamond', 'cross', 'triangle-up'];
-
-  // Reset display mode when selection is cleared
-  const hasSelection = selectedCluster !== null;
-  useEffect(() => {
-    if (!hasSelection) {
-      setNonSelectedDisplayMode('full');
-    }
-  }, [hasSelection]);
 
   // Get cluster colors using shared utility
   const clusterColors = useClusterColors();

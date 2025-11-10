@@ -9,6 +9,7 @@ import { ClearOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useAppSelector } from 'Frontend/store/hooks';
 import { selectFilteredData } from 'Frontend/store/slices/categoryResultsSlice';
 import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveState';
+import { useNonSelectedDisplayMode } from 'Frontend/components/charts/hooks/useNonSelectedDisplayMode';
 import { umapDataService } from 'Frontend/data/umapDataService';
 import { useClusterColors, getClusterLabel } from './utils/clusterColors';
 import { createPlotlyConfig } from './utils/plotlyConfig';
@@ -27,12 +28,13 @@ interface UmapScatterPlotProps {
 export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) {
   // Phase 4: Use reactive state hook - UMAP reacts to category selections
   const categoryState = useReactiveState('categoryId');
+  const hasSelection = categoryState.selectedIds.size > 0;
 
   // Reference space visibility state: 'full' -> 'dimmed' -> 'hidden' -> 'full'
   const [backdropVisibility, setBackdropVisibility] = React.useState<'full' | 'dimmed' | 'hidden'>('full');
 
   // Non-selected cluster display mode: 'full' -> 'outline' -> 'hidden' when selection exists
-  const [nonSelectedDisplayMode, setNonSelectedDisplayMode] = React.useState<'full' | 'outline' | 'hidden'>('full');
+  const [nonSelectedDisplayMode, setNonSelectedDisplayMode] = useNonSelectedDisplayMode(hasSelection);
 
   // Get FILTERED analysis results (after Master Filter is applied)
   const filteredCategories = useAppSelector(selectFilteredData);
@@ -112,8 +114,6 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
 
     // Create a trace for each cluster (filtered points with reactive styling)
     Array.from(filteredClusterGroups.entries()).forEach(([clusterId, points]) => {
-      const hasSelection = categoryState.selectedIds.size > 0;
-
       // Check if ANY category from this cluster is selected
       const isClusterSelected = hasSelection && points.some(p => categoryState.isSelected(p.go_id));
 

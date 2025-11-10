@@ -4,6 +4,7 @@ import { Row, Col } from 'antd';
 import { useAppSelector } from '../../store/hooks';
 import { selectFilteredData } from '../../store/slices/categoryResultsSlice';
 import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveState';
+import { useNonSelectedDisplayMode } from 'Frontend/components/charts/hooks/useNonSelectedDisplayMode';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
@@ -14,22 +15,15 @@ export default function AccumulationCharts() {
 
   // Get selection state using reactive infrastructure
   const categoryState = useReactiveState('categoryId');
+  const hasSelection = categoryState.selectedIds.size > 0;
 
   // Non-selected cluster display mode (same as UMAP)
-  const [nonSelectedDisplayMode, setNonSelectedDisplayMode] = useState<'full' | 'outline' | 'hidden'>('full');
+  const [nonSelectedDisplayMode, setNonSelectedDisplayMode] = useNonSelectedDisplayMode(hasSelection);
 
   // Outliers visibility toggle (simple on/off)
   const [outliersVisible, setOutliersVisible] = useState<boolean>(true);
 
   const [charts, setCharts] = useState<any[]>([]);
-
-  // Reset display mode when selection is cleared
-  const hasSelection = categoryState.selectedIds.size > 0;
-  useEffect(() => {
-    if (!hasSelection) {
-      setNonSelectedDisplayMode('full');
-    }
-  }, [hasSelection]);
 
   // Debug logging
   useEffect(() => {
