@@ -7,7 +7,7 @@
 
 import type { ColumnsType } from 'antd/es/table';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
-import { umapDataService } from 'Frontend/data/umapDataService';
+import { getClusterIdForCategory } from 'Frontend/components/charts/utils/clusterColors';
 
 /**
  * Get the fixed columns (Cluster, Category ID, and Description)
@@ -26,12 +26,12 @@ export function getFixedColumns(): ColumnsType<CategoryAnalysisResultDto> {
       width: 50,
       fixed: 'left',
       render: (categoryId: string) => {
-        const umapData = umapDataService.getByGoId(categoryId);
-        return umapData?.cluster_id ?? '-';
+        const clusterId = getClusterIdForCategory(categoryId);
+        return clusterId === -1 ? '-' : clusterId;
       },
       sorter: (a, b) => {
-        const clusterA = Number(umapDataService.getByGoId(a.categoryId || '')?.cluster_id ?? -999);
-        const clusterB = Number(umapDataService.getByGoId(b.categoryId || '')?.cluster_id ?? -999);
+        const clusterA = getClusterIdForCategory(a.categoryId);
+        const clusterB = getClusterIdForCategory(b.categoryId);
         return clusterA - clusterB;
       },
     },

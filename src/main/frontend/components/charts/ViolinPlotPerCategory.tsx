@@ -14,9 +14,8 @@ import React, { useMemo, useState } from 'react';
 import Plot from 'react-plotly.js';
 import { useSelector } from 'react-redux';
 import { selectChartData } from '../../store/slices/categoryResultsSlice';
-import { umapDataService } from 'Frontend/data/umapDataService';
 import { Alert, Select } from 'antd';
-import { useClusterColors } from './utils/clusterColors';
+import { useClusterColors, getClusterIdForCategory } from './utils/clusterColors';
 import ClusterLegend from './ClusterLegend';
 import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 import { parseSemicolonNumericList } from 'Frontend/utils/dtoParsingUtils';
@@ -78,8 +77,7 @@ export default function ViolinPlotPerCategory() {
     // Filter out categories from hidden clusters
     const visibleData = data.filter((row) => {
       const categoryId = row.categoryId || '';
-      const umapItem = umapDataService.getByGoId(categoryId);
-      const clusterId = umapItem?.cluster_id ?? -1;
+      const clusterId = getClusterIdForCategory(categoryId);
       return !hiddenClusters.has(clusterId);
     });
 
@@ -118,8 +116,7 @@ export default function ViolinPlotPerCategory() {
       if (values.length === 0) return;
 
       // Get cluster color
-      const umapItem = umapDataService.getByGoId(categoryId);
-      const clusterId = umapItem?.cluster_id ?? -1;
+      const clusterId = getClusterIdForCategory(categoryId);
       const color = clusterColors[clusterId] || '#999999';
 
       // Truncate category description to 20 characters for x-axis label

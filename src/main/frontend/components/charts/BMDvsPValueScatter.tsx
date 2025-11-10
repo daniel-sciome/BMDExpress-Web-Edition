@@ -2,9 +2,8 @@ import React, { useMemo, useCallback } from 'react';
 import Plot from 'react-plotly.js';
 import { useSelector } from 'react-redux';
 import { selectChartData } from '../../store/slices/categoryResultsSlice';
-import { umapDataService } from 'Frontend/data/umapDataService';
 import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveState';
-import { useClusterColors, getClusterLabel } from './utils/clusterColors';
+import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 export default function BMDvsPValueScatter() {
@@ -91,8 +90,7 @@ export default function BMDvsPValueScatter() {
     // Layer 2: Cluster traces with reactive styling
     const byCluster = new Map<string | number, number[]>();
     data.forEach((row, idx) => {
-      const umapItem = umapDataService.getByGoId(row.categoryId || '');
-      const clusterId = umapItem?.cluster_id ?? -1;
+      const clusterId = getClusterIdForCategory(row.categoryId);
 
       if (!byCluster.has(clusterId)) {
         byCluster.set(clusterId, []);
@@ -219,8 +217,7 @@ export default function BMDvsPValueScatter() {
     // Find all category IDs in this cluster
     const categoriesInCluster = data
       .filter(row => {
-        const umapItem = umapDataService.getByGoId(row.categoryId || '');
-        const rowClusterId = umapItem?.cluster_id ?? -1;
+        const rowClusterId = getClusterIdForCategory(row.categoryId);
         return String(rowClusterId) === clusterId;
       })
       .map(row => row.categoryId)

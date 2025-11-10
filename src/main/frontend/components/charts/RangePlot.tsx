@@ -2,9 +2,8 @@ import React, { useEffect, useState, useMemo } from 'react';
 import Plot from 'react-plotly.js';
 import { useAppSelector } from '../../store/hooks';
 import { selectChartData } from '../../store/slices/categoryResultsSlice';
-import { umapDataService } from 'Frontend/data/umapDataService';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
-import { useClusterColors } from './utils/clusterColors';
+import { useClusterColors, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 export default function RangePlot() {
@@ -48,8 +47,7 @@ export default function RangePlot() {
     const byCluster = new Map<string | number, CategoryAnalysisResultDto[]>();
 
     topCategories.forEach((row: CategoryAnalysisResultDto) => {
-      const umapItem = umapDataService.getByGoId(row.categoryId || '');
-      const clusterId = umapItem?.cluster_id ?? -1;
+      const clusterId = getClusterIdForCategory(row.categoryId);
 
       if (!byCluster.has(clusterId)) {
         byCluster.set(clusterId, []);

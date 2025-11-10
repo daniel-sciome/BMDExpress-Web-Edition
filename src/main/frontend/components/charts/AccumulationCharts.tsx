@@ -4,9 +4,8 @@ import { Row, Col } from 'antd';
 import { useAppSelector } from '../../store/hooks';
 import { selectFilteredData } from '../../store/slices/categoryResultsSlice';
 import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveState';
-import { umapDataService } from 'Frontend/data/umapDataService';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
-import { useClusterColors, getClusterLabel } from './utils/clusterColors';
+import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 export default function AccumulationCharts() {
@@ -97,8 +96,7 @@ export default function AccumulationCharts() {
     // Find all category IDs in this cluster
     const categoriesInCluster = allData
       .filter(row => {
-        const umapItem = umapDataService.getByGoId(row.categoryId || '');
-        const rowClusterId = umapItem?.cluster_id ?? -1;
+        const rowClusterId = getClusterIdForCategory(row.categoryId);
         return String(rowClusterId) === clusterId;
       })
       .map(row => row.categoryId)
@@ -220,8 +218,7 @@ export default function AccumulationCharts() {
         const byCluster = new Map<string | number, Array<{x: number, y: number, categoryId: string}>>();
 
         allValues.forEach((item, index) => {
-          const umapItem = umapDataService.getByGoId(item.categoryId || '');
-          const clusterId = umapItem?.cluster_id ?? -1;
+          const clusterId = getClusterIdForCategory(item.categoryId);
           const cumulativePercent = ((index + 1) / allValues.length) * 100;
 
           if (!byCluster.has(clusterId)) {

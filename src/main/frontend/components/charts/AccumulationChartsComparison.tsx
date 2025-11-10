@@ -13,8 +13,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, Select, Button, Alert, Spin, Row, Col } from 'antd';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import Plot from 'react-plotly.js';
-import { umapDataService } from 'Frontend/data/umapDataService';
-import { useClusterColors, getClusterLabel } from './utils/clusterColors';
+import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 const { Option } = Select;
@@ -190,8 +189,7 @@ export default function AccumulationChartsComparison({
         const byCluster = new Map<string | number, Array<{x: number, y: number}>>();
 
         allValues.forEach((item: any, index: number) => {
-          const umapItem = umapDataService.getByGoId(item.categoryId || '');
-          const clusterId = umapItem?.cluster_id ?? -1;
+          const clusterId = getClusterIdForCategory(item.categoryId);
           const cumulativePercent = ((index + 1) / allValues.length) * 100;
 
           if (!byCluster.has(clusterId)) {

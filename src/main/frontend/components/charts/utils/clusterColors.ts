@@ -88,3 +88,32 @@ export function useClusterColors(): Record<string | number, string> {
 export function getClusterLabel(clusterId: number | string): string {
   return clusterId === -1 ? 'Outliers' : `Cluster ${clusterId}`;
 }
+
+/**
+ * Get the cluster ID for a given category ID
+ *
+ * Looks up the category in the UMAP data service and returns its cluster assignment.
+ * Returns -1 if the category is not found (treated as outlier).
+ *
+ * @param categoryId - The GO category ID to look up
+ * @returns Cluster ID (number), or -1 for outliers/not found
+ *
+ * @example
+ * const clusterId = getClusterIdForCategory('GO:0008150');
+ * const color = getClusterColor(clusterId);
+ */
+export function getClusterIdForCategory(categoryId: string | undefined | null): number {
+  if (!categoryId) {
+    return -1;
+  }
+
+  const umapItem = umapDataService.getByGoId(categoryId);
+  const clusterId = umapItem?.cluster_id;
+
+  // Ensure we always return a number
+  if (clusterId === undefined || clusterId === null) {
+    return -1;
+  }
+
+  return typeof clusterId === 'string' ? parseInt(clusterId, 10) : clusterId;
+}

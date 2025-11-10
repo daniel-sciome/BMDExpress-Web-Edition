@@ -3,10 +3,9 @@ import Plot from 'react-plotly.js';
 import { useSelector } from 'react-redux';
 import { Button } from 'antd';
 import { selectChartData } from '../../store/slices/categoryResultsSlice';
-import { umapDataService } from 'Frontend/data/umapDataService';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import type { RootState } from '../../store/store';
-import { useClusterColors } from './utils/clusterColors';
+import { useClusterColors, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 export default function BMDBoxPlot() {
@@ -112,8 +111,7 @@ export default function BMDBoxPlot() {
     items.forEach(item => {
       if (item.value === undefined) return;
 
-      const umapItem = umapDataService.getByGoId(item.categoryId || '');
-      const clusterId = umapItem?.cluster_id ?? -1;
+      const clusterId = getClusterIdForCategory(item.categoryId);
 
       if (!byCluster.has(clusterId)) {
         byCluster.set(clusterId, []);
@@ -163,18 +161,15 @@ export default function BMDBoxPlot() {
   // Get all unique cluster IDs from the data
   const clustersInData = new Set<string | number>();
   allValuesWithCategories.bmd.forEach(item => {
-    const umapItem = umapDataService.getByGoId(item.categoryId || '');
-    const clusterId = umapItem?.cluster_id ?? -1;
+    const clusterId = getClusterIdForCategory(item.categoryId);
     clustersInData.add(clusterId);
   });
   allValuesWithCategories.bmdl.forEach(item => {
-    const umapItem = umapDataService.getByGoId(item.categoryId || '');
-    const clusterId = umapItem?.cluster_id ?? -1;
+    const clusterId = getClusterIdForCategory(item.categoryId);
     clustersInData.add(clusterId);
   });
   allValuesWithCategories.bmdu.forEach(item => {
-    const umapItem = umapDataService.getByGoId(item.categoryId || '');
-    const clusterId = umapItem?.cluster_id ?? -1;
+    const clusterId = getClusterIdForCategory(item.categoryId);
     clustersInData.add(clusterId);
   });
 
