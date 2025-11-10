@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Tabs } from 'antd';
-import { useAppSelector, useAppDispatch } from '../store/hooks';
-import { setSelectedCategoryResult } from '../store/slices/navigationSlice';
+import { useAppSelector } from '../store/hooks';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
 import CategoryResultsView from '../components/CategoryResultsView';
@@ -10,10 +8,9 @@ import { Icon } from '@vaadin/react-components';
 
 /**
  * Library View - Displays category results based on sidebar selection
- * Shows tabs for all category results in the selected project
+ * Directly shows the selected result without tabs (navigation handled by sidebar tree)
  */
 export default function LibraryView() {
-  const dispatch = useAppDispatch();
   const selectedProject = useAppSelector((state) => state.navigation.selectedProject);
   const selectedAnalysisType = useAppSelector((state) => state.navigation.selectedAnalysisType);
   const selectedCategoryResult = useAppSelector((state) => state.navigation.selectedCategoryResult);
@@ -43,10 +40,6 @@ export default function LibraryView() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleTabChange = (activeKey: string) => {
-    dispatch(setSelectedCategoryResult(activeKey));
   };
 
   // No selection - show welcome message
@@ -148,48 +141,33 @@ export default function LibraryView() {
     );
   }
 
-  // Build tab items using annotations
-  const tabItems = annotations.map((annotation) => ({
-    key: annotation.fullName || '',
-    label: annotation.parseSuccess && annotation.displayName ? annotation.displayName : annotation.fullName,
-    children: (
-      <div style={{ height: '100%' }}>
+  // Individual category result selected - show directly (no tabs needed, sidebar handles navigation)
+  if (selectedCategoryResult) {
+    return (
+      <div className="h-full">
         <CategoryResultsView
           projectId={selectedProject}
-          resultName={annotation.fullName || ''}
+          resultName={selectedCategoryResult}
         />
       </div>
-    ),
-  }));
+    );
+  }
 
-  // Project and category results available - show tabs
+  // Project selected but no specific result - this should not happen with current navigation
   return (
-    <div className="h-full" style={{ display: 'flex', flexDirection: 'column' }}>
-      <div style={{
-        padding: '16px 24px 0 24px',
-        borderBottom: '1px solid #f0f0f0',
-        background: '#fafafa'
-      }}>
-        <h2 className="text-xl font-semibold mb-s flex items-center gap-s">
-          <Icon icon="vaadin:folder-open" style={{ color: '#1890ff' }} />
-          {selectedProject}
-        </h2>
-      </div>
-
-      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <Tabs
-          activeKey={selectedCategoryResult || ''}
-          onChange={handleTabChange}
-          items={tabItems}
-          style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
-          tabBarStyle={{
-            margin: 0,
-            paddingLeft: '24px',
-            paddingRight: '24px',
-            background: 'white',
-            flexShrink: 0
-          }}
+    <div className="flex items-center justify-center h-full">
+      <div className="text-center" style={{ maxWidth: '600px', padding: '2rem' }}>
+        <Icon
+          icon="vaadin:folder-open"
+          style={{ fontSize: '4rem', color: '#1890ff' }}
+          className="mb-m"
         />
+        <h2 className="text-2xl font-bold mb-m">
+          Project: {selectedProject}
+        </h2>
+        <p className="text-secondary text-l">
+          Select a category analysis result from the sidebar.
+        </p>
       </div>
     </div>
   );

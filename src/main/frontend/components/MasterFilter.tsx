@@ -25,7 +25,30 @@ const DEFAULT_FILTERS: MasterFilterState = {
   allGenesMax: 500,
 };
 
-export default function MasterFilter() {
+interface MasterFilterProps {
+  hideCard?: boolean; // When true, renders content without Card wrapper
+}
+
+/**
+ * Master Filter Title Component
+ * Exported for use in Collapse headers
+ */
+export function MasterFilterTitle({ activeCount }: { activeCount: number }) {
+  return (
+    <Space>
+      <FilterOutlined />
+      <span>Master Filters</span>
+      {activeCount > 0 && (
+        <Badge count={activeCount} style={{ backgroundColor: '#52c41a' }} />
+      )}
+      <Tooltip title="Filter categories across all visualizations. Filters are global and persist across analyses. Default: Percentage ≥5%, Genes Passed ≥3, All Genes 40-500. Use 'Reset' to restore defaults, 'Show All' to remove all filters. Not applied to GENE analyses.">
+        <InfoCircleOutlined style={{ color: '#1890ff', cursor: 'help' }} />
+      </Tooltip>
+    </Space>
+  );
+}
+
+export default function MasterFilter({ hideCard = false }: MasterFilterProps) {
   const dispatch = useAppDispatch();
   const currentFilters = useAppSelector(state => state.categoryResults.filters);
 
@@ -101,23 +124,7 @@ export default function MasterFilter() {
     }));
   };
 
-  return (
-    <Card
-      title={
-        <Space>
-          <FilterOutlined />
-          <span>Master Filters</span>
-          {activeFilterCount > 0 && (
-            <Badge count={activeFilterCount} style={{ backgroundColor: '#52c41a' }} />
-          )}
-          <Tooltip title="Filter categories across all visualizations. Filters are global and persist across analyses. Default: Percentage ≥5%, Genes Passed ≥3, All Genes 40-500. Use 'Reset' to restore defaults, 'Show All' to remove all filters. Not applied to GENE analyses.">
-            <InfoCircleOutlined style={{ color: '#1890ff', cursor: 'help' }} />
-          </Tooltip>
-        </Space>
-      }
-      style={{ marginBottom: 16 }}
-      size="small"
-    >
+  const filterContent = (
       <Row gutter={[16, 16]} align="middle">
         {/* Percentage Min */}
         <Col xs={24} sm={12} md={6}>
@@ -215,6 +222,20 @@ export default function MasterFilter() {
           </Space>
         </Col>
       </Row>
+  );
+
+  // Render with or without Card wrapper based on hideCard prop
+  if (hideCard) {
+    return filterContent;
+  }
+
+  return (
+    <Card
+      title={<MasterFilterTitle activeCount={activeFilterCount} />}
+      style={{ marginBottom: 16 }}
+      size="small"
+    >
+      {filterContent}
     </Card>
   );
 }

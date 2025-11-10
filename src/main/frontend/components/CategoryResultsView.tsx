@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Spin, Row, Col, Tag, Collapse, Checkbox } from 'antd';
+import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip } from 'antd';
+import { FileTextOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadCategoryResults, loadAnalysisParameters, setAnalysisType } from '../store/slices/categoryResultsSlice';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
@@ -14,7 +15,7 @@ import AccumulationCharts from './charts/AccumulationCharts';
 import BestModelsPieChart from './charts/BestModelsPieChart';
 import PathwayCurveViewer from './PathwayCurveViewer';
 import UmapScatterPlot from './charts/UmapScatterPlot';
-import MasterFilter from './MasterFilter';
+import MasterFilter, { MasterFilterTitle } from './MasterFilter';
 import ViolinPlotPerCategory from './charts/ViolinPlotPerCategory';
 
 interface CategoryResultsViewProps {
@@ -22,11 +23,35 @@ interface CategoryResultsViewProps {
   resultName: string;
 }
 
+/**
+ * Analysis Parameters Title Component
+ * Styled header for Analysis Parameters collapse section
+ */
+function AnalysisParametersTitle({ paramCount }: { paramCount: number }) {
+  return (
+    <Space>
+      <FileTextOutlined />
+      <span>Analysis Parameters</span>
+      {paramCount > 0 && (
+        <Badge count={paramCount} style={{ backgroundColor: '#1890ff' }} />
+      )}
+      <Tooltip title="Configuration parameters used for this BMD analysis. These settings define the statistical methods, thresholds, and options applied during the benchmark dose modeling process.">
+        <InfoCircleOutlined style={{ color: '#1890ff', cursor: 'help' }} />
+      </Tooltip>
+    </Space>
+  );
+}
+
 export default function CategoryResultsView({ projectId, resultName }: CategoryResultsViewProps) {
   const dispatch = useAppDispatch();
   const { loading, error, data, analysisParameters, filters } = useAppSelector((state) => state.categoryResults);
   const [annotation, setAnnotation] = useState<AnalysisAnnotationDto | null>(null);
   const [visibleCharts, setVisibleCharts] = useState(['1']); // Default Charts visible by default
+
+  // Calculate active filter count for Master Filter title
+  const activeFilterCount = Object.entries(filters).filter(
+    ([_, value]) => value !== undefined && value !== null
+  ).length;
 
   // Debug logging for component mounting and props changes
   useEffect(() => {
@@ -112,7 +137,6 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
       {annotation && annotation.parseSuccess ? (
         <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
           <h2 style={{ marginBottom: '0.5rem' }}>{annotation.chemical || 'Unknown Chemical'}</h2>
-          <h3 style={{ marginBottom: '0.5rem', fontWeight: 'normal', color: '#666' }}>{annotation.displayName}</h3>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
             {annotation.sex && (
               <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {annotation.sex}</Tag>
@@ -130,19 +154,26 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
               <Tag color="magenta" style={{ fontSize: '13px' }}>Analysis: {annotation.analysisType}</Tag>
             )}
           </div>
-          {/* Analysis Parameters */}
+          {/* Analysis Parameters - Collapsible */}
           {analysisParameters && analysisParameters.length > 0 && (
             <div style={{ marginBottom: '8px' }}>
-              <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', color: '#666' }}>
-                Analysis Parameters:
-              </div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {analysisParameters.map((param, index) => (
-                  <Tag key={index} color="geekblue" style={{ fontSize: '12px', margin: 0 }}>
-                    {param}
-                  </Tag>
-                ))}
-              </div>
+              <Collapse
+                size="small"
+                items={[{
+                  key: 'params',
+                  label: <AnalysisParametersTitle paramCount={analysisParameters.length} />,
+                  children: (
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {analysisParameters.map((param, index) => (
+                        <Tag key={index} color="geekblue" style={{ fontSize: '12px', margin: 0 }}>
+                          {param}
+                        </Tag>
+                      ))}
+                    </div>
+                  ),
+                }]}
+                style={{ background: '#fafafa' }}
+              />
             </div>
           )}
           <p style={{ margin: '0 0 0 0', color: '#888', fontSize: '12px' }}>
@@ -158,10 +189,18 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         </div>
       )}
 
-      {/* Master Filter - Phase 1 (skip for GENE analyses) */}
+      {/* Master Filter - Collapsible (skip for GENE analyses) */}
       {annotation && annotation.analysisType !== 'GENE' && (
         <div style={{ padding: '0 1rem', flexShrink: 0 }}>
-          <MasterFilter />
+          <Collapse
+            size="small"
+            items={[{
+              key: 'masterfilter',
+              label: <MasterFilterTitle activeCount={activeFilterCount} />,
+              children: <MasterFilter hideCard={true} />,
+            }]}
+            style={{ marginBottom: '8px' }}
+          />
         </div>
       )}
 
