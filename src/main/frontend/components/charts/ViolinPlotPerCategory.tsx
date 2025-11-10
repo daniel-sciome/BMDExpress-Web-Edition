@@ -19,6 +19,7 @@ import { Alert, Select } from 'antd';
 import { useClusterColors } from './utils/clusterColors';
 import ClusterLegend from './ClusterLegend';
 import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { parseSemicolonNumericList } from 'Frontend/utils/dtoParsingUtils';
 
 const { Option } = Select;
 
@@ -66,12 +67,7 @@ export default function ViolinPlotPerCategory() {
 
       if (!bmdListStr) return;
 
-      const values = bmdListStr
-        .split(';')
-        .map(v => v.trim())
-        .filter(v => v !== '' && v !== 'NA')
-        .map(v => parseFloat(v))
-        .filter(v => !isNaN(v) && v > 0);
+      const values = parseSemicolonNumericList(bmdListStr);
 
       values.forEach(v => {
         if (v < globalMin) globalMin = v;
@@ -116,13 +112,8 @@ export default function ViolinPlotPerCategory() {
 
       if (!bmdListStr) return;
 
-      // Parse semicolon-separated values
-      const values = bmdListStr
-        .split(';')
-        .map(v => v.trim())
-        .filter(v => v !== '' && v !== 'NA')
-        .map(v => parseFloat(v))
-        .filter(v => !isNaN(v) && v > 0);
+      // Parse semicolon-separated values using shared utility
+      const values = parseSemicolonNumericList(bmdListStr);
 
       if (values.length === 0) return;
 
