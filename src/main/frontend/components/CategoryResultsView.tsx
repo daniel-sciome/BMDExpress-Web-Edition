@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip } from 'antd';
+import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card } from 'antd';
 import { FileTextOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadCategoryResults, loadAnalysisParameters, setAnalysisType } from '../store/slices/categoryResultsSlice';
@@ -46,7 +46,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   const dispatch = useAppDispatch();
   const { loading, error, data, analysisParameters, filters } = useAppSelector((state) => state.categoryResults);
   const [annotation, setAnnotation] = useState<AnalysisAnnotationDto | null>(null);
-  const [visibleCharts, setVisibleCharts] = useState(['1']); // Default Charts visible by default
+  const [visibleCharts, setVisibleCharts] = useState<string[]>([]);
 
   // Calculate active filter count for Master Filter title
   const activeFilterCount = Object.entries(filters).filter(
@@ -130,6 +130,26 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           .ant-tabs-tabpane {
             height: 100%;
           }
+
+          /* Compact Collapse styling */
+          .ant-collapse-borderless {
+            background: transparent !important;
+          }
+          .ant-collapse-borderless > .ant-collapse-item {
+            border-bottom: none !important;
+            margin-bottom: 0 !important;
+          }
+          .ant-collapse-borderless > .ant-collapse-item:last-child {
+            border-radius: 0 !important;
+          }
+          .ant-collapse > .ant-collapse-item > .ant-collapse-header {
+            padding: 2px 12px !important;
+            line-height: 1.1 !important;
+            min-height: 24px !important;
+          }
+          .ant-collapse > .ant-collapse-item {
+            margin-bottom: 0 !important;
+          }
         `}
       </style>
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -156,7 +176,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           </div>
           {/* Analysis Parameters - Collapsible */}
           {analysisParameters && analysisParameters.length > 0 && (
-            <div style={{ marginBottom: '8px' }}>
+            <div style={{ marginBottom: '4px' }}>
               <Collapse
                 size="small"
                 items={[{
@@ -172,7 +192,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                     </div>
                   ),
                 }]}
-                style={{ background: '#fafafa' }}
+                style={{ background: '#fafafa', border: 'none' }}
+                bordered={false}
               />
             </div>
           )}
@@ -199,7 +220,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
               label: <MasterFilterTitle activeCount={activeFilterCount} />,
               children: <MasterFilter hideCard={true} />,
             }]}
-            style={{ marginBottom: '8px' }}
+            style={{ marginBottom: '4px', border: 'none' }}
+            bordered={false}
           />
         </div>
       )}
@@ -212,136 +234,123 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         minHeight: 0,
         padding: '1rem'
       }}>
-        {/* Charts Collection */}
-        <div style={{
-          marginBottom: '1.5rem',
-          border: '1px solid #d9d9d9',
-          borderRadius: '8px',
-          padding: '12px'
-        }}>
-          {/* Chart Visibility Controls */}
-          <div style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid #f0f0f0' }}>
-            <div style={{ marginBottom: '8px', fontWeight: 600, color: '#000' }}>Select Charts to Display:</div>
-            <div style={{ overflowX: 'auto', overflowY: 'hidden' }}>
-              <Checkbox.Group
-                value={visibleCharts}
-                onChange={setVisibleCharts}
-              >
-                <div style={{ display: 'flex', gap: '16px', flexWrap: 'nowrap', minWidth: 'max-content' }}>
-                  <Checkbox value="1">Default Charts</Checkbox>
-                  <Checkbox value="2">UMAP Semantic Space</Checkbox>
-                  <Checkbox value="3">Curve Overlay</Checkbox>
-                  <Checkbox value="4">Range Plot</Checkbox>
-                  <Checkbox value="5">Bubble Chart</Checkbox>
-                  <Checkbox value="6">Best Models Pie</Checkbox>
-                  <Checkbox value="7">Bar Charts</Checkbox>
-                  <Checkbox value="8">Accumulation Charts</Checkbox>
-                  <Checkbox value="9">Mean Histograms</Checkbox>
-                  <Checkbox value="10">Median Histograms</Checkbox>
-                  <Checkbox value="11">BMD vs BMDL Scatter</Checkbox>
-                  <Checkbox value="12">Violin Per Category</Checkbox>
-                  <Checkbox value="13">Global Violin Plot</Checkbox>
-                </div>
-              </Checkbox.Group>
+        {/* Chart Selection Controls */}
+        <div style={{ marginBottom: '1rem' }}>
+          <Checkbox.Group
+            value={visibleCharts}
+            onChange={setVisibleCharts}
+          >
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <Checkbox value="1">Default Charts</Checkbox>
+              <Checkbox value="2">UMAP Semantic Space</Checkbox>
+              <Checkbox value="3">Curve Overlay</Checkbox>
+              <Checkbox value="4">Range Plot</Checkbox>
+              <Checkbox value="5">Bubble Chart</Checkbox>
+              <Checkbox value="6">Best Models Pie</Checkbox>
+              <Checkbox value="7">Bar Charts</Checkbox>
+              <Checkbox value="8">Accumulation Charts</Checkbox>
+              <Checkbox value="9">Mean Histograms</Checkbox>
+              <Checkbox value="10">Median Histograms</Checkbox>
+              <Checkbox value="11">BMD vs BMDL Scatter</Checkbox>
+              <Checkbox value="12">Violin Per Category</Checkbox>
+              <Checkbox value="13">Global Violin Plot</Checkbox>
             </div>
-          </div>
-
-          {/* Chart Panels - Only render checked charts */}
-          <Collapse
-            items={[
-              visibleCharts.includes('1') && {
-                key: '1',
-                label: 'Default Charts',
-                children: (
-                  <Row gutter={16} key={`${projectId}-${resultName}`}>
-                    <Col xs={24} xl={12}>
-                      <BMDvsPValueScatter key={`${projectId}-${resultName}-scatter`} />
-                    </Col>
-                    <Col xs={24} xl={12}>
-                      <BMDBoxPlot key={`${projectId}-${resultName}-box`} />
-                    </Col>
-                  </Row>
-                ),
-              },
-              visibleCharts.includes('2') && {
-                key: '2',
-                label: 'UMAP Semantic Space',
-                children: <UmapScatterPlot key={`${projectId}-${resultName}`} />,
-              },
-              visibleCharts.includes('3') && {
-                key: '3',
-                label: 'Curve Overlay',
-                children: <PathwayCurveViewer key={`${projectId}-${resultName}`} projectId={projectId} resultName={resultName} />,
-              },
-              visibleCharts.includes('4') && {
-                key: '4',
-                label: 'Range Plot',
-                children: <RangePlot key={`${projectId}-${resultName}`} />,
-              },
-              visibleCharts.includes('5') && {
-                key: '5',
-                label: 'Bubble Chart',
-                children: <BubbleChart key={`${projectId}-${resultName}`} />,
-              },
-              visibleCharts.includes('6') && {
-                key: '6',
-                label: 'Best Models Pie Chart',
-                children: <BestModelsPieChart key={`${projectId}-${resultName}`} projectId={projectId} resultName={resultName} />,
-              },
-              visibleCharts.includes('7') && {
-                key: '7',
-                label: 'BMD and BMDL Bar Charts',
-                children: <BarCharts key={`${projectId}-${resultName}`} />,
-              },
-              visibleCharts.includes('8') && {
-                key: '8',
-                label: 'Accumulation Charts',
-                children: <AccumulationCharts key={`${projectId}-${resultName}`} />,
-              },
-              visibleCharts.includes('9') && {
-                key: '9',
-                label: 'Mean Histograms',
-                children: (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-                    Mean Histograms - Coming Soon
-                  </div>
-                ),
-              },
-              visibleCharts.includes('10') && {
-                key: '10',
-                label: 'Median Histograms',
-                children: (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-                    Median Histograms - Coming Soon
-                  </div>
-                ),
-              },
-              visibleCharts.includes('11') && {
-                key: '11',
-                label: 'BMD vs BMDL Scatter Plots',
-                children: (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-                    BMD vs BMDL Scatter Plots - Coming Soon
-                  </div>
-                ),
-              },
-              visibleCharts.includes('12') && {
-                key: '12',
-                label: 'Violin Plot Per Category',
-                children: <ViolinPlotPerCategory key={`${projectId}-${resultName}`} />,
-              },
-              visibleCharts.includes('13') && {
-                key: '13',
-                label: 'Global Violin Plot',
-                children: (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-                    Global Violin Plot - Coming Soon
-                  </div>
-                ),
-              },
-            ].filter(Boolean)}
-          />
+          </Checkbox.Group>
         </div>
+
+        {/* Charts - Direct rendering based on checkbox selection */}
+        {visibleCharts.includes('1') && (
+          <Card size="small" style={{ marginBottom: '1rem' }}>
+            <Row gutter={16} key={`${projectId}-${resultName}`}>
+              <Col xs={24} xl={12}>
+                <BMDvsPValueScatter key={`${projectId}-${resultName}-scatter`} />
+              </Col>
+              <Col xs={24} xl={12}>
+                <BMDBoxPlot key={`${projectId}-${resultName}-box`} />
+              </Col>
+            </Row>
+          </Card>
+        )}
+
+        {visibleCharts.includes('2') && (
+          <Card size="small" style={{ marginBottom: '1rem' }}>
+            <UmapScatterPlot key={`${projectId}-${resultName}`} />
+          </Card>
+        )}
+
+        {visibleCharts.includes('3') && (
+          <Card size="small" style={{ marginBottom: '1rem' }}>
+            <PathwayCurveViewer key={`${projectId}-${resultName}`} projectId={projectId} resultName={resultName} />
+          </Card>
+        )}
+
+        {visibleCharts.includes('4') && (
+          <Card size="small" style={{ marginBottom: '1rem' }}>
+            <RangePlot key={`${projectId}-${resultName}`} />
+          </Card>
+        )}
+
+        {visibleCharts.includes('5') && (
+          <Card size="small" style={{ marginBottom: '1rem' }}>
+            <BubbleChart key={`${projectId}-${resultName}`} />
+          </Card>
+        )}
+
+        {visibleCharts.includes('6') && (
+          <Card size="small" style={{ marginBottom: '1rem' }}>
+            <BestModelsPieChart key={`${projectId}-${resultName}`} projectId={projectId} resultName={resultName} />
+          </Card>
+        )}
+
+        {visibleCharts.includes('7') && (
+          <Card size="small" style={{ marginBottom: '1rem' }}>
+            <BarCharts key={`${projectId}-${resultName}`} />
+          </Card>
+        )}
+
+        {visibleCharts.includes('8') && (
+          <Card size="small" style={{ marginBottom: '1rem' }}>
+            <AccumulationCharts key={`${projectId}-${resultName}`} />
+          </Card>
+        )}
+
+        {visibleCharts.includes('9') && (
+          <Card size="small" style={{ marginBottom: '1rem' }}>
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+              Mean Histograms - Coming Soon
+            </div>
+          </Card>
+        )}
+
+        {visibleCharts.includes('10') && (
+          <Card size="small" style={{ marginBottom: '1rem' }}>
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+              Median Histograms - Coming Soon
+            </div>
+          </Card>
+        )}
+
+        {visibleCharts.includes('11') && (
+          <Card size="small" style={{ marginBottom: '1rem' }}>
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+              BMD vs BMDL Scatter Plots - Coming Soon
+            </div>
+          </Card>
+        )}
+
+        {visibleCharts.includes('12') && (
+          <Card size="small" style={{ marginBottom: '1rem' }}>
+            <ViolinPlotPerCategory key={`${projectId}-${resultName}`} />
+          </Card>
+        )}
+
+        {visibleCharts.includes('13') && (
+          <Card size="small" style={{ marginBottom: '1rem' }}>
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+              Global Violin Plot - Coming Soon
+            </div>
+          </Card>
+        )}
 
         {/* Table */}
         <CategoryResultsGrid key={`${projectId}-${resultName}`} />
