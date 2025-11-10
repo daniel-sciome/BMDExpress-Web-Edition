@@ -10,6 +10,7 @@ import { useAppSelector } from 'Frontend/store/hooks';
 import { selectFilteredData } from 'Frontend/store/slices/categoryResultsSlice';
 import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveState';
 import { umapDataService } from 'Frontend/data/umapDataService';
+import { useClusterColors, getClusterLabel } from './utils/clusterColors';
 import type { ReferenceUmapItem } from 'Frontend/data/referenceUmapData';
 
 interface UmapScatterPlotProps {
@@ -65,33 +66,8 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
     return allUmapData.filter(item => filteredGoIds.has(item.go_id));
   }, [allUmapData, filteredGoIds]);
 
-  // Get unique cluster IDs and create color mapping
-  const clusterColors = useMemo(() => {
-    const clusters = umapDataService.getAllClusterIds();
-    const colors: Record<string | number, string> = {};
-
-    // Use a color palette for clusters
-    const palette = [
-      '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-      '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
-      '#aec7e8', '#ffbb78', '#98df8a', '#ff9896', '#c5b0d5',
-      '#c49c94', '#f7b6d2', '#c7c7c7', '#dbdb8d', '#9edae5',
-      '#393b79', '#637939', '#8c6d31', '#843c39', '#7b4173',
-      '#5254a3', '#8ca252', '#bd9e39', '#ad494a', '#a55194',
-      '#6b6ecf', '#b5cf6b', '#e7ba52', '#d6616b', '#ce6dbd',
-      '#9c9ede', '#cedb9c', '#e7cb94', '#e7969c', '#de9ed6'
-    ];
-
-    clusters.forEach((clusterId, index) => {
-      if (clusterId === -1) {
-        colors[clusterId] = '#999999'; // Gray for outliers
-      } else {
-        colors[clusterId] = palette[index % palette.length];
-      }
-    });
-
-    return colors;
-  }, []);
+  // Get cluster colors using shared utility
+  const clusterColors = useClusterColors();
 
   // Create Plotly traces
   const traces = useMemo(() => {

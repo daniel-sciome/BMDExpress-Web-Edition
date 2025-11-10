@@ -16,6 +16,8 @@ import { useSelector } from 'react-redux';
 import { selectChartData } from '../../store/slices/categoryResultsSlice';
 import { umapDataService } from 'Frontend/data/umapDataService';
 import { Alert, Select } from 'antd';
+import { useClusterColors } from './utils/clusterColors';
+import ClusterLegend from './ClusterLegend';
 
 const { Option } = Select;
 
@@ -24,32 +26,8 @@ export default function ViolinPlotPerCategory() {
   const [selectedMetric, setSelectedMetric] = useState<'bmd' | 'bmdl' | 'bmdu'>('bmd');
   const [hiddenClusters, setHiddenClusters] = useState<Set<string | number>>(new Set());
 
-  // Get cluster colors (same as other charts)
-  const clusterColors = useMemo(() => {
-    const clusters = umapDataService.getAllClusterIds();
-    const colors: Record<string | number, string> = {};
-
-    const palette = [
-      '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-      '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
-      '#aec7e8', '#ffbb78', '#98df8a', '#ff9896', '#c5b0d5',
-      '#c49c94', '#f7b6d2', '#c7c7c7', '#dbdb8d', '#9edae5',
-      '#393b79', '#637939', '#8c6d31', '#843c39', '#7b4173',
-      '#5254a3', '#8ca252', '#bd9e39', '#ad494a', '#a55194',
-      '#6b6ecf', '#b5cf6b', '#e7ba52', '#d6616b', '#ce6dbd',
-      '#9c9ede', '#cedb9c', '#e7cb94', '#e7969c', '#de9ed6'
-    ];
-
-    clusters.forEach((clusterId, index) => {
-      if (clusterId === -1) {
-        colors[clusterId] = '#999999';
-      } else {
-        colors[clusterId] = palette[index % palette.length];
-      }
-    });
-
-    return colors;
-  }, []);
+  // Get cluster colors using shared utility
+  const clusterColors = useClusterColors();
 
   // Toggle cluster visibility
   const toggleCluster = (clusterId: string | number) => {
@@ -298,72 +276,11 @@ export default function ViolinPlotPerCategory() {
       />
 
       {/* Cluster Color Legend */}
-      <div style={{
-        marginTop: '1rem',
-        padding: '1rem',
-        background: '#f5f5f5',
-        borderRadius: '4px',
-        border: '1px solid #d9d9d9'
-      }}>
-        <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>
-          Cluster Colors <span style={{ fontSize: '12px', fontWeight: 400, color: '#666' }}>(click to show/hide)</span>
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-          {umapDataService.getAllClusterIds().map((clusterId) => {
-            const color = clusterColors[clusterId] || '#999999';
-            const label = clusterId === -1 ? 'Outliers' : `Cluster ${clusterId}`;
-            const isHidden = hiddenClusters.has(clusterId);
-            return (
-              <div
-                key={clusterId}
-                onClick={() => toggleCluster(clusterId)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  cursor: 'pointer',
-                  opacity: isHidden ? 0.4 : 1,
-                  transition: 'opacity 0.2s',
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  background: isHidden ? 'transparent' : 'white',
-                  border: isHidden ? '1px dashed #ccc' : '1px solid transparent'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = isHidden ? '#e8e8e8' : '#f0f0f0';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = isHidden ? 'transparent' : 'white';
-                }}
-              >
-                <div style={{
-                  width: '12px',
-                  height: '12px',
-                  backgroundColor: isHidden ? 'transparent' : color,
-                  border: `2px solid ${color}`,
-                  borderRadius: '2px',
-                  position: 'relative'
-                }}>
-                  {isHidden && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%) rotate(45deg)',
-                      width: '1.5px',
-                      height: '16px',
-                      backgroundColor: color,
-                    }} />
-                  )}
-                </div>
-                <span style={{ fontSize: '13px', textDecoration: isHidden ? 'line-through' : 'none' }}>
-                  {label}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <ClusterLegend
+        clusterColors={clusterColors}
+        hiddenClusters={hiddenClusters}
+        onToggleCluster={toggleCluster}
+      />
 
       <div style={{ marginTop: '1rem', fontSize: '0.9em', color: '#666' }}>
         <p><strong>About this chart:</strong></p>
