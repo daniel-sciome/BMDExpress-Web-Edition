@@ -17,6 +17,7 @@ import PathwayCurveViewer from './PathwayCurveViewer';
 import UmapScatterPlot from './charts/UmapScatterPlot';
 import MasterFilter, { MasterFilterTitle } from './MasterFilter';
 import ViolinPlotPerCategory from './charts/ViolinPlotPerCategory';
+import GlobalViolinComparison from './charts/GlobalViolinComparison';
 
 interface CategoryResultsViewProps {
   projectId: string;
@@ -47,6 +48,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   const { loading, error, data, analysisParameters, filters } = useAppSelector((state) => state.categoryResults);
   const [annotation, setAnnotation] = useState<AnalysisAnnotationDto | null>(null);
   const [visibleCharts, setVisibleCharts] = useState<string[]>([]);
+  const [availableResults, setAvailableResults] = useState<string[]>([]);
 
   // Calculate active filter count for Master Filter title
   const activeFilterCount = Object.entries(filters).filter(
@@ -86,6 +88,28 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
       setAnnotation(null);
     }
   };
+
+  // Load all available category results for this project
+  useEffect(() => {
+    const loadAvailableResults = async () => {
+      try {
+        const allAnnotations = await CategoryResultsService.getAllCategoryResultAnnotations(projectId);
+        const validAnnotations = (allAnnotations || [])
+          .filter((a): a is AnalysisAnnotationDto => a !== undefined && a.fullName !== undefined);
+
+        // Get all unique result names for this project
+        const resultNames = validAnnotations.map(a => a.fullName!);
+        setAvailableResults(resultNames);
+      } catch (error) {
+        console.error('[CategoryResultsView] Failed to load available results:', error);
+        setAvailableResults([resultName]); // Fallback to just current result
+      }
+    };
+
+    if (projectId) {
+      loadAvailableResults();
+    }
+  }, [projectId, resultName]);
 
   // Update analysisType in Redux when annotation changes
   useEffect(() => {
@@ -346,9 +370,12 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
 
         {visibleCharts.includes('13') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-              Global Violin Plot - Coming Soon
-            </div>
+            <GlobalViolinComparison
+              key={`${projectId}-${resultName}`}
+              projectId={projectId}
+              availableResults={availableResults}
+              selectedResults={[resultName]}
+            />
           </Card>
         )}
 

@@ -13,9 +13,9 @@ import type { Config } from 'plotly.js';
 export const DEFAULT_PLOTLY_CONFIG: Partial<Config> = {
   displayModeBar: true,
   displaylogo: false,
-  modeBarButtonsToRemove: ['select2d', 'lasso2d'],
+  modeBarButtonsToRemove: ['select2d', 'lasso2d'] as any,
   responsive: true,
-} as const;
+};
 
 /**
  * Default layout background colors and styles

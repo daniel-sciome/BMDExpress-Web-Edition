@@ -5,6 +5,7 @@ import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
 import VennDiagram from '../components/charts/VennDiagram';
 import AccumulationChartsComparison from '../components/charts/AccumulationChartsComparison';
+import GlobalViolinComparison from '../components/charts/GlobalViolinComparison';
 
 interface CategoryAnalysisMultisetViewProps {
   projectId: string;
@@ -180,6 +181,7 @@ export default function CategoryAnalysisMultisetView({
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <Checkbox value="venn">Venn Diagram</Checkbox>
               <Checkbox value="accumulation">Accumulation Charts</Checkbox>
+              <Checkbox value="globalViolin">Global Violin Plot</Checkbox>
             </div>
           </Checkbox.Group>
         </div>
@@ -198,6 +200,16 @@ export default function CategoryAnalysisMultisetView({
         {visibleComparisons.includes('accumulation') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
             <AccumulationChartsComparison
+              projectId={projectId}
+              availableResults={availableResults}
+              selectedResults={selectedResults}
+            />
+          </Card>
+        )}
+
+        {visibleComparisons.includes('globalViolin') && (
+          <Card size="small" style={{ marginBottom: '1rem' }}>
+            <GlobalViolinComparison
               projectId={projectId}
               availableResults={availableResults}
               selectedResults={selectedResults}
