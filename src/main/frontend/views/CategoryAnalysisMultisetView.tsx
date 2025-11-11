@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Card, Tag, Spin, Collapse } from 'antd';
+import { Card, Tag, Spin, Checkbox } from 'antd';
 import { Icon } from '@vaadin/react-components';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
 import VennDiagram from '../components/charts/VennDiagram';
 import AccumulationChartsComparison from '../components/charts/AccumulationChartsComparison';
-
-const { Panel } = Collapse;
 
 interface CategoryAnalysisMultisetViewProps {
   projectId: string;
@@ -29,6 +27,8 @@ export default function CategoryAnalysisMultisetView({
 }: CategoryAnalysisMultisetViewProps) {
   const [annotations, setAnnotations] = useState<AnalysisAnnotationDto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedResults, setSelectedResults] = useState<string[]>([]);
+  const [visibleComparisons, setVisibleComparisons] = useState<string[]>([]);
 
   // Map analysis types to display names
   const getAnalysisTypeDisplayName = (type: string): string => {
@@ -126,47 +126,84 @@ export default function CategoryAnalysisMultisetView({
         overflowY: 'auto',
         padding: '1rem'
       }}>
-        {/* Available Results Summary */}
+        {/* Available Results Summary - Click to Toggle */}
         <Card
-          title="Available Category Analysis Results"
+          title={`Available Category Analysis Results (${selectedResults.length} selected)`}
           style={{ marginBottom: '1rem' }}
           size="small"
         >
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {annotations.map((annotation) => (
-              <Tag
-                key={annotation.fullName}
-                color="processing"
-                style={{ fontSize: '13px', padding: '4px 8px' }}
-              >
-                {annotation.displayName || annotation.fullName}
-              </Tag>
-            ))}
+            {annotations.map((annotation) => {
+              const isSelected = selectedResults.includes(annotation.fullName || '');
+              return (
+                <Tag
+                  key={annotation.fullName}
+                  color={isSelected ? 'blue' : 'default'}
+                  style={{
+                    fontSize: '13px',
+                    padding: '6px 12px',
+                    cursor: 'pointer',
+                    border: isSelected ? '2px solid #1890ff' : '1px solid #d9d9d9',
+                    fontWeight: isSelected ? 600 : 400,
+                    userSelect: 'none'
+                  }}
+                  onClick={() => {
+                    const resultName = annotation.fullName || '';
+                    if (isSelected) {
+                      setSelectedResults(prev => prev.filter(r => r !== resultName));
+                    } else {
+                      setSelectedResults(prev => [...prev, resultName]);
+                    }
+                  }}
+                >
+                  {annotation.displayName || annotation.fullName}
+                </Tag>
+              );
+            })}
           </div>
           <div style={{ marginTop: '1rem', color: '#666', fontSize: '13px' }}>
-            Use the comparison tools below to analyze overlaps and trends across these results.
+            Click datasets above to select/deselect them for comparison visualizations below.
+            {selectedResults.length > 0 && (
+              <span style={{ color: '#1890ff', marginLeft: '0.5rem' }}>
+                {selectedResults.length} dataset{selectedResults.length > 1 ? 's' : ''} selected
+              </span>
+            )}
           </div>
         </Card>
 
-        {/* Multi-Set Comparison Tools */}
-        <Collapse
-          defaultActiveKey={['venn', 'accumulation']}
-          style={{ marginBottom: '1rem' }}
-        >
-          <Panel header="Venn Diagram - Category Overlap Analysis" key="venn">
+        {/* Comparison Tool Selection */}
+        <div style={{ marginBottom: '1rem' }}>
+          <Checkbox.Group
+            value={visibleComparisons}
+            onChange={setVisibleComparisons}
+          >
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <Checkbox value="venn">Venn Diagram</Checkbox>
+              <Checkbox value="accumulation">Accumulation Charts</Checkbox>
+            </div>
+          </Checkbox.Group>
+        </div>
+
+        {/* Comparison Tools - Direct rendering based on checkbox selection */}
+        {visibleComparisons.includes('venn') && (
+          <Card size="small" style={{ marginBottom: '1rem' }}>
             <VennDiagram
               projectId={projectId}
               availableResults={availableResults}
+              selectedResults={selectedResults}
             />
-          </Panel>
+          </Card>
+        )}
 
-          <Panel header="Accumulation Charts - Multi-Result Comparison" key="accumulation">
+        {visibleComparisons.includes('accumulation') && (
+          <Card size="small" style={{ marginBottom: '1rem' }}>
             <AccumulationChartsComparison
               projectId={projectId}
               availableResults={availableResults}
+              selectedResults={selectedResults}
             />
-          </Panel>
-        </Collapse>
+          </Card>
+        )}
       </div>
     </div>
   );

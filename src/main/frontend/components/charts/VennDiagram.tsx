@@ -28,10 +28,10 @@ const { Panel } = Collapse;
 interface VennDiagramProps {
   projectId: string;
   availableResults: string[];
+  selectedResults: string[];
 }
 
-export default function VennDiagram({ projectId, availableResults }: VennDiagramProps) {
-  const [selectedResults, setSelectedResults] = useState<string[]>([]);
+export default function VennDiagram({ projectId, availableResults, selectedResults }: VennDiagramProps) {
   const [vennData, setVennData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -447,149 +447,137 @@ export default function VennDiagram({ projectId, availableResults }: VennDiagram
 
   return (
     <div style={{ width: '100%' }}>
-      <Card
-        title="Venn Diagram - Category Overlap Analysis"
-        style={{ marginBottom: '1rem' }}
-      >
-        <div style={{ marginBottom: '1rem' }}>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <strong>Select 2-5 Category Analysis Results to Compare:</strong>
-          </div>
-          <Select
-            mode="multiple"
-            style={{ width: '100%', marginBottom: '1rem' }}
-            placeholder="Select analysis results to compare"
-            value={selectedResults}
-            onChange={setSelectedResults}
-            maxTagCount={5}
-          >
-            {availableResults.map(name => (
-              <Option key={name} value={name}>
-                {name}
-              </Option>
-            ))}
-          </Select>
-
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <Button
-              type="primary"
-              onClick={handleGenerate}
-              disabled={selectedResults.length < 2 || selectedResults.length > 5}
-              loading={loading}
-            >
-              Generate Venn Diagram
-            </Button>
-            <Button
-              icon={<DownloadOutlined />}
-              onClick={handleExportToExcel}
-              disabled={!vennData}
-              title="Export Venn diagram data to Excel"
-            >
-              Export to Excel
-            </Button>
-          </div>
-        </div>
-
-        {error && (
+      <div style={{ marginBottom: '1rem' }}>
+        {selectedResults.length > 0 && (
           <Alert
-            message="Error"
-            description={error}
-            type="error"
-            closable
-            onClose={() => setError(null)}
+            message={`${selectedResults.length} dataset${selectedResults.length > 1 ? 's' : ''} selected`}
+            description={selectedResults.length < 2 || selectedResults.length > 5
+              ? 'Please select 2-5 datasets using the toggles above to generate a Venn diagram.'
+              : 'Click "Generate Venn Diagram" to compare the selected datasets.'}
+            type={selectedResults.length >= 2 && selectedResults.length <= 5 ? 'info' : 'warning'}
             style={{ marginBottom: '1rem' }}
           />
         )}
 
-        {loading && (
-          <div style={{ textAlign: 'center', padding: '2rem' }}>
-            <Spin size="large" tip="Calculating overlaps..." />
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Button
+            type="primary"
+            onClick={handleGenerate}
+            disabled={selectedResults.length < 2 || selectedResults.length > 5}
+            loading={loading}
+          >
+            Generate Venn Diagram
+          </Button>
+          <Button
+            icon={<DownloadOutlined />}
+            onClick={handleExportToExcel}
+            disabled={!vennData}
+            title="Export Venn diagram data to Excel"
+          >
+            Export to Excel
+          </Button>
+        </div>
+      </div>
 
-        {vennData && !loading && (
-          <div>
-            <h4 style={{ marginTop: '1rem' }}>
-              Comparing {vennData.setCount} Analysis Results
-            </h4>
+      {error && (
+        <Alert
+          message="Error"
+          description={error}
+          type="error"
+          closable
+          onClose={() => setError(null)}
+          style={{ marginBottom: '1rem' }}
+        />
+      )}
 
-            {/* Venn Diagram Visualization */}
-            {(() => {
-              console.log('[VennDiagram] Rendering check - vennChartData:', vennChartData);
-              console.log('[VennDiagram] Rendering check - length:', vennChartData?.length);
+      {loading && (
+        <div style={{ textAlign: 'center', padding: '2rem' }}>
+          <Spin size="large" tip="Calculating overlaps..." />
+        </div>
+      )}
 
-              if (vennChartData && vennChartData.length > 0) {
-                console.log('[VennDiagram] Rendering Venn chart with data:', vennChartData);
-                return (
-                  <div ref={vennDiagramRef} style={{
-                    marginBottom: '2rem',
-                    display: 'inline-block',
-                    width: '800px',
-                    height: '500px',
-                    overflow: 'hidden'
-                  }}>
-                    <Venn
-                      data={vennChartData}
-                      setsField="sets"
-                      sizeField="size"
-                      width={800}
-                      height={500}
-                    />
-                  </div>
-                );
-              } else {
-                console.log('[VennDiagram] NOT rendering Venn chart - data missing or empty');
-                return null;
-              }
-            })()}
+      {vennData && !loading && (
+        <div>
+          <h4 style={{ marginTop: '1rem' }}>
+            Comparing {vennData.setCount} Analysis Results
+          </h4>
 
-            <p style={{ color: '#666', marginBottom: '1rem' }}>
-              The Venn diagram above shows the overlaps between selected category analysis results. The table below provides detailed counts and category names for each combination.
-            </p>
+          {/* Venn Diagram Visualization */}
+          {(() => {
+            console.log('[VennDiagram] Rendering check - vennChartData:', vennChartData);
+            console.log('[VennDiagram] Rendering check - length:', vennChartData?.length);
 
-            <Table
-              dataSource={getTableData()}
-              columns={columns}
-              pagination={false}
-              size="small"
-              expandable={{
-                expandedRowRender: (record) => (
-                  <div style={{ maxHeight: '300px', overflow: 'auto' }}>
-                    <strong>All Categories in this Overlap ({record.allItems.length}):</strong>
-                    <ul style={{ marginTop: '0.5rem', columnCount: 2, columnGap: '2rem' }}>
-                      {record.allItems.map((item: string, index: number) => (
-                        <li key={index} style={{ fontSize: '0.85em', marginBottom: '0.25rem' }}>
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ),
-                rowExpandable: (record) => record.allItems.length > 0,
-              }}
-            />
+            if (vennChartData && vennChartData.length > 0) {
+              console.log('[VennDiagram] Rendering Venn chart with data:', vennChartData);
+              return (
+                <div ref={vennDiagramRef} style={{
+                  marginBottom: '2rem',
+                  display: 'inline-block',
+                  width: '800px',
+                  height: '500px',
+                  overflow: 'hidden'
+                }}>
+                  <Venn
+                    data={vennChartData}
+                    setsField="sets"
+                    sizeField="size"
+                    width={800}
+                    height={500}
+                  />
+                </div>
+              );
+            } else {
+              console.log('[VennDiagram] NOT rendering Venn chart - data missing or empty');
+              return null;
+            }
+          })()}
 
-            <div style={{ marginTop: '1rem', padding: '1rem', background: '#f5f5f5', borderRadius: '4px' }}>
-              <strong>Legend:</strong>
-              <ul style={{ marginTop: '0.5rem', marginBottom: 0 }}>
-                {vennData.setNames?.map((name: string, index: number) => (
-                  <li key={index} style={{ marginBottom: '0.25rem' }}>
-                    <strong>{String.fromCharCode(65 + index)}</strong>: {name}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        )}
+          <p style={{ color: '#666', marginBottom: '1rem' }}>
+            The Venn diagram above shows the overlaps between selected category analysis results. The table below provides detailed counts and category names for each combination.
+          </p>
 
-        {!vennData && !loading && !error && (
-          <Alert
-            message="Select datasets to compare"
-            description="Choose 2-5 category analysis results from the dropdown above and click 'Generate Venn Diagram' to see overlapping categories."
-            type="info"
+          <Table
+            dataSource={getTableData()}
+            columns={columns}
+            pagination={false}
+            size="small"
+            expandable={{
+              expandedRowRender: (record) => (
+                <div style={{ maxHeight: '300px', overflow: 'auto' }}>
+                  <strong>All Categories in this Overlap ({record.allItems.length}):</strong>
+                  <ul style={{ marginTop: '0.5rem', columnCount: 2, columnGap: '2rem' }}>
+                    {record.allItems.map((item: string, index: number) => (
+                      <li key={index} style={{ fontSize: '0.85em', marginBottom: '0.25rem' }}>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ),
+              rowExpandable: (record) => record.allItems.length > 0,
+            }}
           />
-        )}
-      </Card>
+
+          <div style={{ marginTop: '1rem', padding: '1rem', background: '#f5f5f5', borderRadius: '4px' }}>
+            <strong>Legend:</strong>
+            <ul style={{ marginTop: '0.5rem', marginBottom: 0 }}>
+              {vennData.setNames?.map((name: string, index: number) => (
+                <li key={index} style={{ marginBottom: '0.25rem' }}>
+                  <strong>{String.fromCharCode(65 + index)}</strong>: {name}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {!vennData && !loading && !error && (
+        <Alert
+          message="Select datasets to compare"
+          description="Choose 2-5 category analysis results from the dropdown above and click 'Generate Venn Diagram' to see overlapping categories."
+          type="info"
+        />
+      )}
     </div>
   );
 }

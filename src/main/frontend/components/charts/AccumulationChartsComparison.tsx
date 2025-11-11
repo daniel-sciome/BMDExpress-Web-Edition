@@ -22,13 +22,14 @@ const { Option } = Select;
 interface AccumulationChartsComparisonProps {
   projectId: string;
   availableResults: string[];
+  selectedResults: string[];
 }
 
 export default function AccumulationChartsComparison({
   projectId,
-  availableResults
+  availableResults,
+  selectedResults
 }: AccumulationChartsComparisonProps) {
-  const [selectedResults, setSelectedResults] = useState<string[]>([]);
   const [comparisonData, setComparisonData] = useState<any>(null);
   const [resultDisplayNames, setResultDisplayNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -303,28 +304,19 @@ export default function AccumulationChartsComparison({
   }, [comparisonData, clusterColors, markerSymbols, resultDisplayNames, hasSelection, selectedCluster, nonSelectedDisplayMode]);
 
   return (
-    <Card
-      title="Accumulation Charts - Multi-Result Comparison"
-      style={{ marginBottom: '1rem' }}
-    >
+    <div style={{ width: '100%' }}>
       <div style={{ marginBottom: '1rem' }}>
-        <div style={{ marginBottom: '0.5rem' }}>
-          <strong>Select Category Analysis Results (2-5):</strong>
-        </div>
-        <Select
-          mode="multiple"
-          placeholder="Select 2-5 results to compare"
-          value={selectedResults}
-          onChange={setSelectedResults}
-          style={{ width: '100%', marginBottom: '1rem' }}
-          maxTagCount="responsive"
-        >
-          {availableResults.map(result => (
-            <Option key={result} value={result}>
-              {result}
-            </Option>
-          ))}
-        </Select>
+        {selectedResults.length > 0 && (
+          <Alert
+            message={`${selectedResults.length} dataset${selectedResults.length > 1 ? 's' : ''} selected`}
+            description={selectedResults.length < 2 || selectedResults.length > 5
+              ? 'Please select 2-5 datasets using the toggles above to generate comparison charts.'
+              : 'Click "Generate Comparison Charts" to compare the selected datasets.'}
+            type={selectedResults.length >= 2 && selectedResults.length <= 5 ? 'info' : 'warning'}
+            style={{ marginBottom: '1rem' }}
+          />
+        )}
+
         <Button
           type="primary"
           onClick={handleGenerate}
@@ -403,6 +395,6 @@ export default function AccumulationChartsComparison({
           type="warning"
         />
       )}
-    </Card>
+    </div>
   );
 }
