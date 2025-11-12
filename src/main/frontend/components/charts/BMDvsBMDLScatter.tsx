@@ -17,6 +17,8 @@ import { Checkbox, Radio, Space } from 'antd';
 import { useSelector } from 'react-redux';
 import Plot from 'react-plotly.js';
 import { selectFilteredData } from '../../store/slices/categoryResultsSlice';
+import { useReactiveState } from './hooks/useReactiveState';
+import { useClusterLegendInteraction, getClusterMarkerStyle } from './hooks/useClusterLegendInteraction';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
@@ -25,6 +27,7 @@ type MetricType = 'median' | 'mean';
 export default function BMDvsBMDLScatter() {
   const data = useSelector(selectFilteredData);
   const clusterColors = useClusterColors();
+  const categoryState = useReactiveState('categoryId');
   const [useLogX, setUseLogX] = useState(true);
   const [useLogY, setUseLogY] = useState(true);
   const [metricType, setMetricType] = useState<MetricType>('median');
@@ -37,6 +40,7 @@ export default function BMDvsBMDLScatter() {
     const byCluster = new Map<number, Array<{
       x: number;
       y: number;
+      categoryId: string;
       categoryName: string;
     }>>();
 
@@ -67,6 +71,7 @@ export default function BMDvsBMDLScatter() {
         byCluster.get(clusterId)!.push({
           x: xValue,
           y: yValue,
+          categoryId: row.categoryId || '',
           categoryName: row.categoryDescription || row.categoryId || 'Unknown'
         });
       }
@@ -84,7 +89,7 @@ export default function BMDvsBMDLScatter() {
   }
 
   // Calculate axis ranges for log scale
-  const getAllValues = (byCluster: Map<number, Array<{x: number, y: number, categoryName: string}>>, axis: 'x' | 'y'): number[] => {
+  const getAllValues = (byCluster: Map<number, Array<{x: number, y: number, categoryId: string, categoryName: string}>>, axis: 'x' | 'y'): number[] => {
     const values: number[] = [];
     byCluster.forEach(points => {
       points.forEach(point => values.push(point[axis]));
@@ -117,8 +122,8 @@ export default function BMDvsBMDLScatter() {
 
   const metricLabel = metricType === 'median' ? 'Median' : 'Mean';
 
-  // Create traces for each cluster
-  const traces = useMemo(() => {
+  // Create base traces first (will be updated with reactive styling later)
+  const baseTraces = useMemo(() => {
     const result: any[] = [];
 
     // Sort clusters (outliers last)
@@ -130,7 +135,6 @@ export default function BMDvsBMDLScatter() {
 
     sortedClusters.forEach(clusterId => {
       const points = scatterData.get(clusterId)!;
-      const color = clusterColors[clusterId] || '#999999';
 
       result.push({
         x: points.map(p => p.x),
@@ -138,15 +142,7 @@ export default function BMDvsBMDLScatter() {
         type: 'scatter',
         mode: 'markers',
         name: getClusterLabel(clusterId),
-        marker: {
-          size: 8,
-          color: color,
-          line: {
-            color: '#ffffff',
-            width: 1
-          },
-          opacity: 0.7
-        },
+        marker: {}, // Will be filled in later
         text: points.map(p => p.categoryName),
         hovertemplate:
           '<b>%{text}</b><br>' +
@@ -154,11 +150,63 @@ export default function BMDvsBMDLScatter() {
           `BMD ${metricLabel}: %{x:.4f}<br>` +
           `BMDL ${metricLabel}: %{y:.4f}<br>` +
           '<extra></extra>',
+        showlegend: true,
+        legendgroup: `cluster_${clusterId}`,
       });
     });
 
     return result;
-  }, [scatterData, clusterColors, metricLabel]);
+  }, [scatterData, metricLabel]);
+
+  // Set up cluster legend interaction
+  const { handleLegendClick, nonSelectedDisplayMode, hasSelection } = useClusterLegendInteraction({
+    traces: baseTraces,
+    categoryState,
+    allData: data,
+    getClusterIdFromCategory: (row) => getClusterIdForCategory(row.categoryId),
+    getCategoryId: (row) => row.categoryId,
+    sourceName: 'BMDvsBMDLScatter',
+  });
+
+  // Apply reactive styling to traces
+  const traces = useMemo(() => {
+    const sortedClusters = Array.from(scatterData.keys()).sort((a, b) => {
+      if (a === -1) return 1;
+      if (b === -1) return -1;
+      return a - b;
+    });
+
+    return baseTraces.map((trace, index) => {
+      const clusterId = sortedClusters[index];
+      const points = scatterData.get(clusterId)!;
+      const baseColor = clusterColors[clusterId] || '#999999';
+
+      // Check if ANY category from this cluster is selected
+      const isClusterSelected = hasSelection && points.some(p => categoryState.isSelected(p.categoryId));
+
+      // Get reactive marker styling based on selection state
+      const markerStyle = getClusterMarkerStyle(
+        clusterId,
+        baseColor,
+        isClusterSelected,
+        hasSelection,
+        nonSelectedDisplayMode
+      );
+
+      return {
+        ...trace,
+        marker: {
+          size: 8,
+          color: markerStyle.color,
+          line: {
+            color: markerStyle.lineColor,
+            width: markerStyle.lineWidth || 1
+          },
+          opacity: markerStyle.opacity
+        }
+      };
+    });
+  }, [baseTraces, scatterData, clusterColors, hasSelection, categoryState.selectedIds, nonSelectedDisplayMode]);
 
   return (
     <div style={{ width: '100%' }}>
@@ -217,6 +265,7 @@ export default function BMDvsBMDLScatter() {
         config={createPlotlyConfig() as any}
         style={{ width: '100%', height: '100%' }}
         useResizeHandler={true}
+        onLegendClick={handleLegendClick}
       />
 
       <div style={{ marginTop: '1rem', fontSize: '0.9em', color: '#666' }}>
