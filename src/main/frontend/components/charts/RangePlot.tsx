@@ -3,23 +3,22 @@ import Plot from 'react-plotly.js';
 import { useAppSelector } from '../../store/hooks';
 import { selectChartData } from '../../store/slices/categoryResultsSlice';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
-import { useClusterColors, getClusterIdForCategory } from './utils/clusterColors';
+import { useReactiveState } from './hooks/useReactiveState';
+import { useClusterLegendInteraction, getClusterMarkerStyle } from './hooks/useClusterLegendInteraction';
+import { useClusterColors, getClusterIdForCategory, getClusterLabel } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 export default function RangePlot() {
   const data = useAppSelector(selectChartData);
-  const [plotData, setPlotData] = useState<any[]>([]);
+  const categoryState = useReactiveState('categoryId');
 
   // Get cluster colors using shared utility
   const clusterColors = useClusterColors();
 
-  useEffect(() => {
-    if (!data || data.length === 0) {
-      setPlotData([]);
-      return;
-    }
+  // Filter and sort top 20 categories
+  const topCategories = useMemo(() => {
+    if (!data || data.length === 0) return [];
 
-    // Filter out rows without BMD/BMDL/BMDU values
     const validData = data.filter((row: CategoryAnalysisResultDto) =>
       row.bmdMedian != null &&
       row.bmdlMedian != null &&
@@ -29,44 +28,41 @@ export default function RangePlot() {
       row.bmduMedian > 0
     );
 
-    if (validData.length === 0) {
-      setPlotData([]);
-      return;
-    }
-
-    // Take top 20 categories sorted by p-value (most significant first)
-    const topCategories = validData
+    return validData
       .sort((a: CategoryAnalysisResultDto, b: CategoryAnalysisResultDto) => {
         const pA = a.fishersExactTwoTailPValue ?? 1;
         const pB = b.fishersExactTwoTailPValue ?? 1;
         return pA - pB;
       })
       .slice(0, 20);
+  }, [data]);
 
-    // Group categories by cluster
+  // Group categories by cluster
+  const clusterData = useMemo(() => {
     const byCluster = new Map<string | number, CategoryAnalysisResultDto[]>();
 
     topCategories.forEach((row: CategoryAnalysisResultDto) => {
       const clusterId = getClusterIdForCategory(row.categoryId);
-
       if (!byCluster.has(clusterId)) {
         byCluster.set(clusterId, []);
       }
       byCluster.get(clusterId)!.push(row);
     });
 
-    // Create a trace for each cluster
+    return byCluster;
+  }, [topCategories]);
+
+  // Create base traces (without reactive styling)
+  const baseTraces = useMemo(() => {
     const traces: any[] = [];
 
-    byCluster.forEach((clusterData, clusterId) => {
-      const color = clusterColors[clusterId] || '#999999';
-
-      const categories = clusterData.map((row: CategoryAnalysisResultDto) =>
+    clusterData.forEach((clusterRows, clusterId) => {
+      const categories = clusterRows.map((row: CategoryAnalysisResultDto) =>
         row.categoryDescription || 'Unknown'
       );
-      const bmdValues = clusterData.map((row: CategoryAnalysisResultDto) => row.bmdMedian!);
-      const bmdlValues = clusterData.map((row: CategoryAnalysisResultDto) => row.bmdlMedian!);
-      const bmduValues = clusterData.map((row: CategoryAnalysisResultDto) => row.bmduMedian!);
+      const bmdValues = clusterRows.map((row: CategoryAnalysisResultDto) => row.bmdMedian!);
+      const bmdlValues = clusterRows.map((row: CategoryAnalysisResultDto) => row.bmdlMedian!);
+      const bmduValues = clusterRows.map((row: CategoryAnalysisResultDto) => row.bmduMedian!);
 
       // Calculate error bar extents (distance from BMD to BMDL and BMDU)
       const errorMinus = bmdValues.map((bmd, i) => bmd - bmdlValues[i]);
@@ -82,32 +78,85 @@ export default function RangePlot() {
           symmetric: false,
           array: errorPlus,
           arrayminus: errorMinus,
-          color: color,
           thickness: 2,
           width: 4,
         },
-        marker: {
-          color: color,
-          size: 8,
-          symbol: 'circle',
-        },
-        name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}`,
+        marker: {}, // Will be filled with reactive styling
+        name: getClusterLabel(clusterId),
         hovertemplate:
           '<b>%{y}</b><br>' +
-          `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}<br>` +
+          `${getClusterLabel(clusterId)}<br>` +
           'BMD: %{x:.4f}<br>' +
           'BMDL: %{customdata[0]:.4f}<br>' +
           'BMDU: %{customdata[1]:.4f}<br>' +
           '<extra></extra>',
-        customdata: clusterData.map((row: CategoryAnalysisResultDto) => [
+        customdata: clusterRows.map((row: CategoryAnalysisResultDto) => [
           row.bmdlMedian,
           row.bmduMedian,
         ]),
+        showlegend: true,
+        legendgroup: `cluster_${clusterId}`,
       });
     });
 
-    setPlotData(traces);
-  }, [data, clusterColors]);
+    return traces;
+  }, [clusterData]);
+
+  // Set up cluster legend interaction
+  const { handleLegendClick, nonSelectedDisplayMode, hasSelection } = useClusterLegendInteraction({
+    traces: baseTraces,
+    categoryState,
+    allData: topCategories,
+    getClusterIdFromCategory: (row) => getClusterIdForCategory(row.categoryId),
+    getCategoryId: (row) => row.categoryId,
+    sourceName: 'RangePlot',
+  });
+
+  // Apply reactive styling to traces
+  const plotData = useMemo(() => {
+    const sortedClusters = Array.from(clusterData.keys()).sort((a, b) => {
+      if (a === -1) return 1;
+      if (b === -1) return -1;
+      return Number(a) - Number(b);
+    });
+
+    return baseTraces.map((trace, index) => {
+      const clusterId = sortedClusters[index];
+      const clusterRows = clusterData.get(clusterId)!;
+      const baseColor = clusterColors[clusterId] || '#999999';
+
+      // Check if ANY category from this cluster is selected
+      const isClusterSelected = hasSelection &&
+        clusterRows.some(row => categoryState.isSelected(row.categoryId));
+
+      // Get reactive marker styling
+      const markerStyle = getClusterMarkerStyle(
+        clusterId,
+        baseColor,
+        isClusterSelected,
+        hasSelection,
+        nonSelectedDisplayMode
+      );
+
+      return {
+        ...trace,
+        marker: {
+          color: markerStyle.color,
+          size: 8,
+          symbol: 'circle',
+          opacity: markerStyle.opacity,
+          line: {
+            color: markerStyle.lineColor,
+            width: markerStyle.lineWidth || 1,
+          },
+        },
+        error_x: {
+          ...trace.error_x,
+          color: markerStyle.color,
+        },
+      };
+    });
+  }, [baseTraces, clusterData, clusterColors, hasSelection, categoryState.selectedIds, nonSelectedDisplayMode]);
 
   if (!data || data.length === 0) {
     return (
@@ -164,6 +213,7 @@ export default function RangePlot() {
         config={config}
         style={{ width: '100%', height: '100%' }}
         useResizeHandler={true}
+        onLegendClick={handleLegendClick}
       />
     </div>
   );

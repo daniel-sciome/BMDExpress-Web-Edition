@@ -146,7 +146,7 @@ export default function PathwayCurveViewer({ projectId, resultName }: PathwayCur
       {/* Curve Plot */}
       {!loadingCurves && curveData.length > 0 && (
         <div style={{ marginTop: '1rem' }}>
-          <DoseResponseCurveChart curves={curveData} />
+          <DoseResponseCurveChart curves={curveData} selectedCategories={selectedCategories} />
         </div>
       )}
 
