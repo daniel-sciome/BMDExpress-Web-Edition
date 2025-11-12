@@ -18,6 +18,9 @@ import UmapScatterPlot from './charts/UmapScatterPlot';
 import MasterFilter, { MasterFilterTitle } from './MasterFilter';
 import ViolinPlotPerCategory from './charts/ViolinPlotPerCategory';
 import GlobalViolinComparison from './charts/GlobalViolinComparison';
+import MeanHistograms from './charts/MeanHistograms';
+import MedianHistograms from './charts/MedianHistograms';
+import BMDvsBMDLScatter from './charts/BMDvsBMDLScatter';
 
 interface CategoryResultsViewProps {
   projectId: string;
@@ -340,25 +343,19 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
 
         {visibleCharts.includes('9') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-              Mean Histograms - Coming Soon
-            </div>
+            <MeanHistograms key={`${projectId}-${resultName}`} />
           </Card>
         )}
 
         {visibleCharts.includes('10') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-              Median Histograms - Coming Soon
-            </div>
+            <MedianHistograms key={`${projectId}-${resultName}`} />
           </Card>
         )}
 
         {visibleCharts.includes('11') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-              BMD vs BMDL Scatter Plots - Coming Soon
-            </div>
+            <BMDvsBMDLScatter key={`${projectId}-${resultName}`} />
           </Card>
         )}
 
