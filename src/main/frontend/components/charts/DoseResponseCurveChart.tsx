@@ -1,8 +1,8 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import Plot from 'react-plotly.js';
 import type CurveDataDto from 'Frontend/generated/com/sciome/dto/CurveDataDto';
-import { useNonSelectedDisplayMode } from './hooks/useNonSelectedDisplayMode';
-import { getClusterMarkerStyle } from './hooks/useClusterLegendInteraction';
+import { useReactiveState } from './hooks/useReactiveState';
+import { useClusterLegendInteraction, getClusterMarkerStyle } from './hooks/useClusterLegendInteraction';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 
@@ -13,12 +13,7 @@ interface DoseResponseCurveChartProps {
 
 export default function DoseResponseCurveChart({ curves, selectedCategories }: DoseResponseCurveChartProps) {
   const clusterColors = useClusterColors();
-
-  // Track which clusters are visually selected (for legend interaction)
-  // Initially empty = all clusters visible
-  const [selectedClusters, setSelectedClusters] = useState<Set<number | string>>(new Set());
-  const hasSelection = selectedClusters.size > 0;
-  const [nonSelectedDisplayMode, setNonSelectedDisplayMode] = useNonSelectedDisplayMode(hasSelection);
+  const categoryState = useReactiveState('categoryId');
 
   if (!curves || curves.length === 0) {
     return null;
@@ -179,79 +174,38 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
     return traces;
   }, [curves, curvesByCluster, pathwayToCluster]);
 
-  // Handle legend click for cluster visibility toggling
-  const handleLegendClick = useCallback((event: any) => {
-    if (!event || event.curveNumber === undefined) {
-      return false;
-    }
+  // Set up cluster legend interaction (synchronizes with all other views)
+  const { handleLegendClick, nonSelectedDisplayMode, hasSelection } = useClusterLegendInteraction({
+    traces: baseTraces.filter(t => t.showlegend), // Only legend-visible traces
+    categoryState,
+    allData: selectedCategories,
+    getClusterIdFromCategory: (row) => getClusterIdForCategory(row.categoryId),
+    getCategoryId: (row) => row.categoryId,
+    sourceName: 'DoseResponseCurveChart',
+  });
 
-    // Get the trace that was clicked
-    const trace = baseTraces[event.curveNumber];
-    if (!trace || !trace.name || !trace.showlegend) {
-      return false; // Only handle legend items
-    }
-
-    const clusterId = trace.clusterId;
-    console.log('[DoseResponseCurveChart] Legend clicked for cluster:', clusterId);
-
-    // Check if Cmd/Ctrl for multi-select
-    const isMultiSelect = event.event?.ctrlKey || event.event?.metaKey;
-
-    // Check if this cluster is currently selected
-    const isClusterSelected = selectedClusters.has(clusterId);
-
-    if (!isClusterSelected) {
-      // Cluster not selected - first click selects it AND makes non-selected curves outline
-      console.log('[DoseResponseCurveChart] Selecting cluster, non-selected -> outline');
-      setNonSelectedDisplayMode('outline');
-
-      if (isMultiSelect) {
-        // Multi-select: add to existing selection
-        setSelectedClusters(prev => new Set([...prev, clusterId]));
-      } else {
-        // Single select: replace selection
-        setSelectedClusters(new Set([clusterId]));
-      }
-    } else {
-      // Cluster is selected - cycle through: outline -> hidden -> deselect
-      if (nonSelectedDisplayMode === 'outline') {
-        console.log('[DoseResponseCurveChart] Switching to hidden mode');
-        setNonSelectedDisplayMode('hidden');
-      } else if (nonSelectedDisplayMode === 'hidden') {
-        // hidden -> deselect
-        console.log('[DoseResponseCurveChart] Deselecting cluster');
-        setNonSelectedDisplayMode('full'); // Reset for next selection
-
-        if (isMultiSelect) {
-          // Multi-select: remove from selection
-          setSelectedClusters(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(clusterId);
-            return newSet;
-          });
-        } else {
-          // Single select: clear all
-          setSelectedClusters(new Set());
-        }
-      } else {
-        // Should not happen, but if in 'full' mode, go to outline
-        console.log('[DoseResponseCurveChart] Unexpected state, switching to outline mode');
-        setNonSelectedDisplayMode('outline');
-      }
-    }
-
-    // Return false to prevent default legend toggle behavior
-    return false;
-  }, [baseTraces, selectedClusters, nonSelectedDisplayMode, setNonSelectedDisplayMode]);
-
-  // Apply reactive styling to traces
+  // Apply reactive styling to traces (all curves always visible, but styled based on selection)
   const plotData = useMemo(() => {
+    // Pre-compute which clusters have selected categories
+    const clusterSelectionMap = new Map<number | string, boolean>();
+    if (hasSelection) {
+      curvesByCluster.forEach((clusterCurves, clusterId) => {
+        const categoriesInCluster = selectedCategories
+          .filter(cat => getClusterIdForCategory(cat.categoryId) === clusterId)
+          .map(cat => cat.categoryId)
+          .filter(Boolean);
+
+        const isSelected = categoriesInCluster.some(catId => categoryState.isSelected(catId));
+        clusterSelectionMap.set(clusterId, isSelected);
+      });
+    }
+
     return baseTraces.map((trace) => {
       const clusterId = trace.clusterId;
       const baseColor = clusterColors[clusterId] || '#999999';
 
-      // Check if this cluster is visually selected
-      const isClusterSelected = selectedClusters.has(clusterId);
+      // Check if ANY category from this cluster is selected (for reactive styling)
+      const isClusterSelected = clusterSelectionMap.get(clusterId) || false;
 
       // Get reactive styling (only for curve lines, not markers)
       if (trace.mode === 'lines') {
@@ -295,7 +249,7 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
 
       return trace;
     });
-  }, [baseTraces, clusterColors, selectedClusters, hasSelection, nonSelectedDisplayMode]);
+  }, [baseTraces, clusterColors, curvesByCluster, selectedCategories, hasSelection, categoryState.selectedIds, nonSelectedDisplayMode]);
 
   const layout: any = {
     title: {
