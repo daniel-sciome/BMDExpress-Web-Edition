@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { enableMapSet } from 'immer';
 import categoryResultsReducer from './slices/categoryResultsSlice';
 import navigationReducer from './slices/navigationSlice';
+import renderStateReducer from './slices/renderStateSlice';
 
 // Enable Immer support for Map and Set
 enableMapSet();
@@ -10,6 +11,7 @@ export const store = configureStore({
   reducer: {
     categoryResults: categoryResultsReducer,
     navigation: navigationReducer,
+    renderState: renderStateReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

@@ -50,9 +50,48 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
     return byCluster;
   }, [curves, pathwayToCluster]);
 
+  // Group curves by category (pathway description) for subplot mode
+  const curvesByCategory = useMemo(() => {
+    const byCategory = new Map<string, CurveDataDto[]>();
+
+    curves.forEach(curve => {
+      const pathwayDesc = curve.pathwayDescription || 'Unknown';
+      if (!byCategory.has(pathwayDesc)) {
+        byCategory.set(pathwayDesc, []);
+      }
+      byCategory.get(pathwayDesc)!.push(curve);
+    });
+
+    return byCategory;
+  }, [curves]);
+
   // Create base traces grouped by cluster
   const baseTraces = useMemo(() => {
     const traces: any[] = [];
+
+    // Calculate global y-range for vertical lines
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    curves.forEach(curve => {
+      if (curve.curvePoints && curve.curvePoints.length > 0) {
+        curve.curvePoints.filter(p => p).forEach(p => {
+          minY = Math.min(minY, p!.response);
+          maxY = Math.max(maxY, p!.response);
+        });
+      }
+      if (curve.measuredPoints && curve.measuredPoints.length > 0) {
+        curve.measuredPoints.filter(p => p).forEach(p => {
+          minY = Math.min(minY, p!.response);
+          maxY = Math.max(maxY, p!.response);
+        });
+      }
+    });
+
+    // Add some padding to the range
+    const yPadding = (maxY - minY) * 0.05;
+    minY -= yPadding;
+    maxY += yPadding;
 
     curvesByCluster.forEach((clusterCurves, clusterId) => {
       let isFirstCurveInCluster = true;
@@ -101,70 +140,70 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
           });
         }
 
-        // Add BMD markers
+        // Add BMD vertical lines
         if (curve.bmdMarkers) {
           const markers = curve.bmdMarkers;
 
-          // BMD marker (green)
-          if (markers.bmd != null && markers.bmdResponse != null) {
+          // BMD vertical line (green)
+          if (markers.bmd != null) {
             traces.push({
-              x: [markers.bmd],
-              y: [markers.bmdResponse],
+              x: [markers.bmd, markers.bmd],
+              y: [minY, maxY],
               type: 'scatter',
-              mode: 'markers',
+              mode: 'lines',
               name: `${curveName} BMD`,
-              marker: {
+              line: {
                 color: '#00FF00',
-                size: 12,
-                symbol: 'square',
-                line: { color: '#000000', width: 1 },
+                width: 2,
+                dash: 'solid',
               },
               showlegend: false,
-              hovertemplate: `BMD<br>Dose: %{x:.3f}<br>Response: %{y:.3f}<extra></extra>`,
+              hovertemplate: `BMD<br>Dose: ${markers.bmd.toFixed(3)}<extra></extra>`,
               legendgroup: `cluster_${clusterId}`,
               clusterId: clusterId,
+              isBmdLine: true, // Flag to preserve semantic color
             });
           }
 
-          // BMDL marker (red)
-          if (markers.bmdl != null && markers.bmdlResponse != null) {
+          // BMDL vertical line (red)
+          if (markers.bmdl != null) {
             traces.push({
-              x: [markers.bmdl],
-              y: [markers.bmdlResponse],
+              x: [markers.bmdl, markers.bmdl],
+              y: [minY, maxY],
               type: 'scatter',
-              mode: 'markers',
+              mode: 'lines',
               name: `${curveName} BMDL`,
-              marker: {
+              line: {
                 color: '#FF0000',
-                size: 12,
-                symbol: 'square',
-                line: { color: '#000000', width: 1 },
+                width: 2,
+                dash: 'solid',
               },
               showlegend: false,
-              hovertemplate: `BMDL<br>Dose: %{x:.3f}<br>Response: %{y:.3f}<extra></extra>`,
+              hovertemplate: `BMDL<br>Dose: ${markers.bmdl.toFixed(3)}<extra></extra>`,
               legendgroup: `cluster_${clusterId}`,
               clusterId: clusterId,
+              isBmdLine: true, // Flag to preserve semantic color
             });
           }
 
-          // BMDU marker (blue)
-          if (markers.bmdu != null && markers.bmduResponse != null) {
+          // BMDU vertical line (blue)
+          if (markers.bmdu != null) {
             traces.push({
-              x: [markers.bmdu],
-              y: [markers.bmduResponse],
+              x: [markers.bmdu, markers.bmdu],
+              y: [minY, maxY],
               type: 'scatter',
-              mode: 'markers',
+              mode: 'lines',
               name: `${curveName} BMDU`,
-              marker: {
+              line: {
                 color: '#0000FF',
-                size: 12,
-                symbol: 'square',
-                line: { color: '#000000', width: 1 },
+                width: 2,
+                dash: 'solid',
               },
               showlegend: false,
-              hovertemplate: `BMDU<br>Dose: %{x:.3f}<br>Response: %{y:.3f}<extra></extra>`,
+              hovertemplate: `BMDU<br>Dose: ${markers.bmdu.toFixed(3)}<extra></extra>`,
               legendgroup: `cluster_${clusterId}`,
               clusterId: clusterId,
+              isBmdLine: true, // Flag to preserve semantic color
             });
           }
         }
@@ -207,8 +246,23 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
       // Check if ANY category from this cluster is selected (for reactive styling)
       const isClusterSelected = clusterSelectionMap.get(clusterId) || false;
 
-      // Get reactive styling (only for curve lines, not markers)
+      // Handle lines (both curve lines and BMD vertical lines)
       if (trace.mode === 'lines') {
+        // Calculate reactive opacity
+        let opacity = 1.0;
+        if (hasSelection && !isClusterSelected && nonSelectedDisplayMode === 'hidden') {
+          opacity = 0;
+        }
+
+        // BMD vertical lines keep their semantic colors
+        if (trace.isBmdLine) {
+          return {
+            ...trace,
+            opacity: opacity,
+          };
+        }
+
+        // Curve lines use cluster colors with full reactive styling
         const markerStyle = getClusterMarkerStyle(
           clusterId,
           baseColor,
@@ -250,6 +304,182 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
       return trace;
     });
   }, [baseTraces, clusterColors, curvesByCluster, selectedCategories, hasSelection, categoryState.selectedIds, nonSelectedDisplayMode]);
+
+  // Create individual subplot data and layout for each category
+  const { subplotData, subplotLayout } = useMemo(() => {
+    const categories = Array.from(curvesByCategory.keys());
+    const numCategories = categories.length;
+    const cols = Math.min(2, numCategories); // Max 2 columns
+    const rows = Math.ceil(numCategories / cols);
+
+    const subplots: any[] = [];
+    const annotations: any[] = [];
+
+    // Calculate global y-range for vertical lines
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    curves.forEach(curve => {
+      if (curve.curvePoints && curve.curvePoints.length > 0) {
+        curve.curvePoints.filter(p => p).forEach(p => {
+          minY = Math.min(minY, p!.response);
+          maxY = Math.max(maxY, p!.response);
+        });
+      }
+      if (curve.measuredPoints && curve.measuredPoints.length > 0) {
+        curve.measuredPoints.filter(p => p).forEach(p => {
+          minY = Math.min(minY, p!.response);
+          maxY = Math.max(maxY, p!.response);
+        });
+      }
+    });
+
+    const yPadding = (maxY - minY) * 0.05;
+    minY -= yPadding;
+    maxY += yPadding;
+
+    categories.forEach((pathwayDesc, idx) => {
+      const categoryCurves = curvesByCategory.get(pathwayDesc)!;
+      const pathwayInfo = pathwayToCluster.get(pathwayDesc);
+      const clusterId = pathwayInfo?.clusterId ?? -1;
+      const clusterColor = clusterColors[clusterId] || '#999999';
+
+      const row = Math.floor(idx / cols) + 1;
+      const col = (idx % cols) + 1;
+      const xref = col === 1 ? 'x' : `x${(idx + 1)}`;
+      const yref = row === 1 && col === 1 ? 'y' : `y${(idx + 1)}`;
+
+      categoryCurves.forEach(curve => {
+        const curveName = `${curve.geneSymbol} (${curve.probeId})`;
+
+        // Add curve line
+        if (curve.curvePoints && curve.curvePoints.length > 0) {
+          const xValues = curve.curvePoints.filter(p => p).map(p => p!.dose);
+          const yValues = curve.curvePoints.filter(p => p).map(p => p!.response);
+
+          subplots.push({
+            x: xValues,
+            y: yValues,
+            type: 'scatter',
+            mode: 'lines',
+            name: curveName,
+            line: { width: 2, color: clusterColor },
+            showlegend: false,
+            hovertemplate: `${curveName}<br>Dose: %{x}<br>Response: %{y:.3f}<extra></extra>`,
+            xaxis: xref,
+            yaxis: yref,
+          });
+        }
+
+        // Add measured points
+        if (curve.measuredPoints && curve.measuredPoints.length > 0) {
+          const xMeasured = curve.measuredPoints.filter(p => p).map(p => p!.dose);
+          const yMeasured = curve.measuredPoints.filter(p => p).map(p => p!.response);
+
+          subplots.push({
+            x: xMeasured,
+            y: yMeasured,
+            type: 'scatter',
+            mode: 'markers',
+            name: `${curveName} (data)`,
+            marker: { size: 8, symbol: 'circle', color: clusterColor },
+            showlegend: false,
+            hovertemplate: `${curveName} (measured)<br>Dose: %{x}<br>Response: %{y:.3f}<extra></extra>`,
+            xaxis: xref,
+            yaxis: yref,
+          });
+        }
+
+        // Add BMD vertical lines
+        if (curve.bmdMarkers) {
+          const markers = curve.bmdMarkers;
+
+          if (markers.bmd != null) {
+            subplots.push({
+              x: [markers.bmd, markers.bmd],
+              y: [minY, maxY],
+              type: 'scatter',
+              mode: 'lines',
+              line: { color: '#00FF00', width: 2 },
+              showlegend: false,
+              hovertemplate: `BMD<br>Dose: ${markers.bmd.toFixed(3)}<extra></extra>`,
+              xaxis: xref,
+              yaxis: yref,
+            });
+          }
+
+          if (markers.bmdl != null) {
+            subplots.push({
+              x: [markers.bmdl, markers.bmdl],
+              y: [minY, maxY],
+              type: 'scatter',
+              mode: 'lines',
+              line: { color: '#FF0000', width: 2 },
+              showlegend: false,
+              hovertemplate: `BMDL<br>Dose: ${markers.bmdl.toFixed(3)}<extra></extra>`,
+              xaxis: xref,
+              yaxis: yref,
+            });
+          }
+
+          if (markers.bmdu != null) {
+            subplots.push({
+              x: [markers.bmdu, markers.bmdu],
+              y: [minY, maxY],
+              type: 'scatter',
+              mode: 'lines',
+              line: { color: '#0000FF', width: 2 },
+              showlegend: false,
+              hovertemplate: `BMDU<br>Dose: ${markers.bmdu.toFixed(3)}<extra></extra>`,
+              xaxis: xref,
+              yaxis: yref,
+            });
+          }
+        }
+      });
+
+      // Add subplot title annotation
+      annotations.push({
+        xref: `x${idx + 1} domain`,
+        yref: `y${idx + 1} domain`,
+        x: 0.5,
+        y: 1.0,
+        xanchor: 'center',
+        yanchor: 'bottom',
+        text: `<b>${pathwayDesc}</b>`,
+        showarrow: false,
+        font: { size: 12 },
+      });
+    });
+
+    // Create subplot layout
+    const subplotLayoutConfig: any = {
+      grid: { rows, columns: cols, pattern: 'independent', roworder: 'top to bottom' },
+      height: Math.max(500, rows * 400),
+      showlegend: false,
+      hovermode: 'closest',
+      annotations,
+      margin: { l: 60, r: 20, t: 80, b: 60 },
+    };
+
+    // Configure axes for each subplot
+    for (let i = 0; i < numCategories; i++) {
+      const axisNum = i === 0 ? '' : String(i + 1);
+      subplotLayoutConfig[`xaxis${axisNum}`] = {
+        title: 'Dose',
+        type: 'log',
+        showgrid: true,
+        gridcolor: '#e5e5e5',
+      };
+      subplotLayoutConfig[`yaxis${axisNum}`] = {
+        title: 'Log(Expression)',
+        showgrid: true,
+        gridcolor: '#e5e5e5',
+      };
+    }
+
+    return { subplotData: subplots, subplotLayout: subplotLayoutConfig };
+  }, [curvesByCategory, curves, pathwayToCluster, clusterColors]);
 
   const layout: any = {
     title: {
@@ -295,13 +525,29 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
 
   return (
     <div style={{ width: '100%' }}>
-      <Plot
-        data={plotData}
-        layout={layout}
-        config={config}
-        style={{ width: '100%' }}
-        onLegendClick={handleLegendClick}
-      />
+      {/* Overlay plot */}
+      <div style={{ marginBottom: 24 }}>
+        <Plot
+          data={plotData}
+          layout={layout}
+          config={config}
+          style={{ width: '100%' }}
+          onLegendClick={handleLegendClick}
+        />
+      </div>
+
+      {/* Individual category subplots */}
+      <div>
+        <h3 style={{ marginBottom: 16, fontSize: '16px', fontWeight: 600 }}>
+          Individual Category Plots
+        </h3>
+        <Plot
+          data={subplotData}
+          layout={subplotLayout}
+          config={config}
+          style={{ width: '100%' }}
+        />
+      </div>
     </div>
   );
 }

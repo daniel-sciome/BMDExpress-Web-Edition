@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, InputNumber, Button, Space, Badge, Tooltip } from 'antd';
 import { FilterOutlined, ClearOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { setFilters, clearFilters } from '../store/slices/categoryResultsSlice';
+import { updateFiltersWithRenderState, clearFilters } from '../store/slices/categoryResultsSlice';
 
 const STORAGE_KEY = 'bmdexpress_master_filters_global';
 
@@ -72,7 +72,7 @@ export default function MasterFilter({ hideCard = false }: MasterFilterProps) {
 
     setLocalFilters(filtersToLoad);
     // Auto-apply filters on mount
-    dispatch(setFilters(filtersToLoad));
+    dispatch(updateFiltersWithRenderState(filtersToLoad));
   }, [dispatch]);
 
   // Count active filters
@@ -87,7 +87,7 @@ export default function MasterFilter({ hideCard = false }: MasterFilterProps) {
       Object.entries(localFilters).filter(([_, value]) => value !== undefined && value !== null)
     );
 
-    dispatch(setFilters(filtersToApply));
+    dispatch(updateFiltersWithRenderState(filtersToApply));
 
     // Persist to localStorage
     localStorage.setItem(STORAGE_KEY, JSON.stringify(localFilters));
@@ -96,7 +96,7 @@ export default function MasterFilter({ hideCard = false }: MasterFilterProps) {
   // Handle reset to defaults
   const handleReset = () => {
     setLocalFilters(DEFAULT_FILTERS);
-    dispatch(setFilters(DEFAULT_FILTERS));
+    dispatch(updateFiltersWithRenderState(DEFAULT_FILTERS));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_FILTERS));
   };
 

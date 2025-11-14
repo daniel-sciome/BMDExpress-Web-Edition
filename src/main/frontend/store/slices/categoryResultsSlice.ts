@@ -1,8 +1,10 @@
 import { createSlice, createAsyncThunk, createSelector, PayloadAction } from '@reduxjs/toolkit';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
-import type { RootState } from '../store';
+import type { RootState, AppDispatch } from '../store';
 import type { ReactiveSelectionMap, SelectionSource } from 'Frontend/types/reactiveTypes';
+import { initializeCategories, upsertCategorySet } from './renderStateSlice';
+import { createClusterSets, createMasterFilterSet } from '../utils/initializeRenderState';
 
 // Filters interface
 interface Filters {
@@ -108,6 +110,87 @@ export const loadCategoryResults = createAsyncThunk(
       console.error('[Redux] Error loading category results:', error);
       throw error;
     }
+  }
+);
+
+// Wrapper thunk to load category results AND initialize render state
+export const loadCategoryResultsWithRenderState = createAsyncThunk<
+  void,
+  { projectId: string; resultName: string },
+  { dispatch: AppDispatch; state: RootState }
+>(
+  'categoryResults/loadWithRenderState',
+  async ({ projectId, resultName }, { dispatch, getState }) => {
+    console.log('[Redux] Loading category results with render state initialization');
+
+    // Load the category data
+    const resultAction = await dispatch(loadCategoryResults({ projectId, resultName }));
+
+    if (loadCategoryResults.fulfilled.match(resultAction)) {
+      const categories = resultAction.payload;
+
+      // Initialize CategoryRenderState for all categories
+      console.log('[Redux] Initializing render state for', categories.length, 'categories');
+      dispatch(initializeCategories(categories));
+
+      // Create cluster CategorySets from UMAP data
+      console.log('[Redux] Creating cluster CategorySets');
+      const clusterSets = createClusterSets(categories);
+      clusterSets.forEach(set => {
+        dispatch(upsertCategorySet(set));
+      });
+
+      // Create master filter CategorySet with current filter criteria
+      const state = getState();
+      const filters = state.categoryResults.filters;
+      console.log('[Redux] Creating master filter CategorySet with criteria:', filters);
+      const masterFilterSet = createMasterFilterSet(categories, {
+        minBmd: filters.bmdMin,
+        maxBmd: filters.bmdMax,
+        minPValue: undefined, // Not currently a filter
+        maxPValue: filters.pValueMax,
+      });
+      dispatch(upsertCategorySet(masterFilterSet));
+
+      console.log('[Redux] Render state initialization complete');
+    }
+  }
+);
+
+// Wrapper thunk to update filters AND update master filter CategorySet
+export const updateFiltersWithRenderState = createAsyncThunk<
+  void,
+  Partial<Filters>,
+  { dispatch: AppDispatch; state: RootState }
+>(
+  'categoryResults/updateFiltersWithRenderState',
+  async (newFilters, { dispatch, getState }) => {
+    // Update the filters in state
+    dispatch(categoryResultsSlice.actions.setFilters(newFilters));
+
+    // Get updated state
+    const state = getState();
+    const categories = state.categoryResults.data;
+    const filters = state.categoryResults.filters;
+
+    // Update master filter CategorySet
+    console.log('[Redux] Updating master filter CategorySet with criteria:', filters);
+    const masterFilterSet = createMasterFilterSet(categories, {
+      minBmd: filters.bmdMin,
+      maxBmd: filters.bmdMax,
+      minPValue: undefined,
+      maxPValue: filters.pValueMax,
+    });
+    dispatch(upsertCategorySet(masterFilterSet));
+
+    // Also update the filtered status on each CategoryRenderState
+    // (This will be used by charts to determine what to display)
+    const { updateFilteredStatus } = await import('./renderStateSlice');
+    const filteredStatusUpdates = categories.map(cat => ({
+      categoryId: cat.categoryId!,
+      filtered: masterFilterSet.categoryIds.includes(cat.categoryId!),
+    }));
+    dispatch(updateFilteredStatus(filteredStatusUpdates));
   }
 );
 

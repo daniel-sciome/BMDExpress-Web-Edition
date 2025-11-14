@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card } from 'antd';
 import { FileTextOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { loadCategoryResults, loadAnalysisParameters, setAnalysisType } from '../store/slices/categoryResultsSlice';
+import { loadCategoryResultsWithRenderState, loadAnalysisParameters, setAnalysisType } from '../store/slices/categoryResultsSlice';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
 import CategoryResultsGrid from './CategoryResultsGrid';
@@ -74,7 +74,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   useEffect(() => {
     console.log('[CategoryResultsView] Loading data for:', { projectId, resultName });
     if (projectId && resultName) {
-      dispatch(loadCategoryResults({ projectId, resultName }));
+      dispatch(loadCategoryResultsWithRenderState({ projectId, resultName }));
       dispatch(loadAnalysisParameters({ projectId, resultName }));
       loadAnnotation();
     }
