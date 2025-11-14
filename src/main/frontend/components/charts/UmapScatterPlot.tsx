@@ -1,17 +1,16 @@
 // UmapScatterPlot.tsx
 // UMAP scatter plot showing GO term semantic embeddings with interactive selection
-// Phase 4: Uses reactive selection infrastructure
+// Reacts to ClusterPicker selections only - NO legend interaction
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import Plot from 'react-plotly.js';
 import { Card, Button, Space, Tag, Tooltip } from 'antd';
 import { ClearOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useAppSelector } from 'Frontend/store/hooks';
 import { selectFilteredData } from 'Frontend/store/slices/categoryResultsSlice';
 import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveState';
-import { useNonSelectedDisplayMode } from 'Frontend/components/charts/hooks/useNonSelectedDisplayMode';
 import { umapDataService } from 'Frontend/data/umapDataService';
-import { useClusterColors, getClusterLabel } from './utils/clusterColors';
+import { useClusterColors } from './utils/clusterColors';
 import { createPlotlyConfig } from './utils/plotlyConfig';
 import type { ReferenceUmapItem } from 'Frontend/data/referenceUmapData';
 
@@ -19,42 +18,24 @@ interface UmapScatterPlotProps {
   height?: number;
 }
 
-/**
- * UMAP scatter plot component
- * Shows all GO terms in UMAP embedding space with clusters
- * Highlights GO terms that exist in current analysis results
- * Supports interactive selection via box/lasso select
- */
 export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) {
-  // Phase 4: Use reactive state hook - UMAP reacts to category selections
+  // Use reactive state hook - UMAP reacts to category selections
   const categoryState = useReactiveState('categoryId');
-  const hasSelection = categoryState.selectedIds.size > 0;
 
-  // Reference space visibility state: 'full' -> 'dimmed' -> 'hidden' -> 'full'
-  const [backdropVisibility, setBackdropVisibility] = React.useState<'full' | 'dimmed' | 'hidden'>('full');
-
-  // Non-selected cluster display mode: 'full' -> 'outline' -> 'hidden' when selection exists
-  const [nonSelectedDisplayMode, setNonSelectedDisplayMode] = useNonSelectedDisplayMode(hasSelection);
+  // Reference space visibility toggle
+  const [showReference, setShowReference] = useState<boolean>(true);
 
   // Get FILTERED analysis results (after Master Filter is applied)
   const filteredCategories = useAppSelector(selectFilteredData);
 
   // Debug logging
   React.useEffect(() => {
-    console.log('[UmapScatterPlot] Component mounted/updated:', {
-      filteredCount: filteredCategories.length,
+    console.log('[UmapScatterPlot] categoryState changed:', {
       selectedCount: categoryState.selectedIds.size,
-      firstCategory: filteredCategories[0]?.categoryDescription || 'none',
-      firstCategoryId: filteredCategories[0]?.categoryId || 'none',
-      first5Categories: filteredCategories.slice(0, 5).map(c => ({
-        id: c.categoryId,
-        desc: c.categoryDescription?.substring(0, 40)
-      }))
+      source: categoryState.source,
+      selectedIds: Array.from(categoryState.selectedIds).slice(0, 5)
     });
-    return () => {
-      console.log('[UmapScatterPlot] Component unmounting');
-    };
-  }, [filteredCategories.length, categoryState.selectedIds.size]);
+  }, [categoryState.selectedIds, categoryState.source]);
 
   // Create a set of GO IDs that pass the Master Filter
   const filteredGoIds = useMemo(() => {
@@ -72,66 +53,78 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
   // Get cluster colors using shared utility
   const clusterColors = useClusterColors();
 
-  // Create Plotly traces
-  const traces = useMemo(() => {
-    const result = [];
-
-    // Layer 1: Backdrop - ALL reference points in black (entire UMAP space)
-    // Visibility controlled by backdropVisibility state
-    // Note: Use opacity instead of visible:false to keep legend item clickable
-    const backdropOpacity = backdropVisibility === 'full' ? 0.4 : backdropVisibility === 'dimmed' ? 0.1 : 0;
-    const isBackdropHidden = backdropVisibility !== 'full';
-
-    result.push({
-      x: allUmapData.map(p => p.UMAP_1),
-      y: allUmapData.map(p => p.UMAP_2),
-      text: allUmapData.map(p => `${p.go_id}: ${p.go_term}<br>Cluster: ${p.cluster_id}`),
-      mode: 'markers',
-      type: 'scatter',
-      name: 'Reference Space',
-      marker: {
-        size: 3,
-        color: isBackdropHidden ? 'rgba(0,0,0,0)' : '#000000', // Transparent when hidden/dimmed
-        opacity: backdropOpacity,
-        line: {
-          width: isBackdropHidden ? 1 : 0,
-          color: '#000000'
-        },
-      },
-      hoverinfo: 'text',
-      showlegend: true,
-    });
-
-    // Layer 2: Overlay - Only filtered categories, grouped by cluster, with reactive styling
-    const filteredClusterGroups = new Map<string | number, ReferenceUmapItem[]>();
+  // Group filtered points by cluster
+  const clusterData = useMemo(() => {
+    const byCluster = new Map<string | number, ReferenceUmapItem[]>();
     filteredPoints.forEach(point => {
       const clusterId = point.cluster_id;
-      if (!filteredClusterGroups.has(clusterId)) {
-        filteredClusterGroups.set(clusterId, []);
+      if (!byCluster.has(clusterId)) {
+        byCluster.set(clusterId, []);
       }
-      filteredClusterGroups.get(clusterId)!.push(point);
+      byCluster.get(clusterId)!.push(point);
+    });
+    return byCluster;
+  }, [filteredPoints]);
+
+  // Create traces with reactive styling
+  const traces = useMemo(() => {
+    console.log('[UmapScatterPlot] Recomputing traces. Selection:', {
+      selectedCount: categoryState.selectedIds.size,
+      selectedIds: Array.from(categoryState.selectedIds).slice(0, 5),
+      source: categoryState.source,
+    });
+    const result: any[] = [];
+
+    const hasSelection = categoryState.selectedIds.size > 0;
+
+    // Layer 1: Backdrop - ALL reference points (entire UMAP space)
+    if (showReference) {
+      result.push({
+        x: allUmapData.map(p => p.UMAP_1),
+        y: allUmapData.map(p => p.UMAP_2),
+        text: allUmapData.map(p => `${p.go_id}: ${p.go_term}<br>Cluster: ${p.cluster_id}`),
+        mode: 'markers',
+        type: 'scatter',
+        name: 'Reference Space',
+        marker: {
+          size: 3,
+          color: '#000000',
+          opacity: 0.2,
+        },
+        hoverinfo: 'text',
+        showlegend: false,
+      });
+    }
+
+    // Layer 2: Cluster traces with reactive styling
+    const sortedClusters = Array.from(clusterData.keys()).sort((a, b) => {
+      if (a === -1) return 1;
+      if (b === -1) return -1;
+      return Number(a) - Number(b);
     });
 
-    // Create a trace for each cluster (filtered points with reactive styling)
-    Array.from(filteredClusterGroups.entries()).forEach(([clusterId, points]) => {
+    sortedClusters.forEach((clusterId) => {
+      const points = clusterData.get(clusterId)!;
+      const baseColor = clusterColors[clusterId] || '#999999';
+
       // Check if ANY category from this cluster is selected
-      const isClusterSelected = hasSelection && points.some(p => categoryState.isSelected(p.go_id));
+      const isClusterSelected = hasSelection && points.some(p => categoryState.selectedIds.has(p.go_id));
 
-      // Determine marker styling based on selection state and display mode
-      let markerColor = clusterColors[clusterId];
-      let markerLineWidth = 0;
+      let markerColor = baseColor;
+      let markerSize = 8;
       let markerOpacity = 1.0;
-      let visible: boolean | 'legendonly' = true;
+      let markerLineWidth = 0;
+      let markerLineColor = 'white';
 
-      if (hasSelection && !isClusterSelected) {
-        // This cluster is NOT selected, apply non-selected display mode
-        if (nonSelectedDisplayMode === 'outline') {
-          // Outline mode: transparent fill with colored border
-          markerColor = `rgba(${parseInt(clusterColors[clusterId].slice(1,3), 16)}, ${parseInt(clusterColors[clusterId].slice(3,5), 16)}, ${parseInt(clusterColors[clusterId].slice(5,7), 16)}, 0)`;
-          markerLineWidth = 1;
-        } else if (nonSelectedDisplayMode === 'hidden') {
-          // Hidden mode: set opacity to 0 but keep trace visible for legend
-          markerOpacity = 0;
+      if (hasSelection) {
+        if (isClusterSelected) {
+          // This cluster is selected - make it stand out
+          markerSize = 10;
+          markerLineWidth = 2;
+          markerLineColor = 'white';
+        } else {
+          // This cluster is NOT selected - fade it out
+          markerOpacity = 0.2;
         }
       }
 
@@ -139,30 +132,28 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
         x: points.map(p => p.UMAP_1),
         y: points.map(p => p.UMAP_2),
         text: points.map(p => `${p.go_id}: ${p.go_term}<br>Cluster: ${clusterId}<br><b>FILTERED</b>`),
+        customdata: points.map(p => p.go_id),
         mode: 'markers',
         type: 'scatter',
         name: `Cluster ${clusterId}`,
         marker: {
-          size: 8,
           color: markerColor,
+          size: markerSize,
           opacity: markerOpacity,
           line: {
+            color: markerLineColor,
             width: markerLineWidth,
-            color: clusterColors[clusterId]
           },
         },
         hoverinfo: 'text',
-        showlegend: true,
-        legendgroup: `cluster_${clusterId}`,
-        customdata: points.map(p => p.go_id),
+        showlegend: false,
       });
     });
 
     return result;
-  }, [allUmapData, filteredPoints, clusterColors, categoryState.selectedIds.size, categoryState.isSelected, backdropVisibility, nonSelectedDisplayMode]);
+  }, [allUmapData, clusterData, clusterColors, categoryState.selectedIds, showReference]);
 
   // Handle Plotly selection events
-  // Phase 4: Use reactive selection actions
   const handleSelected = useCallback((event: any) => {
     if (!event || !event.points || event.points.length === 0) {
       return;
@@ -192,109 +183,6 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
     categoryState.handleClear();
   }, [categoryState]);
 
-  // Handle legend click - select all categories in a cluster
-  const handleLegendClick = useCallback((event: any) => {
-    if (!event || event.curveNumber === undefined) {
-      return false; // Allow default behavior
-    }
-
-    // Get the trace that was clicked
-    const trace = traces[event.curveNumber];
-    if (!trace || !trace.name) {
-      return false;
-    }
-
-    // Handle Reference Space clicks - 3-way toggle
-    if (trace.name === 'Reference Space') {
-      // Cycle through: full -> dimmed -> hidden -> full
-      setBackdropVisibility(current => {
-        if (current === 'full') {
-          console.log('[UmapScatterPlot] Reference Space: full -> dimmed');
-          return 'dimmed';
-        } else if (current === 'dimmed') {
-          console.log('[UmapScatterPlot] Reference Space: dimmed -> hidden');
-          return 'hidden';
-        } else {
-          console.log('[UmapScatterPlot] Reference Space: hidden -> full');
-          return 'full';
-        }
-      });
-      return false; // Prevent default legend toggle
-    }
-
-    // Extract cluster ID from trace name (format: "Cluster X")
-    const clusterMatch = trace.name.match(/Cluster (\S+)/);
-    if (!clusterMatch) {
-      return false;
-    }
-
-    const clusterId = clusterMatch[1];
-
-    // Check if Cmd (Mac) or Ctrl (Windows/Linux) key is pressed for multi-select
-    const isMultiSelect = event.event?.ctrlKey || event.event?.metaKey;
-
-    console.log('[UmapScatterPlot] Legend clicked for cluster:', clusterId, 'multiselect:', isMultiSelect);
-
-    // Find all category IDs in this cluster (from filtered points)
-    const categoriesInCluster = filteredPoints
-      .filter(point => String(point.cluster_id) === clusterId)
-      .map(point => point.go_id);
-
-    console.log('[UmapScatterPlot] Categories in cluster:', categoriesInCluster.length);
-
-    // Check if this cluster is currently selected
-    const isClusterSelected = categoriesInCluster.some(catId => categoryState.selectedIds.has(catId));
-
-    if (!isClusterSelected) {
-      // Cluster not selected - first click selects it AND makes non-selected markers outline
-      console.log('[UmapScatterPlot] Selecting cluster, non-selected -> outline');
-      setNonSelectedDisplayMode('outline');
-
-      if (isMultiSelect) {
-        // Multi-select: add to existing selection
-        const currentSelection = Array.from(categoryState.selectedIds);
-        const mergedSelection = [...new Set([...currentSelection, ...categoriesInCluster])];
-        categoryState.handleMultiSelect(mergedSelection, 'umap');
-      } else {
-        // Single select: replace selection
-        categoryState.handleMultiSelect(categoriesInCluster, 'umap');
-      }
-    } else {
-      // Cluster is selected - cycle through: outline -> hidden -> deselect
-      if (nonSelectedDisplayMode === 'outline') {
-        console.log('[UmapScatterPlot] Switching to hidden mode');
-        setNonSelectedDisplayMode('hidden');
-      } else if (nonSelectedDisplayMode === 'hidden') {
-        // hidden -> deselect
-        console.log('[UmapScatterPlot] Deselecting cluster');
-        setNonSelectedDisplayMode('full'); // Reset for next selection
-
-        if (isMultiSelect) {
-          // Multi-select: remove from selection
-          const currentSelection = Array.from(categoryState.selectedIds);
-          const categoriesInClusterSet = new Set(categoriesInCluster);
-          const newSelection = currentSelection.filter(catId => !categoriesInClusterSet.has(String(catId)));
-
-          if (newSelection.length > 0) {
-            categoryState.handleMultiSelect(newSelection, 'umap');
-          } else {
-            categoryState.handleClear();
-          }
-        } else {
-          // Single select: clear all
-          categoryState.handleClear();
-        }
-      } else {
-        // Should not happen, but if in 'full' mode, go to outline
-        console.log('[UmapScatterPlot] Unexpected state, switching to outline mode');
-        setNonSelectedDisplayMode('outline');
-      }
-    }
-
-    // Return false to prevent default legend toggle behavior
-    return false;
-  }, [traces, filteredPoints, categoryState, nonSelectedDisplayMode]);
-
   // Layout configuration
   const layout: any = {
     title: { text: 'GO Term UMAP Embedding Space' },
@@ -309,18 +197,11 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
     height,
     hovermode: 'closest' as const,
     dragmode: 'lasso' as const,
-    showlegend: true,
-    legend: {
-      x: 1.02,
-      y: 1,
-      orientation: 'v' as const,
-      itemsizing: 'constant' as const,
-      font: { size: 10 },
-    },
-    margin: { l: 60, r: 200, t: 80, b: 60 },
+    showlegend: false,
+    margin: { l: 60, r: 60, t: 80, b: 60 },
   };
 
-  // Config for Plotly - custom button removal for UMAP selection
+  // Config for Plotly
   const config = createPlotlyConfig({
     modeBarButtonsToAdd: [],
     modeBarButtonsToRemove: ['autoScale2d'],
@@ -331,7 +212,7 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
       title={
         <Space>
           <span>UMAP Semantic Space</span>
-          <Tooltip title="GO terms are embedded in 2D space based on semantic similarity. Points closer together represent related biological processes. Use box/lasso select to filter categories, or click a cluster in the legend to select it. Click again to make non-selected clusters outline-only, then hidden, then deselect. Hold Cmd/Ctrl while clicking to add/remove multiple clusters. Click 'Reference Space' to cycle backdrop visibility: full → dimmed → hidden.">
+          <Tooltip title="GO terms are embedded in 2D space based on semantic similarity. Points closer together represent related biological processes. Use box/lasso select to filter categories, or use the Cluster Picker in the sidebar to select clusters.">
             <InfoCircleOutlined style={{ color: '#1890ff', cursor: 'help' }} />
           </Tooltip>
         </Space>
@@ -352,6 +233,12 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
               </Button>
             </>
           )}
+          <Button
+            size="small"
+            onClick={() => setShowReference(!showReference)}
+          >
+            {showReference ? 'Hide' : 'Show'} Reference
+          </Button>
         </Space>
       }
       style={{ marginBottom: 16 }}
@@ -362,16 +249,12 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
         config={config}
         onSelected={handleSelected}
         onDeselect={handleDeselect}
-        onLegendClick={handleLegendClick}
         style={{ width: '100%' }}
       />
 
       <div style={{ marginTop: 16, fontSize: '12px', color: '#666' }}>
         <p>
-          <strong>How to use:</strong> Use the lasso or box select tool to select GO terms, or click a cluster in the legend to select it.
-          Click again to cycle through views of <strong>non-selected clusters</strong>: filled → outline → hidden, then click once more to deselect.
-          Hold <strong>Cmd/Ctrl</strong> while clicking legend items to add/remove multiple clusters from your selection.
-          Click <strong>Reference Space</strong> legend item to cycle backdrop visibility (full → dimmed → hidden).
+          <strong>How to use:</strong> Use the lasso or box select tool to select GO terms, or use the <strong>Cluster Picker</strong> in the sidebar to select entire clusters.
           All visualizations will update to show only the selected categories.
           Small black points form the backdrop (entire UMAP reference space).
           Colored points are categories that pass the Master Filter.
