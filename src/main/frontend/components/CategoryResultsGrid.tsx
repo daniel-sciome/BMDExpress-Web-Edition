@@ -17,6 +17,8 @@ import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/Ca
 // Import utilities, types, and column visibility helpers
 import {
   ColumnVisibility,
+  DEFAULT_COLUMN_VISIBILITY,
+  COLUMN_VISIBILITY_STORAGE_KEY,
   loadColumnVisibility,
   saveColumnVisibility,
   showAllColumns,
@@ -79,15 +81,36 @@ export default function CategoryResultsGrid() {
   // Pagination state
   const [pageSize, setPageSize] = useState(50);
 
-  // Column visibility state - smart defaults (only essential columns visible)
-  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>(() => {
-    return loadColumnVisibility();
+  // Remember column selection preference
+  const [rememberColumnSelection, setRememberColumnSelection] = useState<boolean>(() => {
+    const saved = localStorage.getItem('categoryTable_rememberColumns');
+    return saved === 'true';
   });
 
-  // Save visibility to localStorage when it changes
+  // Column visibility state - load from localStorage only if user wants to remember
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>(() => {
+    if (rememberColumnSelection) {
+      return loadColumnVisibility();
+    }
+    return DEFAULT_COLUMN_VISIBILITY;
+  });
+
+  // Save visibility to localStorage only if user wants to remember
   useEffect(() => {
-    saveColumnVisibility(columnVisibility);
-  }, [columnVisibility]);
+    if (rememberColumnSelection) {
+      saveColumnVisibility(columnVisibility);
+    }
+  }, [columnVisibility, rememberColumnSelection]);
+
+  // Save the "remember" preference itself
+  useEffect(() => {
+    localStorage.setItem('categoryTable_rememberColumns', String(rememberColumnSelection));
+    // If user unchecks "remember", clear saved column settings and reset to defaults
+    if (!rememberColumnSelection) {
+      localStorage.removeItem(COLUMN_VISIBILITY_STORAGE_KEY);
+      setColumnVisibility(DEFAULT_COLUMN_VISIBILITY);
+    }
+  }, [rememberColumnSelection]);
 
   // Apply filter based on toggle
   const data = useMemo(() => {
@@ -181,33 +204,52 @@ export default function CategoryResultsGrid() {
       cols.push(...getBMDUConfidenceColumns());
     }
 
-    // Advanced column groups
-    if (columnVisibility.filterCounts) {
-      cols.push(...getFilterCountsColumns());
+    // Advanced column groups - pass individual column visibility
+    // Show group if master toggle is on OR if any individual column is visible
+    if (columnVisibility.filterCounts.all || Object.values(columnVisibility.filterCounts.columns).some(v => v)) {
+      cols.push(...getFilterCountsColumns(
+        columnVisibility.filterCounts.all ? undefined : columnVisibility.filterCounts.columns
+      ));
     }
-    if (columnVisibility.percentiles) {
-      cols.push(...getPercentilesColumns());
+    if (columnVisibility.percentiles.all || Object.values(columnVisibility.percentiles.columns).some(v => v)) {
+      cols.push(...getPercentilesColumns(
+        columnVisibility.percentiles.all ? undefined : columnVisibility.percentiles.columns
+      ));
     }
-    if (columnVisibility.directionalUp) {
-      cols.push(...getDirectionalUpColumns());
+    if (columnVisibility.directionalUp.all || Object.values(columnVisibility.directionalUp.columns).some(v => v)) {
+      cols.push(...getDirectionalUpColumns(
+        columnVisibility.directionalUp.all ? undefined : columnVisibility.directionalUp.columns
+      ));
     }
-    if (columnVisibility.directionalDown) {
-      cols.push(...getDirectionalDownColumns());
+    if (columnVisibility.directionalDown.all || Object.values(columnVisibility.directionalDown.columns).some(v => v)) {
+      cols.push(...getDirectionalDownColumns(
+        columnVisibility.directionalDown.all ? undefined : columnVisibility.directionalDown.columns
+      ));
     }
-    if (columnVisibility.directionalAnalysis) {
-      cols.push(...getDirectionalAnalysisColumns());
+    if (columnVisibility.directionalAnalysis.all || Object.values(columnVisibility.directionalAnalysis.columns).some(v => v)) {
+      cols.push(...getDirectionalAnalysisColumns(
+        columnVisibility.directionalAnalysis.all ? undefined : columnVisibility.directionalAnalysis.columns
+      ));
     }
-    if (columnVisibility.foldChange) {
-      cols.push(...getFoldChangeColumns());
+    if (columnVisibility.foldChange.all || Object.values(columnVisibility.foldChange.columns).some(v => v)) {
+      cols.push(...getFoldChangeColumns(
+        columnVisibility.foldChange.all ? undefined : columnVisibility.foldChange.columns
+      ));
     }
-    if (columnVisibility.zScores) {
-      cols.push(...getZScoresColumns());
+    if (columnVisibility.zScores.all || Object.values(columnVisibility.zScores.columns).some(v => v)) {
+      cols.push(...getZScoresColumns(
+        columnVisibility.zScores.all ? undefined : columnVisibility.zScores.columns
+      ));
     }
-    if (columnVisibility.modelFoldChange) {
-      cols.push(...getModelFoldChangeColumns());
+    if (columnVisibility.modelFoldChange.all || Object.values(columnVisibility.modelFoldChange.columns).some(v => v)) {
+      cols.push(...getModelFoldChangeColumns(
+        columnVisibility.modelFoldChange.all ? undefined : columnVisibility.modelFoldChange.columns
+      ));
     }
-    if (columnVisibility.geneLists) {
-      cols.push(...getGeneListsColumns());
+    if (columnVisibility.geneLists.all || Object.values(columnVisibility.geneLists.columns).some(v => v)) {
+      cols.push(...getGeneListsColumns(
+        columnVisibility.geneLists.all ? undefined : columnVisibility.geneLists.columns
+      ));
     }
 
     return cols;
@@ -225,19 +267,28 @@ export default function CategoryResultsGrid() {
   // Column visibility popover content
   const columnVisibilityContent = (
     <div style={{ width: '400px', maxHeight: '500px', overflowY: 'auto' }}>
-      <div style={{ marginBottom: '16px', display: 'flex', gap: '8px' }}>
-        <Button
-          size="small"
-          onClick={() => setColumnVisibility(showAllColumns())}
+      <div style={{ marginBottom: '16px' }}>
+        <Checkbox
+          checked={rememberColumnSelection}
+          onChange={(e) => setRememberColumnSelection(e.target.checked)}
+          style={{ marginBottom: '12px' }}
         >
-          Show All
-        </Button>
-        <Button
-          size="small"
-          onClick={() => setColumnVisibility(resetColumnVisibility())}
-        >
-          Reset to Defaults
-        </Button>
+          Remember Column Selection
+        </Checkbox>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Button
+            size="small"
+            onClick={() => setColumnVisibility(showAllColumns())}
+          >
+            Show All
+          </Button>
+          <Button
+            size="small"
+            onClick={() => setColumnVisibility(resetColumnVisibility())}
+          >
+            Reset to Defaults
+          </Button>
+        </div>
       </div>
 
       <Space direction="vertical" style={{ width: '100%' }}>
@@ -251,7 +302,7 @@ export default function CategoryResultsGrid() {
             setColumnVisibility({ ...columnVisibility, geneCounts: e.target.checked });
           }}
         >
-          Gene Counts (Passed, All, %)
+          Gene Counts (4 columns)
         </Checkbox>
 
         <div style={{ fontWeight: 600, marginTop: '16px', marginBottom: '8px', borderBottom: '1px solid #f0f0f0', paddingBottom: '8px' }}>
@@ -324,87 +375,620 @@ export default function CategoryResultsGrid() {
         <div style={{ fontWeight: 600, marginTop: '16px', marginBottom: '8px', borderBottom: '1px solid #f0f0f0', paddingBottom: '8px' }}>
           Advanced Columns
         </div>
-        <Checkbox
-          checked={columnVisibility.filterCounts}
-          onChange={(e) => {
-            e.stopPropagation();
-            setColumnVisibility({ ...columnVisibility, filterCounts: e.target.checked });
-          }}
-        >
-          Filter Counts (12 columns)
-        </Checkbox>
-        <Checkbox
-          checked={columnVisibility.percentiles}
-          onChange={(e) => {
-            e.stopPropagation();
-            setColumnVisibility({ ...columnVisibility, percentiles: e.target.checked });
-          }}
-        >
-          Percentile Values (6 columns)
-        </Checkbox>
-        <Checkbox
-          checked={columnVisibility.directionalUp}
-          onChange={(e) => {
-            e.stopPropagation();
-            setColumnVisibility({ ...columnVisibility, directionalUp: e.target.checked });
-          }}
-        >
-          Directional Stats - UP Genes (9 columns)
-        </Checkbox>
-        <Checkbox
-          checked={columnVisibility.directionalDown}
-          onChange={(e) => {
-            e.stopPropagation();
-            setColumnVisibility({ ...columnVisibility, directionalDown: e.target.checked });
-          }}
-        >
-          Directional Stats - DOWN Genes (9 columns)
-        </Checkbox>
-        <Checkbox
-          checked={columnVisibility.directionalAnalysis}
-          onChange={(e) => {
-            e.stopPropagation();
-            setColumnVisibility({ ...columnVisibility, directionalAnalysis: e.target.checked });
-          }}
-        >
-          Directional Analysis (4 columns)
-        </Checkbox>
-        <Checkbox
-          checked={columnVisibility.foldChange}
-          onChange={(e) => {
-            e.stopPropagation();
-            setColumnVisibility({ ...columnVisibility, foldChange: e.target.checked });
-          }}
-        >
-          Fold Change Statistics (6 columns)
-        </Checkbox>
-        <Checkbox
-          checked={columnVisibility.zScores}
-          onChange={(e) => {
-            e.stopPropagation();
-            setColumnVisibility({ ...columnVisibility, zScores: e.target.checked });
-          }}
-        >
-          Z-Score Statistics (4 columns)
-        </Checkbox>
-        <Checkbox
-          checked={columnVisibility.modelFoldChange}
-          onChange={(e) => {
-            e.stopPropagation();
-            setColumnVisibility({ ...columnVisibility, modelFoldChange: e.target.checked });
-          }}
-        >
-          Model Fold Change (4 columns)
-        </Checkbox>
-        <Checkbox
-          checked={columnVisibility.geneLists}
-          onChange={(e) => {
-            e.stopPropagation();
-            setColumnVisibility({ ...columnVisibility, geneLists: e.target.checked });
-          }}
-        >
-          Gene Lists (2 columns)
-        </Checkbox>
+        <div style={{ fontSize: '11px', color: '#666', fontStyle: 'italic', marginBottom: '8px' }}>
+          Click group names to expand and select individual columns
+        </div>
+
+        {/* Filter Counts */}
+        <Collapse
+          ghost
+          size="small"
+          style={{ marginBottom: '8px', background: '#fafafa' }}
+          items={[{
+            key: 'filterCounts',
+            label: (
+              <div onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={columnVisibility.filterCounts.all}
+                  indeterminate={!columnVisibility.filterCounts.all && Object.values(columnVisibility.filterCounts.columns).some(v => v)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    const checked = e.target.checked;
+                    setColumnVisibility({
+                      ...columnVisibility,
+                      filterCounts: {
+                        all: checked,
+                        columns: Object.fromEntries(
+                          Object.keys(columnVisibility.filterCounts.columns).map(k => [k, false])
+                        ) as any
+                      }
+                    });
+                  }}
+                >
+                  Filter Counts (15 columns)
+                </Checkbox>
+              </div>
+            ),
+            children: (
+              <div style={{ paddingLeft: '24px' }}>
+                <Space direction="vertical" size={4}>
+                  {Object.entries({
+                    bmdLessEqualHighDose: 'BMD ≤ High Dose',
+                    bmdPValueGreaterEqual: 'BMD P-Value ≥',
+                    foldChangeAbove: 'Fold Change ≥',
+                    rSquared: 'R² ≥',
+                    bmdBmdlRatio: 'BMD/BMDL <',
+                    bmduBmdlRatio: 'BMDU/BMDL <',
+                    bmduBmdRatio: 'BMDU/BMD <',
+                    nFoldBelow: 'N-Fold Below',
+                    prefilterPValue: 'Pre-P ≥',
+                    prefilterAdjustedPValue: 'Pre-Adj-P ≥',
+                    notStepFunction: 'Not Step Fn',
+                    notStepFunctionBMDL: 'Not Step (BMDL)',
+                    notAdverse: 'Not Adverse',
+                    absZScore: 'ABS Z-Score ≥',
+                    absModelFC: 'ABS Model FC ≥',
+                  }).map(([key, label]) => (
+                    <Checkbox
+                      key={key}
+                      checked={columnVisibility.filterCounts.columns[key as keyof typeof columnVisibility.filterCounts.columns]}
+                      onChange={(e) => {
+                        setColumnVisibility({
+                          ...columnVisibility,
+                          filterCounts: {
+                            ...columnVisibility.filterCounts,
+                            all: false,
+                            columns: {
+                              ...columnVisibility.filterCounts.columns,
+                              [key]: e.target.checked
+                            }
+                          }
+                        });
+                      }}
+                    >
+                      {label}
+                    </Checkbox>
+                  ))}
+                </Space>
+              </div>
+            )
+          }]}
+        />
+
+        {/* Percentiles */}
+        <Collapse
+          ghost
+          size="small"
+          style={{ marginBottom: '8px', background: '#fafafa' }}
+          items={[{
+            key: 'percentiles',
+            label: (
+              <div onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={columnVisibility.percentiles.all}
+                  indeterminate={!columnVisibility.percentiles.all && Object.values(columnVisibility.percentiles.columns).some(v => v)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    const checked = e.target.checked;
+                    setColumnVisibility({
+                      ...columnVisibility,
+                      percentiles: {
+                        all: checked,
+                        columns: Object.fromEntries(
+                          Object.keys(columnVisibility.percentiles.columns).map(k => [k, false])
+                        ) as any
+                      }
+                    });
+                  }}
+                >
+                  Percentile Values (6 columns)
+                </Checkbox>
+              </div>
+            ),
+            children: (
+              <div style={{ paddingLeft: '24px' }}>
+                <Space direction="vertical" size={4}>
+                  {Object.entries({
+                    bmd5th: 'BMD 5th %',
+                    bmd10th: 'BMD 10th %',
+                    bmdl5th: 'BMDL 5th %',
+                    bmdl10th: 'BMDL 10th %',
+                    bmdu5th: 'BMDU 5th %',
+                    bmdu10th: 'BMDU 10th %',
+                  }).map(([key, label]) => (
+                    <Checkbox
+                      key={key}
+                      checked={columnVisibility.percentiles.columns[key as keyof typeof columnVisibility.percentiles.columns]}
+                      onChange={(e) => {
+                        setColumnVisibility({
+                          ...columnVisibility,
+                          percentiles: {
+                            ...columnVisibility.percentiles,
+                            all: false,
+                            columns: {
+                              ...columnVisibility.percentiles.columns,
+                              [key]: e.target.checked
+                            }
+                          }
+                        });
+                      }}
+                    >
+                      {label}
+                    </Checkbox>
+                  ))}
+                </Space>
+              </div>
+            )
+          }]}
+        />
+
+        {/* Directional UP */}
+        <Collapse
+          ghost
+          size="small"
+          style={{ marginBottom: '8px', background: '#fafafa' }}
+          items={[{
+            key: 'directionalUp',
+            label: (
+              <div onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={columnVisibility.directionalUp.all}
+                  indeterminate={!columnVisibility.directionalUp.all && Object.values(columnVisibility.directionalUp.columns).some(v => v)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    const checked = e.target.checked;
+                    setColumnVisibility({
+                      ...columnVisibility,
+                      directionalUp: {
+                        all: checked,
+                        columns: Object.fromEntries(
+                          Object.keys(columnVisibility.directionalUp.columns).map(k => [k, false])
+                        ) as any
+                      }
+                    });
+                  }}
+                >
+                  Directional Stats - UP Genes (9 columns)
+                </Checkbox>
+              </div>
+            ),
+            children: (
+              <div style={{ paddingLeft: '24px' }}>
+                <Space direction="vertical" size={4}>
+                  {Object.entries({
+                    bmdMean: 'BMD Mean',
+                    bmdMedian: 'BMD Median',
+                    bmdSD: 'BMD SD',
+                    bmdlMean: 'BMDL Mean',
+                    bmdlMedian: 'BMDL Median',
+                    bmdlSD: 'BMDL SD',
+                    bmduMean: 'BMDU Mean',
+                    bmduMedian: 'BMDU Median',
+                    bmduSD: 'BMDU SD',
+                  }).map(([key, label]) => (
+                    <Checkbox
+                      key={key}
+                      checked={columnVisibility.directionalUp.columns[key as keyof typeof columnVisibility.directionalUp.columns]}
+                      onChange={(e) => {
+                        setColumnVisibility({
+                          ...columnVisibility,
+                          directionalUp: {
+                            ...columnVisibility.directionalUp,
+                            all: false,
+                            columns: {
+                              ...columnVisibility.directionalUp.columns,
+                              [key]: e.target.checked
+                            }
+                          }
+                        });
+                      }}
+                    >
+                      {label}
+                    </Checkbox>
+                  ))}
+                </Space>
+              </div>
+            )
+          }]}
+        />
+
+        {/* Directional DOWN */}
+        <Collapse
+          ghost
+          size="small"
+          style={{ marginBottom: '8px', background: '#fafafa' }}
+          items={[{
+            key: 'directionalDown',
+            label: (
+              <div onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={columnVisibility.directionalDown.all}
+                  indeterminate={!columnVisibility.directionalDown.all && Object.values(columnVisibility.directionalDown.columns).some(v => v)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    const checked = e.target.checked;
+                    setColumnVisibility({
+                      ...columnVisibility,
+                      directionalDown: {
+                        all: checked,
+                        columns: Object.fromEntries(
+                          Object.keys(columnVisibility.directionalDown.columns).map(k => [k, false])
+                        ) as any
+                      }
+                    });
+                  }}
+                >
+                  Directional Stats - DOWN Genes (9 columns)
+                </Checkbox>
+              </div>
+            ),
+            children: (
+              <div style={{ paddingLeft: '24px' }}>
+                <Space direction="vertical" size={4}>
+                  {Object.entries({
+                    bmdMean: 'BMD Mean',
+                    bmdMedian: 'BMD Median',
+                    bmdSD: 'BMD SD',
+                    bmdlMean: 'BMDL Mean',
+                    bmdlMedian: 'BMDL Median',
+                    bmdlSD: 'BMDL SD',
+                    bmduMean: 'BMDU Mean',
+                    bmduMedian: 'BMDU Median',
+                    bmduSD: 'BMDU SD',
+                  }).map(([key, label]) => (
+                    <Checkbox
+                      key={key}
+                      checked={columnVisibility.directionalDown.columns[key as keyof typeof columnVisibility.directionalDown.columns]}
+                      onChange={(e) => {
+                        setColumnVisibility({
+                          ...columnVisibility,
+                          directionalDown: {
+                            ...columnVisibility.directionalDown,
+                            all: false,
+                            columns: {
+                              ...columnVisibility.directionalDown.columns,
+                              [key]: e.target.checked
+                            }
+                          }
+                        });
+                      }}
+                    >
+                      {label}
+                    </Checkbox>
+                  ))}
+                </Space>
+              </div>
+            )
+          }]}
+        />
+
+        {/* Directional Analysis */}
+        <Collapse
+          ghost
+          size="small"
+          style={{ marginBottom: '8px', background: '#fafafa' }}
+          items={[{
+            key: 'directionalAnalysis',
+            label: (
+              <div onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={columnVisibility.directionalAnalysis.all}
+                  indeterminate={!columnVisibility.directionalAnalysis.all && Object.values(columnVisibility.directionalAnalysis.columns).some(v => v)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    const checked = e.target.checked;
+                    setColumnVisibility({
+                      ...columnVisibility,
+                      directionalAnalysis: {
+                        all: checked,
+                        columns: Object.fromEntries(
+                          Object.keys(columnVisibility.directionalAnalysis.columns).map(k => [k, false])
+                        ) as any
+                      }
+                    });
+                  }}
+                >
+                  Directional Analysis (4 columns)
+                </Checkbox>
+              </div>
+            ),
+            children: (
+              <div style={{ paddingLeft: '24px' }}>
+                <Space direction="vertical" size={4}>
+                  {Object.entries({
+                    overallDirection: 'Overall Direction',
+                    percentUP: '% UP',
+                    percentDOWN: '% DOWN',
+                    percentConflict: '% Conflict',
+                  }).map(([key, label]) => (
+                    <Checkbox
+                      key={key}
+                      checked={columnVisibility.directionalAnalysis.columns[key as keyof typeof columnVisibility.directionalAnalysis.columns]}
+                      onChange={(e) => {
+                        setColumnVisibility({
+                          ...columnVisibility,
+                          directionalAnalysis: {
+                            ...columnVisibility.directionalAnalysis,
+                            all: false,
+                            columns: {
+                              ...columnVisibility.directionalAnalysis.columns,
+                              [key]: e.target.checked
+                            }
+                          }
+                        });
+                      }}
+                    >
+                      {label}
+                    </Checkbox>
+                  ))}
+                </Space>
+              </div>
+            )
+          }]}
+        />
+
+        {/* Fold Change */}
+        <Collapse
+          ghost
+          size="small"
+          style={{ marginBottom: '8px', background: '#fafafa' }}
+          items={[{
+            key: 'foldChange',
+            label: (
+              <div onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={columnVisibility.foldChange.all}
+                  indeterminate={!columnVisibility.foldChange.all && Object.values(columnVisibility.foldChange.columns).some(v => v)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    const checked = e.target.checked;
+                    setColumnVisibility({
+                      ...columnVisibility,
+                      foldChange: {
+                        all: checked,
+                        columns: Object.fromEntries(
+                          Object.keys(columnVisibility.foldChange.columns).map(k => [k, false])
+                        ) as any
+                      }
+                    });
+                  }}
+                >
+                  Fold Change Statistics (6 columns)
+                </Checkbox>
+              </div>
+            ),
+            children: (
+              <div style={{ paddingLeft: '24px' }}>
+                <Space direction="vertical" size={4}>
+                  {Object.entries({
+                    total: 'Total',
+                    mean: 'Mean',
+                    median: 'Median',
+                    max: 'Max',
+                    min: 'Min',
+                    stdDev: 'Std Dev',
+                  }).map(([key, label]) => (
+                    <Checkbox
+                      key={key}
+                      checked={columnVisibility.foldChange.columns[key as keyof typeof columnVisibility.foldChange.columns]}
+                      onChange={(e) => {
+                        setColumnVisibility({
+                          ...columnVisibility,
+                          foldChange: {
+                            ...columnVisibility.foldChange,
+                            all: false,
+                            columns: {
+                              ...columnVisibility.foldChange.columns,
+                              [key]: e.target.checked
+                            }
+                          }
+                        });
+                      }}
+                    >
+                      {label}
+                    </Checkbox>
+                  ))}
+                </Space>
+              </div>
+            )
+          }]}
+        />
+
+        {/* Z-Scores */}
+        <Collapse
+          ghost
+          size="small"
+          style={{ marginBottom: '8px', background: '#fafafa' }}
+          items={[{
+            key: 'zScores',
+            label: (
+              <div onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={columnVisibility.zScores.all}
+                  indeterminate={!columnVisibility.zScores.all && Object.values(columnVisibility.zScores.columns).some(v => v)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    const checked = e.target.checked;
+                    setColumnVisibility({
+                      ...columnVisibility,
+                      zScores: {
+                        all: checked,
+                        columns: Object.fromEntries(
+                          Object.keys(columnVisibility.zScores.columns).map(k => [k, false])
+                        ) as any
+                      }
+                    });
+                  }}
+                >
+                  Z-Score Statistics (4 columns)
+                </Checkbox>
+              </div>
+            ),
+            children: (
+              <div style={{ paddingLeft: '24px' }}>
+                <Space direction="vertical" size={4}>
+                  {Object.entries({
+                    min: 'Min',
+                    median: 'Median',
+                    max: 'Max',
+                    mean: 'Mean',
+                  }).map(([key, label]) => (
+                    <Checkbox
+                      key={key}
+                      checked={columnVisibility.zScores.columns[key as keyof typeof columnVisibility.zScores.columns]}
+                      onChange={(e) => {
+                        setColumnVisibility({
+                          ...columnVisibility,
+                          zScores: {
+                            ...columnVisibility.zScores,
+                            all: false,
+                            columns: {
+                              ...columnVisibility.zScores.columns,
+                              [key]: e.target.checked
+                            }
+                          }
+                        });
+                      }}
+                    >
+                      {label}
+                    </Checkbox>
+                  ))}
+                </Space>
+              </div>
+            )
+          }]}
+        />
+
+        {/* Model Fold Change */}
+        <Collapse
+          ghost
+          size="small"
+          style={{ marginBottom: '8px', background: '#fafafa' }}
+          items={[{
+            key: 'modelFoldChange',
+            label: (
+              <div onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={columnVisibility.modelFoldChange.all}
+                  indeterminate={!columnVisibility.modelFoldChange.all && Object.values(columnVisibility.modelFoldChange.columns).some(v => v)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    const checked = e.target.checked;
+                    setColumnVisibility({
+                      ...columnVisibility,
+                      modelFoldChange: {
+                        all: checked,
+                        columns: Object.fromEntries(
+                          Object.keys(columnVisibility.modelFoldChange.columns).map(k => [k, false])
+                        ) as any
+                      }
+                    });
+                  }}
+                >
+                  Model Fold Change (4 columns)
+                </Checkbox>
+              </div>
+            ),
+            children: (
+              <div style={{ paddingLeft: '24px' }}>
+                <Space direction="vertical" size={4}>
+                  {Object.entries({
+                    min: 'Min',
+                    median: 'Median',
+                    max: 'Max',
+                    mean: 'Mean',
+                  }).map(([key, label]) => (
+                    <Checkbox
+                      key={key}
+                      checked={columnVisibility.modelFoldChange.columns[key as keyof typeof columnVisibility.modelFoldChange.columns]}
+                      onChange={(e) => {
+                        setColumnVisibility({
+                          ...columnVisibility,
+                          modelFoldChange: {
+                            ...columnVisibility.modelFoldChange,
+                            all: false,
+                            columns: {
+                              ...columnVisibility.modelFoldChange.columns,
+                              [key]: e.target.checked
+                            }
+                          }
+                        });
+                      }}
+                    >
+                      {label}
+                    </Checkbox>
+                  ))}
+                </Space>
+              </div>
+            )
+          }]}
+        />
+
+        {/* Gene Lists */}
+        <Collapse
+          ghost
+          size="small"
+          style={{ marginBottom: '8px', background: '#fafafa' }}
+          items={[{
+            key: 'geneLists',
+            label: (
+              <div onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={columnVisibility.geneLists.all}
+                  indeterminate={!columnVisibility.geneLists.all && Object.values(columnVisibility.geneLists.columns).some(v => v)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    const checked = e.target.checked;
+                    setColumnVisibility({
+                      ...columnVisibility,
+                      geneLists: {
+                        all: checked,
+                        columns: Object.fromEntries(
+                          Object.keys(columnVisibility.geneLists.columns).map(k => [k, false])
+                        ) as any
+                      }
+                    });
+                  }}
+                >
+                  Gene Lists (5 columns)
+                </Checkbox>
+              </div>
+            ),
+            children: (
+              <div style={{ paddingLeft: '24px' }}>
+                <Space direction="vertical" size={4}>
+                  {Object.entries({
+                    genes: 'Genes',
+                    geneSymbols: 'Gene Symbols',
+                    bmdList: 'BMD List',
+                    bmdlList: 'BMDL List',
+                    bmduList: 'BMDU List',
+                  }).map(([key, label]) => (
+                    <Checkbox
+                      key={key}
+                      checked={columnVisibility.geneLists.columns[key as keyof typeof columnVisibility.geneLists.columns]}
+                      onChange={(e) => {
+                        setColumnVisibility({
+                          ...columnVisibility,
+                          geneLists: {
+                            ...columnVisibility.geneLists,
+                            all: false,
+                            columns: {
+                              ...columnVisibility.geneLists.columns,
+                              [key]: e.target.checked
+                            }
+                          }
+                        });
+                      }}
+                    >
+                      {label}
+                    </Checkbox>
+                  ))}
+                </Space>
+              </div>
+            )
+          }]}
+        />
       </Space>
     </div>
   );
@@ -476,7 +1060,7 @@ export default function CategoryResultsGrid() {
           </Checkbox>
           <Popover
             content={columnVisibilityContent}
-            title="Configure Table Columns"
+            title="Select Columns for Display"
             trigger="click"
             placement="bottomLeft"
           >
@@ -485,7 +1069,7 @@ export default function CategoryResultsGrid() {
               onClick={(e) => e.stopPropagation()}
               size="small"
             >
-              Configure Columns
+              Select Columns for Display
             </Button>
           </Popover>
         </div>

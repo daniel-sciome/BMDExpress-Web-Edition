@@ -39,6 +39,14 @@ export function getGeneCountsColumns(): ColumnsType<CategoryAnalysisResultDto> {
           sorter: (a, b) => (a.geneAllCount || 0) - (b.geneAllCount || 0),
         },
         {
+          title: 'Significant ANOVA',
+          dataIndex: 'geneCountSignificantANOVA',
+          key: 'geneCountSignificantANOVA',
+          width: 60,
+          align: 'right',
+          sorter: (a, b) => (a.geneCountSignificantANOVA || 0) - (b.geneCountSignificantANOVA || 0),
+        },
+        {
           title: '%',
           dataIndex: 'percentage',
           key: 'percentage',

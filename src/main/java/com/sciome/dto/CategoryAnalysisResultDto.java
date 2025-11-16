@@ -135,11 +135,70 @@ public class CategoryAnalysisResultDto {
     // Gene lists (comma-separated)
     private String genes;
     private String geneSymbols;
+    private String probeIds;
+    private String genesIds;
 
     // BMD lists (semicolon-separated values for violin plots)
     private String bmdList;
     private String bmdlList;
     private String bmduList;
+
+    // Maximum values
+    private Double bmdMaximum;
+    private Double bmdlMaximum;
+
+    // Ratio statistics
+    private Double bmduDivBmdlMedian;
+    private Double bmdDivBmdlMedian;
+    private Double bmduDivBmdMedian;
+    private Double bmduDivBmdlMean;
+    private Double bmdDivBmdlMean;
+    private Double bmduDivBmdMean;
+
+    // Percentile indices
+    private Double fifthPercentileIndex;
+    private Double tenthPercentileIndex;
+
+    // Alternate percentile getters (single percentiles, not per total genes)
+    private Double bmdFifthPercentile;
+    private Double bmdTenthPercentile;
+    private Double bmdlFifthPercentile;
+    private Double bmdlTenthPercentile;
+    private Double bmduFifthPercentile;
+    private Double bmduTenthPercentile;
+
+    // Directional gene/probe lists
+    private String bmdlDown;
+    private String bmdlUp;
+    private String bmdDown;
+    private String bmdUp;
+    private String bmduDown;
+    private String bmduUp;
+    private String probesDown;
+    private String probesUp;
+    private String genesDown;
+    private String genesUp;
+
+    // Adverse direction counts
+    private Integer genesAdverseDownCount;
+    private Integer genesAdverseUpCount;
+    private Integer probesAdverseDownCount;
+    private Integer probesAdverseUpCount;
+    private Integer adverseConflictCount;
+
+    // Conflict lists
+    private String bmdlConflictList;
+    private String bmduConflictList;
+    private String bmdConflictList;
+    private String probesConflictList;
+    private String genesConflictList;
+    private String genesWithConflictingProbeSets;
+
+    // Additional metadata
+    private Integer gotermLevel;
+    private Double negLogOfFishers2Tail;
+    private Integer geneAllCountFromExperiment;
+    private String chartableDataLabel;
 
     // Default constructor for Hilla
     public CategoryAnalysisResultDto() {
@@ -251,22 +310,21 @@ public class CategoryAnalysisResultDto {
         dto.setPercentWithOverallDirectionDOWN(result.getPercentWithOverallDirectionDOWN());
         dto.setPercentWithOverallDirectionConflict(result.getPercentWithOverallDirectionConflict());
 
-        // Fold change statistics - these getters don't exist in CategoryAnalysisResult
-        // Only model fold change statistics are available
-        // dto.setTotalFoldChange(result.getTotalFoldChange()); // No getter
-        // dto.setMeanFoldChange(result.getMeanFoldChange()); // No getter
-        // dto.setMedianFoldChange(result.getMedianFoldChange()); // No getter
-        // dto.setMaxFoldChange(result.getMaxFoldChange()); // No getter
-        // dto.setMinFoldChange(result.getMinFoldChange()); // No getter
-        // dto.setStdDevFoldChange(result.getStdDevFoldChange()); // No getter
+        // Fold change statistics - lowercase getters
+        dto.setTotalFoldChange(result.gettotalFoldChange());
+        dto.setMeanFoldChange(result.getmeanFoldChange());
+        dto.setMedianFoldChange(result.getmedianFoldChange());
+        dto.setMaxFoldChange(result.getmaxFoldChange());
+        dto.setMinFoldChange(result.getminFoldChange());
+        dto.setStdDevFoldChange(result.getstdDevFoldChange());
 
-        // 95% Confidence intervals - these getters don't exist
-        // dto.setBmdLower95(result.getBmdLower95()); // No getter
-        // dto.setBmdUpper95(result.getBmdUpper95()); // No getter
-        // dto.setBmdlLower95(result.getBmdlLower95()); // No getter
-        // dto.setBmdlUpper95(result.getBmdlUpper95()); // No getter
-        // dto.setBmduLower95(result.getBmduLower95()); // No getter
-        // dto.setBmduUpper95(result.getBmduUpper95()); // No getter
+        // 95% Confidence intervals - lowercase getters
+        dto.setBmdLower95(result.getbmdLower95());
+        dto.setBmdUpper95(result.getbmdUpper95());
+        dto.setBmdlLower95(result.getbmdlLower95());
+        dto.setBmdlUpper95(result.getbmdlUpper95());
+        dto.setBmduLower95(result.getbmduLower95());
+        dto.setBmduUpper95(result.getbmduUpper95());
 
         // Z-Score statistics
         dto.setMinZScore(result.getMinZScore());
@@ -283,11 +341,70 @@ public class CategoryAnalysisResultDto {
         // Gene lists
         dto.setGenes(result.getGenes());
         dto.setGeneSymbols(result.getGeneSymbols());
+        dto.setProbeIds(result.getProbeIds());
+        dto.setGenesIds(result.getGenesIds());
 
         // BMD lists (semicolon-separated values for violin plots)
         dto.setBmdList(result.getBMDList());
         dto.setBmdlList(result.getBMDLList());
         dto.setBmduList(result.getBMDUList());
+
+        // Maximum values
+        dto.setBmdMaximum(result.getBMDMaximum());
+        dto.setBmdlMaximum(result.getBMDLMaximum());
+
+        // Ratio statistics
+        dto.setBmduDivBmdlMedian(result.getBMDUdivBMDLMEDIAN());
+        dto.setBmdDivBmdlMedian(result.getBMDdivBMDLMEDIAN());
+        dto.setBmduDivBmdMedian(result.getBMDUdivBMDMEDIAN());
+        dto.setBmduDivBmdlMean(result.getBMDUdivBMDLMEAN());
+        dto.setBmdDivBmdlMean(result.getBMDdivBMDLMEAN());
+        dto.setBmduDivBmdMean(result.getBMDUdivBMDMEAN());
+
+        // Percentile indices
+        dto.setFifthPercentileIndex(result.getFifthPercentileIndex());
+        dto.setTenthPercentileIndex(result.getTenthPercentileIndex());
+
+        // Alternate percentile getters
+        dto.setBmdFifthPercentile(result.getBmdFifthPercentile());
+        dto.setBmdTenthPercentile(result.getBmdTenthPercentile());
+        dto.setBmdlFifthPercentile(result.getBmdlFifthPercentile());
+        dto.setBmdlTenthPercentile(result.getBmdlTenthPercentile());
+        dto.setBmduFifthPercentile(result.getBmduFifthPercentile());
+        dto.setBmduTenthPercentile(result.getBmduTenthPercentile());
+
+        // Directional gene/probe lists
+        dto.setBmdlDown(result.getBMDLDown());
+        dto.setBmdlUp(result.getBMDLUp());
+        dto.setBmdDown(result.getBMDDown());
+        dto.setBmdUp(result.getBMDUp());
+        dto.setBmduDown(result.getBMDUDown());
+        dto.setBmduUp(result.getBMDUUp());
+        dto.setProbesDown(result.getProbesDown());
+        dto.setProbesUp(result.getProbesUp());
+        dto.setGenesDown(result.getGenesDown());
+        dto.setGenesUp(result.getGenesUp());
+
+        // Adverse direction counts
+        dto.setGenesAdverseDownCount(result.getGenesAdverseDownCount());
+        dto.setGenesAdverseUpCount(result.getGenesAdverseUpCount());
+        dto.setProbesAdverseDownCount(result.getProbesAdverseDownCount());
+        dto.setProbesAdverseUpCount(result.getProbesAdversUpCount());
+        dto.setAdverseConflictCount(result.getAdverseConflictCount());
+
+        // Conflict lists
+        dto.setBmdlConflictList(result.getBMDLConflictList());
+        dto.setBmduConflictList(result.getBMDUConflictList());
+        dto.setBmdConflictList(result.getBMDConflictList());
+        dto.setProbesConflictList(result.getProbesConflictList());
+        dto.setGenesConflictList(result.getGenesConflictList());
+        dto.setGenesWithConflictingProbeSets(result.getGenesWithConflictingProbeSets());
+
+        // Additional metadata
+        dto.setGotermLevel(result.getGotermLevel());
+        dto.setNegLogOfFishers2Tail(result.getNegLogOfFishers2Tail());
+        dto.setGeneAllCountFromExperiment(result.getGeneAllCountFromExperiment());
+        dto.setChartableDataLabel(result.getChartableDataLabel());
 
         return dto;
     }
@@ -1095,5 +1212,349 @@ public class CategoryAnalysisResultDto {
 
     public void setBmduList(String bmduList) {
         this.bmduList = bmduList;
+    }
+
+    public String getProbeIds() {
+        return probeIds;
+    }
+
+    public void setProbeIds(String probeIds) {
+        this.probeIds = probeIds;
+    }
+
+    public String getGenesIds() {
+        return genesIds;
+    }
+
+    public void setGenesIds(String genesIds) {
+        this.genesIds = genesIds;
+    }
+
+    public Double getBmdMaximum() {
+        return bmdMaximum;
+    }
+
+    public void setBmdMaximum(Double bmdMaximum) {
+        this.bmdMaximum = bmdMaximum;
+    }
+
+    public Double getBmdlMaximum() {
+        return bmdlMaximum;
+    }
+
+    public void setBmdlMaximum(Double bmdlMaximum) {
+        this.bmdlMaximum = bmdlMaximum;
+    }
+
+    public Double getBmduDivBmdlMedian() {
+        return bmduDivBmdlMedian;
+    }
+
+    public void setBmduDivBmdlMedian(Double bmduDivBmdlMedian) {
+        this.bmduDivBmdlMedian = bmduDivBmdlMedian;
+    }
+
+    public Double getBmdDivBmdlMedian() {
+        return bmdDivBmdlMedian;
+    }
+
+    public void setBmdDivBmdlMedian(Double bmdDivBmdlMedian) {
+        this.bmdDivBmdlMedian = bmdDivBmdlMedian;
+    }
+
+    public Double getBmduDivBmdMedian() {
+        return bmduDivBmdMedian;
+    }
+
+    public void setBmduDivBmdMedian(Double bmduDivBmdMedian) {
+        this.bmduDivBmdMedian = bmduDivBmdMedian;
+    }
+
+    public Double getBmduDivBmdlMean() {
+        return bmduDivBmdlMean;
+    }
+
+    public void setBmduDivBmdlMean(Double bmduDivBmdlMean) {
+        this.bmduDivBmdlMean = bmduDivBmdlMean;
+    }
+
+    public Double getBmdDivBmdlMean() {
+        return bmdDivBmdlMean;
+    }
+
+    public void setBmdDivBmdlMean(Double bmdDivBmdlMean) {
+        this.bmdDivBmdlMean = bmdDivBmdlMean;
+    }
+
+    public Double getBmduDivBmdMean() {
+        return bmduDivBmdMean;
+    }
+
+    public void setBmduDivBmdMean(Double bmduDivBmdMean) {
+        this.bmduDivBmdMean = bmduDivBmdMean;
+    }
+
+    public Double getFifthPercentileIndex() {
+        return fifthPercentileIndex;
+    }
+
+    public void setFifthPercentileIndex(Double fifthPercentileIndex) {
+        this.fifthPercentileIndex = fifthPercentileIndex;
+    }
+
+    public Double getTenthPercentileIndex() {
+        return tenthPercentileIndex;
+    }
+
+    public void setTenthPercentileIndex(Double tenthPercentileIndex) {
+        this.tenthPercentileIndex = tenthPercentileIndex;
+    }
+
+    public Double getBmdFifthPercentile() {
+        return bmdFifthPercentile;
+    }
+
+    public void setBmdFifthPercentile(Double bmdFifthPercentile) {
+        this.bmdFifthPercentile = bmdFifthPercentile;
+    }
+
+    public Double getBmdTenthPercentile() {
+        return bmdTenthPercentile;
+    }
+
+    public void setBmdTenthPercentile(Double bmdTenthPercentile) {
+        this.bmdTenthPercentile = bmdTenthPercentile;
+    }
+
+    public Double getBmdlFifthPercentile() {
+        return bmdlFifthPercentile;
+    }
+
+    public void setBmdlFifthPercentile(Double bmdlFifthPercentile) {
+        this.bmdlFifthPercentile = bmdlFifthPercentile;
+    }
+
+    public Double getBmdlTenthPercentile() {
+        return bmdlTenthPercentile;
+    }
+
+    public void setBmdlTenthPercentile(Double bmdlTenthPercentile) {
+        this.bmdlTenthPercentile = bmdlTenthPercentile;
+    }
+
+    public Double getBmduFifthPercentile() {
+        return bmduFifthPercentile;
+    }
+
+    public void setBmduFifthPercentile(Double bmduFifthPercentile) {
+        this.bmduFifthPercentile = bmduFifthPercentile;
+    }
+
+    public Double getBmduTenthPercentile() {
+        return bmduTenthPercentile;
+    }
+
+    public void setBmduTenthPercentile(Double bmduTenthPercentile) {
+        this.bmduTenthPercentile = bmduTenthPercentile;
+    }
+
+    public String getBmdlDown() {
+        return bmdlDown;
+    }
+
+    public void setBmdlDown(String bmdlDown) {
+        this.bmdlDown = bmdlDown;
+    }
+
+    public String getBmdlUp() {
+        return bmdlUp;
+    }
+
+    public void setBmdlUp(String bmdlUp) {
+        this.bmdlUp = bmdlUp;
+    }
+
+    public String getBmdDown() {
+        return bmdDown;
+    }
+
+    public void setBmdDown(String bmdDown) {
+        this.bmdDown = bmdDown;
+    }
+
+    public String getBmdUp() {
+        return bmdUp;
+    }
+
+    public void setBmdUp(String bmdUp) {
+        this.bmdUp = bmdUp;
+    }
+
+    public String getBmduDown() {
+        return bmduDown;
+    }
+
+    public void setBmduDown(String bmduDown) {
+        this.bmduDown = bmduDown;
+    }
+
+    public String getBmduUp() {
+        return bmduUp;
+    }
+
+    public void setBmduUp(String bmduUp) {
+        this.bmduUp = bmduUp;
+    }
+
+    public String getProbesDown() {
+        return probesDown;
+    }
+
+    public void setProbesDown(String probesDown) {
+        this.probesDown = probesDown;
+    }
+
+    public String getProbesUp() {
+        return probesUp;
+    }
+
+    public void setProbesUp(String probesUp) {
+        this.probesUp = probesUp;
+    }
+
+    public String getGenesDown() {
+        return genesDown;
+    }
+
+    public void setGenesDown(String genesDown) {
+        this.genesDown = genesDown;
+    }
+
+    public String getGenesUp() {
+        return genesUp;
+    }
+
+    public void setGenesUp(String genesUp) {
+        this.genesUp = genesUp;
+    }
+
+    public Integer getGenesAdverseDownCount() {
+        return genesAdverseDownCount;
+    }
+
+    public void setGenesAdverseDownCount(Integer genesAdverseDownCount) {
+        this.genesAdverseDownCount = genesAdverseDownCount;
+    }
+
+    public Integer getGenesAdverseUpCount() {
+        return genesAdverseUpCount;
+    }
+
+    public void setGenesAdverseUpCount(Integer genesAdverseUpCount) {
+        this.genesAdverseUpCount = genesAdverseUpCount;
+    }
+
+    public Integer getProbesAdverseDownCount() {
+        return probesAdverseDownCount;
+    }
+
+    public void setProbesAdverseDownCount(Integer probesAdverseDownCount) {
+        this.probesAdverseDownCount = probesAdverseDownCount;
+    }
+
+    public Integer getProbesAdverseUpCount() {
+        return probesAdverseUpCount;
+    }
+
+    public void setProbesAdverseUpCount(Integer probesAdverseUpCount) {
+        this.probesAdverseUpCount = probesAdverseUpCount;
+    }
+
+    public Integer getAdverseConflictCount() {
+        return adverseConflictCount;
+    }
+
+    public void setAdverseConflictCount(Integer adverseConflictCount) {
+        this.adverseConflictCount = adverseConflictCount;
+    }
+
+    public String getBmdlConflictList() {
+        return bmdlConflictList;
+    }
+
+    public void setBmdlConflictList(String bmdlConflictList) {
+        this.bmdlConflictList = bmdlConflictList;
+    }
+
+    public String getBmduConflictList() {
+        return bmduConflictList;
+    }
+
+    public void setBmduConflictList(String bmduConflictList) {
+        this.bmduConflictList = bmduConflictList;
+    }
+
+    public String getBmdConflictList() {
+        return bmdConflictList;
+    }
+
+    public void setBmdConflictList(String bmdConflictList) {
+        this.bmdConflictList = bmdConflictList;
+    }
+
+    public String getProbesConflictList() {
+        return probesConflictList;
+    }
+
+    public void setProbesConflictList(String probesConflictList) {
+        this.probesConflictList = probesConflictList;
+    }
+
+    public String getGenesConflictList() {
+        return genesConflictList;
+    }
+
+    public void setGenesConflictList(String genesConflictList) {
+        this.genesConflictList = genesConflictList;
+    }
+
+    public String getGenesWithConflictingProbeSets() {
+        return genesWithConflictingProbeSets;
+    }
+
+    public void setGenesWithConflictingProbeSets(String genesWithConflictingProbeSets) {
+        this.genesWithConflictingProbeSets = genesWithConflictingProbeSets;
+    }
+
+    public Integer getGotermLevel() {
+        return gotermLevel;
+    }
+
+    public void setGotermLevel(Integer gotermLevel) {
+        this.gotermLevel = gotermLevel;
+    }
+
+    public Double getNegLogOfFishers2Tail() {
+        return negLogOfFishers2Tail;
+    }
+
+    public void setNegLogOfFishers2Tail(Double negLogOfFishers2Tail) {
+        this.negLogOfFishers2Tail = negLogOfFishers2Tail;
+    }
+
+    public Integer getGeneAllCountFromExperiment() {
+        return geneAllCountFromExperiment;
+    }
+
+    public void setGeneAllCountFromExperiment(Integer geneAllCountFromExperiment) {
+        this.geneAllCountFromExperiment = geneAllCountFromExperiment;
+    }
+
+    public String getChartableDataLabel() {
+        return chartableDataLabel;
+    }
+
+    public void setChartableDataLabel(String chartableDataLabel) {
+        this.chartableDataLabel = chartableDataLabel;
     }
 }

@@ -9,7 +9,7 @@
  */
 
 import React, { useState } from 'react';
-import { Tree, Button, Space, Tooltip, Typography, Tag, Popconfirm } from 'antd';
+import { Tree, Button, Space, Tooltip, Typography, Tag, Popconfirm, Collapse } from 'antd';
 import {
   PlusOutlined,
   DeleteOutlined,
@@ -33,10 +33,16 @@ export default function FilterGroupList() {
   const dispatch = useAppDispatch();
   const filterGroups = useAppSelector(selectAllFilterGroups);
   const allData = useAppSelector(selectFilteredData);
+  const selectedProject = useAppSelector((state) => state.navigation.selectedProject);
 
   const [editorVisible, setEditorVisible] = useState(false);
   const [editingGroup, setEditingGroup] = useState<FilterGroup | undefined>(undefined);
   const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
+
+  // Only show filters when a project is selected
+  if (!selectedProject) {
+    return null;
+  }
 
   // Handle creating new filter group
   const handleCreate = () => {
@@ -209,62 +215,74 @@ export default function FilterGroupList() {
     };
   });
 
-  return (
-    <div
-      style={{
-        marginTop: 16,
-        padding: 12,
-        background: 'white',
-        border: '1px solid #d9d9d9',
-        borderRadius: 4,
-      }}
-    >
-      {/* Header with "Filters" title and "+" button */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 12,
-        }}
-      >
-        <Text strong style={{ fontSize: '13px', color: '#262626' }}>
-          Filters
-        </Text>
-        <Tooltip title="Create filter group">
-          <Button
-            type="primary"
-            size="small"
-            icon={<PlusOutlined />}
-            onClick={handleCreate}
-          />
-        </Tooltip>
-      </div>
-
-      {/* Filter groups tree */}
-      {filterGroups.length === 0 ? (
+  // Build collapse items
+  const collapseItems = [
+    {
+      key: '1',
+      label: (
         <div
-          style={{
-            padding: '16px 8px',
-            textAlign: 'center',
-            color: '#999',
-            fontSize: '12px',
-          }}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          onClick={(e) => e.stopPropagation()}
         >
-          No filter groups yet.
-          <br />
-          Click + to create one.
+          <Text strong style={{ fontSize: '13px', color: '#262626' }}>
+            Filters
+          </Text>
+          {filterGroups.length > 0 && (
+            <Tag color="default" style={{ fontSize: '11px' }}>
+              {filterGroups.length} {filterGroups.length === 1 ? 'group' : 'groups'}
+            </Tag>
+          )}
+          <Tooltip title="Create filter group">
+            <Button
+              type="primary"
+              size="small"
+              icon={<PlusOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCreate();
+              }}
+            />
+          </Tooltip>
         </div>
-      ) : (
-        <Tree
-          treeData={treeData}
-          expandedKeys={expandedKeys}
-          onExpand={(keys) => setExpandedKeys(keys)}
-          showLine
-          switcherIcon={<DownOutlined />}
-          selectable={false}
-        />
-      )}
+      ),
+      children: (
+        <>
+          {/* Filter groups tree */}
+          {filterGroups.length === 0 ? (
+            <div
+              style={{
+                padding: '16px 8px',
+                textAlign: 'center',
+                color: '#999',
+                fontSize: '12px',
+              }}
+            >
+              No filter groups yet.
+              <br />
+              Click + to create one.
+            </div>
+          ) : (
+            <Tree
+              treeData={treeData}
+              expandedKeys={expandedKeys}
+              onExpand={(keys) => setExpandedKeys(keys)}
+              showLine
+              switcherIcon={<DownOutlined />}
+              selectable={false}
+            />
+          )}
+        </>
+      ),
+    },
+  ];
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <Collapse
+        defaultActiveKey={['1']}
+        items={collapseItems}
+        size="small"
+      />
 
       {/* Filter Group Editor Modal */}
       <FilterGroupEditor

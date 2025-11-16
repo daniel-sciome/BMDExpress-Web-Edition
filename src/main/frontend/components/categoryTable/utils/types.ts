@@ -5,10 +5,21 @@
  */
 
 /**
+ * Individual column group with master toggle
+ */
+export interface ColumnGroup<T extends string> {
+  /** Master toggle - enables/disables all columns in the group */
+  all: boolean;
+  /** Individual column visibility flags */
+  columns: Record<T, boolean>;
+}
+
+/**
  * Column visibility state interface
  *
- * Controls which column groups are visible in the table.
- * Each boolean flag corresponds to a group of related columns.
+ * Controls which column groups and individual columns are visible in the table.
+ * Essential and Statistics columns use simple boolean toggles.
+ * Advanced columns use ColumnGroup structure for individual column control.
  */
 export interface ColumnVisibility {
   /** Gene Counts columns (Passed, All, %) */
@@ -35,32 +46,103 @@ export interface ColumnVisibility {
   /** BMDU 95% Confidence Interval columns (Lower, Upper) */
   bmduConfidence: boolean;
 
-  /** Filter Counts columns (Prefilter, Not Passing P-Value, Fold Change, BMD Ratio) */
-  filterCounts: boolean;
+  /** Filter Counts columns - individual selection */
+  filterCounts: ColumnGroup<
+    | 'bmdLessEqualHighDose'
+    | 'bmdPValueGreaterEqual'
+    | 'foldChangeAbove'
+    | 'rSquared'
+    | 'bmdBmdlRatio'
+    | 'bmduBmdlRatio'
+    | 'bmduBmdRatio'
+    | 'nFoldBelow'
+    | 'prefilterPValue'
+    | 'prefilterAdjustedPValue'
+    | 'notStepFunction'
+    | 'notStepFunctionBMDL'
+    | 'notAdverse'
+    | 'absZScore'
+    | 'absModelFC'
+  >;
 
-  /** Percentile columns (5th, 10th, 95th for BMD/BMDL/BMDU) */
-  percentiles: boolean;
+  /** Percentile columns - individual selection */
+  percentiles: ColumnGroup<
+    | 'bmd5th'
+    | 'bmd10th'
+    | 'bmdl5th'
+    | 'bmdl10th'
+    | 'bmdu5th'
+    | 'bmdu10th'
+  >;
 
-  /** Directional Up statistics (# Genes Up, Mean, Median, Min, Max, SD) */
-  directionalUp: boolean;
+  /** Directional Up statistics - individual selection */
+  directionalUp: ColumnGroup<
+    | 'bmdMean'
+    | 'bmdMedian'
+    | 'bmdSD'
+    | 'bmdlMean'
+    | 'bmdlMedian'
+    | 'bmdlSD'
+    | 'bmduMean'
+    | 'bmduMedian'
+    | 'bmduSD'
+  >;
 
-  /** Directional Down statistics (# Genes Down, Mean, Median, Min, Max, SD) */
-  directionalDown: boolean;
+  /** Directional Down statistics - individual selection */
+  directionalDown: ColumnGroup<
+    | 'bmdMean'
+    | 'bmdMedian'
+    | 'bmdSD'
+    | 'bmdlMean'
+    | 'bmdlMedian'
+    | 'bmdlSD'
+    | 'bmduMean'
+    | 'bmduMedian'
+    | 'bmduSD'
+  >;
 
-  /** Directional Analysis (# Conflicting, % Up, % Down) */
-  directionalAnalysis: boolean;
+  /** Directional Analysis - individual selection */
+  directionalAnalysis: ColumnGroup<
+    | 'overallDirection'
+    | 'percentUP'
+    | 'percentDOWN'
+    | 'percentConflict'
+  >;
 
-  /** Fold Change statistics (Total, Mean, Median, Max, Min, Std Dev) */
-  foldChange: boolean;
+  /** Fold Change statistics - individual selection */
+  foldChange: ColumnGroup<
+    | 'total'
+    | 'mean'
+    | 'median'
+    | 'max'
+    | 'min'
+    | 'stdDev'
+  >;
 
-  /** Z-Score statistics (Mean, Median, Min, Max) */
-  zScores: boolean;
+  /** Z-Score statistics - individual selection */
+  zScores: ColumnGroup<
+    | 'min'
+    | 'median'
+    | 'max'
+    | 'mean'
+  >;
 
-  /** Model Fold Change statistics (Mean, Median, Min, Max, SD) */
-  modelFoldChange: boolean;
+  /** Model Fold Change statistics - individual selection */
+  modelFoldChange: ColumnGroup<
+    | 'min'
+    | 'median'
+    | 'max'
+    | 'mean'
+  >;
 
-  /** Gene Lists (Entrez IDs, Gene Symbols, Probe IDs) */
-  geneLists: boolean;
+  /** Gene Lists - individual selection */
+  geneLists: ColumnGroup<
+    | 'genes'
+    | 'geneSymbols'
+    | 'bmdList'
+    | 'bmdlList'
+    | 'bmduList'
+  >;
 }
 
 /**
@@ -78,15 +160,113 @@ export const DEFAULT_COLUMN_VISIBILITY: ColumnVisibility = {
   bmdlConfidence: false,
   bmduStats: false,
   bmduConfidence: false,
-  filterCounts: false,
-  percentiles: false,
-  directionalUp: false,
-  directionalDown: false,
-  directionalAnalysis: false,
-  foldChange: false,
-  zScores: false,
-  modelFoldChange: false,
-  geneLists: false,
+  filterCounts: {
+    all: false,
+    columns: {
+      bmdLessEqualHighDose: false,
+      bmdPValueGreaterEqual: false,
+      foldChangeAbove: false,
+      rSquared: false,
+      bmdBmdlRatio: false,
+      bmduBmdlRatio: false,
+      bmduBmdRatio: false,
+      nFoldBelow: false,
+      prefilterPValue: false,
+      prefilterAdjustedPValue: false,
+      notStepFunction: false,
+      notStepFunctionBMDL: false,
+      notAdverse: false,
+      absZScore: false,
+      absModelFC: false,
+    },
+  },
+  percentiles: {
+    all: false,
+    columns: {
+      bmd5th: false,
+      bmd10th: false,
+      bmdl5th: false,
+      bmdl10th: false,
+      bmdu5th: false,
+      bmdu10th: false,
+    },
+  },
+  directionalUp: {
+    all: false,
+    columns: {
+      bmdMean: false,
+      bmdMedian: false,
+      bmdSD: false,
+      bmdlMean: false,
+      bmdlMedian: false,
+      bmdlSD: false,
+      bmduMean: false,
+      bmduMedian: false,
+      bmduSD: false,
+    },
+  },
+  directionalDown: {
+    all: false,
+    columns: {
+      bmdMean: false,
+      bmdMedian: false,
+      bmdSD: false,
+      bmdlMean: false,
+      bmdlMedian: false,
+      bmdlSD: false,
+      bmduMean: false,
+      bmduMedian: false,
+      bmduSD: false,
+    },
+  },
+  directionalAnalysis: {
+    all: false,
+    columns: {
+      overallDirection: false,
+      percentUP: false,
+      percentDOWN: false,
+      percentConflict: false,
+    },
+  },
+  foldChange: {
+    all: false,
+    columns: {
+      total: false,
+      mean: false,
+      median: false,
+      max: false,
+      min: false,
+      stdDev: false,
+    },
+  },
+  zScores: {
+    all: false,
+    columns: {
+      min: false,
+      median: false,
+      max: false,
+      mean: false,
+    },
+  },
+  modelFoldChange: {
+    all: false,
+    columns: {
+      min: false,
+      median: false,
+      max: false,
+      mean: false,
+    },
+  },
+  geneLists: {
+    all: false,
+    columns: {
+      genes: false,
+      geneSymbols: false,
+      bmdList: false,
+      bmdlList: false,
+      bmduList: false,
+    },
+  },
 };
 
 /**

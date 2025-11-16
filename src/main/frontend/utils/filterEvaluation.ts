@@ -142,8 +142,16 @@ export function evaluateFilterGroup(group: FilterGroup, row: CategoryAnalysisRes
     return true;
   }
 
+  // Get only enabled filters
+  const enabledFilters = group.filters.filter(f => f.enabled);
+
+  // If no filters are enabled, pass all rows
+  if (enabledFilters.length === 0) {
+    return true;
+  }
+
   // AND logic: all enabled filters must pass
-  return group.filters.every(filter => evaluateFilter(filter, row));
+  return enabledFilters.every(filter => evaluateFilter(filter, row));
 }
 
 /**

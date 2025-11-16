@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Tree } from 'antd';
+import { Tree, Collapse, Tag, Typography } from 'antd';
 import type { TreeDataNode } from 'antd';
 import { ProjectService, CategoryResultsService } from 'Frontend/generated/endpoints';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { setSelectedProject, setSelectedAnalysisType, setSelectedCategoryResult } from '../store/slices/navigationSlice';
 import ClusterPicker from './ClusterPicker';
 import FilterGroupList from './filters/FilterGroupList';
+
+const { Text } = Typography;
 
 export default function ProjectTreeSidebar() {
   const dispatch = useAppDispatch();
@@ -210,36 +212,57 @@ export default function ProjectTreeSidebar() {
     setExpandedKeys(expandedKeys);
   };
 
-  if (loading) {
-    return (
-      <div style={{ padding: '16px', color: '#666' }}>
-        Loading projects...
-      </div>
-    );
-  }
-
-  if (treeData.length === 0) {
-    return (
-      <div style={{ padding: '16px', color: '#666' }}>
-        No projects available
-      </div>
-    );
-  }
+  // Build collapse items for projects
+  const projectCollapseItems = [
+    {
+      key: '1',
+      label: (
+        <div
+          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Text strong style={{ fontSize: '13px', color: '#262626' }}>
+            BMD Express 3 Projects
+          </Text>
+          {!loading && treeData.length > 0 && (
+            <Tag color="default" style={{ fontSize: '11px' }}>
+              {treeData.length} {treeData.length === 1 ? 'project' : 'projects'}
+            </Tag>
+          )}
+        </div>
+      ),
+      children: loading ? (
+        <div style={{ padding: '16px', color: '#666', fontSize: '13px' }}>
+          Loading projects...
+        </div>
+      ) : treeData.length === 0 ? (
+        <div style={{ padding: '16px', color: '#666', fontSize: '13px' }}>
+          No projects available
+        </div>
+      ) : (
+        <Tree
+          showIcon
+          loadData={onLoadData}
+          treeData={treeData}
+          expandedKeys={expandedKeys}
+          selectedKeys={selectedKeys}
+          onSelect={onSelect}
+          onExpand={onExpand}
+          style={{
+            background: 'transparent',
+            fontSize: '14px',
+          }}
+        />
+      ),
+    },
+  ];
 
   return (
     <div style={{ padding: '8px 0' }}>
-      <Tree
-        showIcon
-        loadData={onLoadData}
-        treeData={treeData}
-        expandedKeys={expandedKeys}
-        selectedKeys={selectedKeys}
-        onSelect={onSelect}
-        onExpand={onExpand}
-        style={{
-          background: 'transparent',
-          fontSize: '14px',
-        }}
+      <Collapse
+        defaultActiveKey={['1']}
+        items={projectCollapseItems}
+        size="small"
       />
 
       {/* Cluster picker */}

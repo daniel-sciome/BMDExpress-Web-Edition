@@ -4,10 +4,13 @@
 // Behaves exactly like UMAP legend - selects/deselects categories
 
 import React, { useState, useCallback } from 'react';
+import { Collapse, Tag, Typography } from 'antd';
 import { useAppSelector } from '../store/hooks';
 import { selectCategorySetsByType } from '../store/slices/renderStateSlice';
 import { CategorySetType } from '../types/renderState';
 import { useReactiveState } from './charts/hooks/useReactiveState';
+
+const { Text } = Typography;
 
 export default function ClusterPicker() {
   const categoryState = useReactiveState('categoryId');
@@ -75,63 +78,82 @@ export default function ClusterPicker() {
     return null;
   }
 
-  return (
-    <div
-      style={{
-        marginTop: 16,
-        padding: 12,
-        background: 'white',
-        border: '1px solid #d9d9d9',
-        borderRadius: 4,
-        fontSize: '13px',
-      }}
-    >
-      <div style={{ fontWeight: 600, marginBottom: 8, color: '#262626' }}>
-        Clusters
-      </div>
-      {clusterSets.map(set => {
-        // Check if this cluster is selected (any category in the cluster is selected)
-        const isSelected = set.categoryIds.some(catId => categoryState.selectedIds.has(catId));
+  // Build collapse items
+  const collapseItems = [
+    {
+      key: '1',
+      label: (
+        <div
+          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Text strong style={{ fontSize: '13px', color: '#262626' }}>
+            Clusters
+          </Text>
+          {clusterSets.length > 0 && (
+            <Tag color="default" style={{ fontSize: '11px' }}>
+              {clusterSets.length} {clusterSets.length === 1 ? 'cluster' : 'clusters'}
+            </Tag>
+          )}
+        </div>
+      ),
+      children: (
+        <div style={{ fontSize: '13px' }}>
+          {clusterSets.map(set => {
+            // Check if this cluster is selected (any category in the cluster is selected)
+            const isSelected = set.categoryIds.some(catId => categoryState.selectedIds.has(catId));
 
-        return (
-          <div
-            key={set.setId}
-            onClick={(e) => handleClusterClick(set.categoryIds, e)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              marginBottom: 6,
-              cursor: 'pointer',
-              padding: '2px 4px',
-              borderRadius: 2,
-              transition: 'background-color 0.2s',
-              backgroundColor: isSelected ? '#e6f7ff' : 'transparent',
-              border: isSelected ? '1px solid #1890ff' : '1px solid transparent',
-            }}
-            onMouseEnter={(e) => {
-              if (!isSelected) {
-                e.currentTarget.style.backgroundColor = '#f5f5f5';
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = isSelected ? '#e6f7ff' : 'transparent';
-            }}
-          >
-            <div
-              style={{
-                width: 12,
-                height: 12,
-                background: set.color,
-                borderRadius: 2,
-                border: '1px solid rgba(0,0,0,0.1)',
-                flexShrink: 0,
-              }}
-            />
-            <span style={{ color: '#595959', fontWeight: isSelected ? 600 : 400 }}>{set.label}</span>
-          </div>
-        );
-      })}
+            return (
+              <div
+                key={set.setId}
+                onClick={(e) => handleClusterClick(set.categoryIds, e)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: 6,
+                  cursor: 'pointer',
+                  padding: '2px 4px',
+                  borderRadius: 2,
+                  transition: 'background-color 0.2s',
+                  backgroundColor: isSelected ? '#e6f7ff' : 'transparent',
+                  border: isSelected ? '1px solid #1890ff' : '1px solid transparent',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) {
+                    e.currentTarget.style.backgroundColor = '#f5f5f5';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = isSelected ? '#e6f7ff' : 'transparent';
+                }}
+              >
+                <div
+                  style={{
+                    width: 12,
+                    height: 12,
+                    background: set.color,
+                    borderRadius: 2,
+                    border: '1px solid rgba(0,0,0,0.1)',
+                    flexShrink: 0,
+                  }}
+                />
+                <span style={{ color: '#595959', fontWeight: isSelected ? 600 : 400 }}>{set.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <Collapse
+        defaultActiveKey={['1']}
+        items={collapseItems}
+        size="small"
+      />
     </div>
   );
 }

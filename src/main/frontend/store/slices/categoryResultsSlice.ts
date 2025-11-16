@@ -494,6 +494,9 @@ const selectPageSize = (state: RootState) => state.categoryResults.pageSize;
 export const selectFilteredData = createSelector(
   [selectData, selectFilters, (state: RootState) => state.categoryResults.analysisType, selectEnabledFilterGroups],
   (data, filters, analysisType, filterGroups) => {
+    console.log('[categoryResultsSlice] selectFilteredData running:');
+    console.log('[categoryResultsSlice] Filter groups count:', filterGroups.length);
+    console.log('[categoryResultsSlice] Filter groups:', filterGroups.map(g => ({ id: g.id, name: g.name, enabled: g.enabled, filterCount: g.filters.length, enabledFilters: g.filters.filter(f => f.enabled).length })));
     // Apply master filters
     let filtered = data.filter(row => {
       if (filters.bmdMin !== undefined && row.bmdMean !== undefined && row.bmdMean < filters.bmdMin) return false;

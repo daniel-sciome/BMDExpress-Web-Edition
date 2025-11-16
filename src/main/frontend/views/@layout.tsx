@@ -19,16 +19,6 @@ function Header() {
 function SidebarNav() {
   return (
     <div className="mx-m">
-      <h3 style={{
-        padding: '8px 12px',
-        margin: '8px 0',
-        fontSize: '14px',
-        fontWeight: 600,
-        color: '#666',
-        borderBottom: '1px solid #e0e0e0'
-      }}>
-        BMD Express 3 Projects
-      </h3>
       <ProjectTreeSidebar />
     </div>
   );
