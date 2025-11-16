@@ -34,14 +34,19 @@ export function useReactiveState(reactTo: ReactiveType) {
   // Map reactTo to Redux state path
   const stateKey = reactTo === 'categoryId' ? 'category' : 'cluster';
 
-  // Get selection state for this reactive type
-  const selectedIds = useAppSelector(
-    (state) => state.categoryResults.reactiveSelection[stateKey].selectedIds
+  // CRITICAL: Select the entire parent object with a custom equality check
+  // We must check if the selectedIds Set reference has changed, not just the parent object
+  const selectionState = useAppSelector(
+    (state) => state.categoryResults.reactiveSelection[stateKey],
+    (left, right) => {
+      // Custom equality: check if the Set references are the same
+      return left.selectedIds === right.selectedIds && left.source === right.source;
+    }
   );
 
-  const source = useAppSelector(
-    (state) => state.categoryResults.reactiveSelection[stateKey].source
-  );
+  // Extract fields from the selection state
+  const selectedIds = selectionState.selectedIds;
+  const source = selectionState.source;
 
   /**
    * Check if a specific ID is selected
@@ -77,6 +82,12 @@ export function useReactiveState(reactTo: ReactiveType) {
    * @param source - Where the selection originated from
    */
   const handleMultiSelect = (ids: any[], source: SelectionSource) => {
+    console.log('[useReactiveState] handleMultiSelect called:', {
+      type: stateKey,
+      idsCount: ids.length,
+      firstIds: ids.slice(0, 5),
+      source
+    });
     dispatch(setReactiveSelection({ type: stateKey, ids, source }));
   };
 

@@ -4,6 +4,8 @@ import type { TreeDataNode } from 'antd';
 import { ProjectService, CategoryResultsService } from 'Frontend/generated/endpoints';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { setSelectedProject, setSelectedAnalysisType, setSelectedCategoryResult } from '../store/slices/navigationSlice';
+import ClusterPicker from './ClusterPicker';
+import FilterGroupList from './filters/FilterGroupList';
 
 export default function ProjectTreeSidebar() {
   const dispatch = useAppDispatch();
@@ -239,6 +241,12 @@ export default function ProjectTreeSidebar() {
           fontSize: '14px',
         }}
       />
+
+      {/* Cluster picker */}
+      <ClusterPicker />
+
+      {/* Filter groups */}
+      <FilterGroupList />
     </div>
   );
 }

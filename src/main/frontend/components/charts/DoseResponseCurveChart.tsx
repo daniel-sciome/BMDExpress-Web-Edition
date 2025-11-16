@@ -589,13 +589,13 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
                 font: { size: 14, weight: 600 },
               },
               xaxis: {
-                title: 'Dose',
+                title: { text: 'Dose' },
                 type: 'log' as const,
                 showgrid: true,
                 gridcolor: '#e5e5e5',
               },
               yaxis: {
-                title: 'Log(Expression)',
+                title: { text: 'Log(Expression)' },
                 showgrid: true,
                 gridcolor: '#e5e5e5',
               },

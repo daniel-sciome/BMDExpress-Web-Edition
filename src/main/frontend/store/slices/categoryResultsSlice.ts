@@ -5,6 +5,8 @@ import type { RootState, AppDispatch } from '../store';
 import type { ReactiveSelectionMap, SelectionSource } from 'Frontend/types/reactiveTypes';
 import { initializeCategories, upsertCategorySet } from './renderStateSlice';
 import { createClusterSets, createMasterFilterSet } from '../utils/initializeRenderState';
+import { applyFilterGroups } from '../../utils/filterEvaluation';
+import { selectEnabledFilterGroups } from './filterSlice';
 
 // Filters interface
 interface Filters {
@@ -306,13 +308,30 @@ const categoryResultsSlice = createSlice({
       action: PayloadAction<{ type: 'category' | 'cluster'; ids: any[]; source: SelectionSource }>
     ) => {
       const { type, ids, source } = action.payload;
-      state.reactiveSelection[type].selectedIds = new Set(ids);
-      state.reactiveSelection[type].source = source;
+      console.log('[Redux] setReactiveSelection reducer called:', {
+        type,
+        idsCount: ids.length,
+        firstIds: ids.slice(0, 5),
+        source,
+        oldSelectedCount: state.reactiveSelection[type].selectedIds.size,
+        oldSource: state.reactiveSelection[type].source
+      });
+
+      // CRITICAL: Replace the entire parent object to ensure React detects the change
+      // Immer has issues with Set/Map reference changes, so we must replace the parent
+      state.reactiveSelection[type] = {
+        selectedIds: new Set(ids),
+        source: source,
+      };
 
       // Backward compatibility: sync category selection to legacy state
       if (type === 'category') {
         state.selectedCategoryIds = new Set(ids as string[]);
       }
+      console.log('[Redux] setReactiveSelection after update:', {
+        newSelectedCount: state.reactiveSelection[type].selectedIds.size,
+        newSource: state.reactiveSelection[type].source
+      });
     },
 
     toggleReactiveSelection: (
@@ -320,28 +339,39 @@ const categoryResultsSlice = createSlice({
       action: PayloadAction<{ type: 'category' | 'cluster'; id: any }>
     ) => {
       const { type, id } = action.payload;
-      const selectedIds = state.reactiveSelection[type].selectedIds;
+      const oldSelectedIds = state.reactiveSelection[type].selectedIds;
+      const newSelectedIds = new Set(oldSelectedIds);
 
-      if (selectedIds.has(id)) {
-        selectedIds.delete(id);
+      if (newSelectedIds.has(id)) {
+        newSelectedIds.delete(id);
       } else {
-        selectedIds.add(id);
+        newSelectedIds.add(id);
       }
+
+      // Replace entire parent object - use type assertion to handle union type
+      state.reactiveSelection[type] = {
+        selectedIds: newSelectedIds as any,
+        source: state.reactiveSelection[type].source,
+      };
 
       // Backward compatibility: sync category selection to legacy state
       if (type === 'category') {
-        state.selectedCategoryIds = new Set(state.reactiveSelection.category.selectedIds as Set<string>);
+        state.selectedCategoryIds = new Set(newSelectedIds as Set<string>);
       }
     },
 
     clearReactiveSelection: (state, action: PayloadAction<'category' | 'cluster'>) => {
       const type = action.payload;
-      state.reactiveSelection[type].selectedIds.clear();
-      state.reactiveSelection[type].source = null;
+
+      // Replace entire parent object with empty state - use type assertion
+      state.reactiveSelection[type] = {
+        selectedIds: new Set() as any,
+        source: null,
+      };
 
       // Backward compatibility: sync category selection to legacy state
       if (type === 'category') {
-        state.selectedCategoryIds.clear();
+        state.selectedCategoryIds = new Set();
       }
     },
 
@@ -462,9 +492,10 @@ const selectPageSize = (state: RootState) => state.categoryResults.pageSize;
 
 // Memoized selectors
 export const selectFilteredData = createSelector(
-  [selectData, selectFilters, (state: RootState) => state.categoryResults.analysisType],
-  (data, filters, analysisType) => {
-    return data.filter(row => {
+  [selectData, selectFilters, (state: RootState) => state.categoryResults.analysisType, selectEnabledFilterGroups],
+  (data, filters, analysisType, filterGroups) => {
+    // Apply master filters
+    let filtered = data.filter(row => {
       if (filters.bmdMin !== undefined && row.bmdMean !== undefined && row.bmdMean < filters.bmdMin) return false;
       if (filters.bmdMax !== undefined && row.bmdMean !== undefined && row.bmdMean > filters.bmdMax) return false;
       if (filters.pValueMax !== undefined && row.fishersExactTwoTailPValue !== undefined && row.fishersExactTwoTailPValue > filters.pValueMax) return false;
@@ -481,6 +512,13 @@ export const selectFilteredData = createSelector(
 
       return true;
     });
+
+    // Apply filter groups (custom master filters) with AND logic
+    if (filterGroups.length > 0) {
+      filtered = applyFilterGroups(filtered, filterGroups);
+    }
+
+    return filtered;
   }
 );
 

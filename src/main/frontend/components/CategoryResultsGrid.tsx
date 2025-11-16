@@ -31,13 +31,17 @@ import {
   getFishersFullColumns,
   getBMDEssentialColumns,
   getBMDExtendedColumns,
+  getBMDConfidenceColumns,
   getBMDLColumns,
+  getBMDLConfidenceColumns,
   getBMDUColumns,
+  getBMDUConfidenceColumns,
   getFilterCountsColumns,
   getPercentilesColumns,
   getDirectionalUpColumns,
   getDirectionalDownColumns,
   getDirectionalAnalysisColumns,
+  getFoldChangeColumns,
   getZScoresColumns,
   getModelFoldChangeColumns,
   getGeneListsColumns,
@@ -157,13 +161,24 @@ export default function CategoryResultsGrid() {
     if (columnVisibility.bmdExtended) {
       cols.push(...getBMDExtendedColumns());
     }
+    if (columnVisibility.bmdConfidence) {
+      cols.push(...getBMDConfidenceColumns());
+    }
 
-    // BMDL and BMDU stats
+    // BMDL stats
     if (columnVisibility.bmdlStats) {
       cols.push(...getBMDLColumns());
     }
+    if (columnVisibility.bmdlConfidence) {
+      cols.push(...getBMDLConfidenceColumns());
+    }
+
+    // BMDU stats
     if (columnVisibility.bmduStats) {
       cols.push(...getBMDUColumns());
+    }
+    if (columnVisibility.bmduConfidence) {
+      cols.push(...getBMDUConfidenceColumns());
     }
 
     // Advanced column groups
@@ -181,6 +196,9 @@ export default function CategoryResultsGrid() {
     }
     if (columnVisibility.directionalAnalysis) {
       cols.push(...getDirectionalAnalysisColumns());
+    }
+    if (columnVisibility.foldChange) {
+      cols.push(...getFoldChangeColumns());
     }
     if (columnVisibility.zScores) {
       cols.push(...getZScoresColumns());
@@ -258,6 +276,15 @@ export default function CategoryResultsGrid() {
           BMD Statistics - Extended (Min, SD, Weighted)
         </Checkbox>
         <Checkbox
+          checked={columnVisibility.bmdConfidence}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, bmdConfidence: e.target.checked });
+          }}
+        >
+          BMD 95% Confidence Interval
+        </Checkbox>
+        <Checkbox
           checked={columnVisibility.bmdlStats}
           onChange={(e) => {
             e.stopPropagation();
@@ -267,6 +294,15 @@ export default function CategoryResultsGrid() {
           BMDL Statistics
         </Checkbox>
         <Checkbox
+          checked={columnVisibility.bmdlConfidence}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, bmdlConfidence: e.target.checked });
+          }}
+        >
+          BMDL 95% Confidence Interval
+        </Checkbox>
+        <Checkbox
           checked={columnVisibility.bmduStats}
           onChange={(e) => {
             e.stopPropagation();
@@ -274,6 +310,15 @@ export default function CategoryResultsGrid() {
           }}
         >
           BMDU Statistics
+        </Checkbox>
+        <Checkbox
+          checked={columnVisibility.bmduConfidence}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, bmduConfidence: e.target.checked });
+          }}
+        >
+          BMDU 95% Confidence Interval
         </Checkbox>
 
         <div style={{ fontWeight: 600, marginTop: '16px', marginBottom: '8px', borderBottom: '1px solid #f0f0f0', paddingBottom: '8px' }}>
@@ -323,6 +368,15 @@ export default function CategoryResultsGrid() {
           }}
         >
           Directional Analysis (4 columns)
+        </Checkbox>
+        <Checkbox
+          checked={columnVisibility.foldChange}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, foldChange: e.target.checked });
+          }}
+        >
+          Fold Change Statistics (6 columns)
         </Checkbox>
         <Checkbox
           checked={columnVisibility.zScores}

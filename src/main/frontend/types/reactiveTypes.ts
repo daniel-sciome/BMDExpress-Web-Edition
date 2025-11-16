@@ -10,7 +10,7 @@ export type ReactiveType = 'categoryId' | 'clusterId';
 /**
  * Source of a reactive selection (for debugging and priority logic)
  */
-export type SelectionSource = 'table' | 'umap' | 'chart' | null;
+export type SelectionSource = 'table' | 'umap' | 'chart' | 'cluster-picker' | null;
 
 /**
  * State for a single reactive selection type

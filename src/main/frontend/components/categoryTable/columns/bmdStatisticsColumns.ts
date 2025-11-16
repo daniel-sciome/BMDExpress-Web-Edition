@@ -99,6 +99,41 @@ export function getBMDExtendedColumns(): ColumnsType<CategoryAnalysisResultDto> 
 }
 
 /**
+ * Get the BMD confidence interval columns
+ *
+ * Displays BMD 95% confidence interval bounds (lower and upper).
+ *
+ * @returns Array of BMD confidence interval column definitions
+ */
+export function getBMDConfidenceColumns(): ColumnsType<CategoryAnalysisResultDto> {
+  return [
+    {
+      title: 'BMD 95% CI',
+      children: [
+        {
+          title: 'Lower',
+          dataIndex: 'bmdLower95',
+          key: 'bmdLower95',
+          width: 55,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.bmdLower95 || 0) - (b.bmdLower95 || 0),
+        },
+        {
+          title: 'Upper',
+          dataIndex: 'bmdUpper95',
+          key: 'bmdUpper95',
+          width: 55,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.bmdUpper95 || 0) - (b.bmdUpper95 || 0),
+        },
+      ],
+    },
+  ];
+}
+
+/**
  * Get the BMDL (BMD Lower bound) statistics columns
  *
  * BMDL represents the lower confidence limit on the BMD.
@@ -171,6 +206,41 @@ export function getBMDLColumns(): ColumnsType<CategoryAnalysisResultDto> {
 }
 
 /**
+ * Get the BMDL confidence interval columns
+ *
+ * Displays BMDL 95% confidence interval bounds (lower and upper).
+ *
+ * @returns Array of BMDL confidence interval column definitions
+ */
+export function getBMDLConfidenceColumns(): ColumnsType<CategoryAnalysisResultDto> {
+  return [
+    {
+      title: 'BMDL 95% CI',
+      children: [
+        {
+          title: 'Lower',
+          dataIndex: 'bmdlLower95',
+          key: 'bmdlLower95',
+          width: 55,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.bmdlLower95 || 0) - (b.bmdlLower95 || 0),
+        },
+        {
+          title: 'Upper',
+          dataIndex: 'bmdlUpper95',
+          key: 'bmdlUpper95',
+          width: 55,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.bmdlUpper95 || 0) - (b.bmdlUpper95 || 0),
+        },
+      ],
+    },
+  ];
+}
+
+/**
  * Get the BMDU (BMD Upper bound) statistics columns
  *
  * BMDU represents the upper confidence limit on the BMD.
@@ -236,6 +306,41 @@ export function getBMDUColumns(): ColumnsType<CategoryAnalysisResultDto> {
           align: 'right',
           render: (value: number) => formatNumber(value),
           sorter: (a, b) => (a.bmduWSD || 0) - (b.bmduWSD || 0),
+        },
+      ],
+    },
+  ];
+}
+
+/**
+ * Get the BMDU confidence interval columns
+ *
+ * Displays BMDU 95% confidence interval bounds (lower and upper).
+ *
+ * @returns Array of BMDU confidence interval column definitions
+ */
+export function getBMDUConfidenceColumns(): ColumnsType<CategoryAnalysisResultDto> {
+  return [
+    {
+      title: 'BMDU 95% CI',
+      children: [
+        {
+          title: 'Lower',
+          dataIndex: 'bmduLower95',
+          key: 'bmduLower95',
+          width: 55,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.bmduLower95 || 0) - (b.bmduLower95 || 0),
+        },
+        {
+          title: 'Upper',
+          dataIndex: 'bmduUpper95',
+          key: 'bmduUpper95',
+          width: 55,
+          align: 'right',
+          render: (value: number) => formatNumber(value),
+          sorter: (a, b) => (a.bmduUpper95 || 0) - (b.bmduUpper95 || 0),
         },
       ],
     },

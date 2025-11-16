@@ -20,11 +20,20 @@ export interface ColumnVisibility {
   /** Extended BMD Statistics columns (Mean, Median, Min, SD, Weighted Mean, Weighted SD) */
   bmdExtended: boolean;
 
+  /** BMD 95% Confidence Interval columns (Lower, Upper) */
+  bmdConfidence: boolean;
+
   /** BMDL Statistics columns (Mean, Median, Min, SD, Weighted Mean, Weighted SD) */
   bmdlStats: boolean;
 
+  /** BMDL 95% Confidence Interval columns (Lower, Upper) */
+  bmdlConfidence: boolean;
+
   /** BMDU Statistics columns (Mean, Median, Min, SD, Weighted Mean, Weighted SD) */
   bmduStats: boolean;
+
+  /** BMDU 95% Confidence Interval columns (Lower, Upper) */
+  bmduConfidence: boolean;
 
   /** Filter Counts columns (Prefilter, Not Passing P-Value, Fold Change, BMD Ratio) */
   filterCounts: boolean;
@@ -41,6 +50,9 @@ export interface ColumnVisibility {
   /** Directional Analysis (# Conflicting, % Up, % Down) */
   directionalAnalysis: boolean;
 
+  /** Fold Change statistics (Total, Mean, Median, Max, Min, Std Dev) */
+  foldChange: boolean;
+
   /** Z-Score statistics (Mean, Median, Min, Max) */
   zScores: boolean;
 
@@ -55,19 +67,23 @@ export interface ColumnVisibility {
  * Default column visibility settings
  *
  * By default, only show Gene Counts columns to avoid overwhelming users
- * with 94 columns. Users can expand column groups as needed.
+ * with many columns. Users can expand column groups as needed.
  */
 export const DEFAULT_COLUMN_VISIBILITY: ColumnVisibility = {
   geneCounts: true,
   fishersFull: false,
   bmdExtended: false,
+  bmdConfidence: false,
   bmdlStats: false,
+  bmdlConfidence: false,
   bmduStats: false,
+  bmduConfidence: false,
   filterCounts: false,
   percentiles: false,
   directionalUp: false,
   directionalDown: false,
   directionalAnalysis: false,
+  foldChange: false,
   zScores: false,
   modelFoldChange: false,
   geneLists: false,

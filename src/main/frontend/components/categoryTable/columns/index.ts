@@ -18,8 +18,11 @@ export { getFishersEssentialColumn, getFishersFullColumns } from './fishersColum
 export {
   getBMDEssentialColumns,
   getBMDExtendedColumns,
+  getBMDConfidenceColumns,
   getBMDLColumns,
+  getBMDLConfidenceColumns,
   getBMDUColumns,
+  getBMDUConfidenceColumns,
 } from './bmdStatisticsColumns';
 
 // Filter and percentile columns
@@ -41,3 +44,6 @@ export {
   getModelFoldChangeColumns,
   getGeneListsColumns,
 } from './advancedColumns';
+
+// Fold change columns
+export { getFoldChangeColumns } from './foldChangeColumns';

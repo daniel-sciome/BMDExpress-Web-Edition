@@ -12,6 +12,15 @@ export default function BMDvsPValueScatter() {
   const categoryState = useReactiveState('categoryId');
   const data = useSelector(selectChartData);
 
+  // Debug: Log when categoryState changes
+  React.useEffect(() => {
+    console.log('[BMDvsPValueScatter] categoryState changed:', {
+      selectedCount: categoryState.selectedIds.size,
+      source: categoryState.source,
+      selectedIds: Array.from(categoryState.selectedIds).slice(0, 5)
+    });
+  }, [categoryState.selectedIds, categoryState.source]);
+
   // Background visibility state: 'full' -> 'dimmed' -> 'hidden' -> 'full'
   const [backdropVisibility, setBackdropVisibility] = useState<'full' | 'dimmed' | 'hidden'>('full');
 
@@ -135,6 +144,13 @@ export default function BMDvsPValueScatter() {
 
   // Apply reactive styling to traces
   const traces = useMemo(() => {
+    console.log('[BMDvsPValueScatter] Recomputing traces. Selection:', {
+      selectedCount: categoryState.selectedIds.size,
+      selectedIds: Array.from(categoryState.selectedIds).slice(0, 5),
+      source: categoryState.source,
+      hasSelection,
+      nonSelectedDisplayMode
+    });
     const result: any[] = [];
 
     // Apply backdrop styling
