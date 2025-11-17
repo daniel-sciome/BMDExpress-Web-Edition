@@ -1,6 +1,6 @@
 // UmapScatterPlot.tsx
 // UMAP scatter plot showing GO term semantic embeddings with interactive selection
-// Reacts to ClusterPicker selections only - NO legend interaction
+// Reacts to individual category selections (table, ClusterPicker, lasso select) - NO legend interaction
 
 import React, { useMemo, useCallback, useState } from 'react';
 import Plot from 'react-plotly.js';
@@ -107,26 +107,41 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
       const points = clusterData.get(clusterId)!;
       const baseColor = clusterColors[clusterId] || '#999999';
 
-      // Check if ANY category from this cluster is selected
-      const isClusterSelected = hasSelection && points.some(p => categoryState.selectedIds.has(p.go_id));
+      // Individual point-level styling based on whether each specific category is selected
+      const markerColors: string[] = [];
+      const markerSizes: number[] = [];
+      const markerOpacities: number[] = [];
+      const markerLineWidths: number[] = [];
+      const markerLineColors: string[] = [];
 
-      let markerColor = baseColor;
-      let markerSize = 8;
-      let markerOpacity = 1.0;
-      let markerLineWidth = 0;
-      let markerLineColor = 'white';
+      points.forEach(point => {
+        const isPointSelected = categoryState.selectedIds.has(point.go_id);
 
-      if (hasSelection) {
-        if (isClusterSelected) {
-          // This cluster is selected - make it stand out
-          markerSize = 10;
-          markerLineWidth = 2;
-          markerLineColor = 'white';
+        if (hasSelection) {
+          if (isPointSelected) {
+            // This specific point is selected - make it stand out
+            markerColors.push(baseColor);
+            markerSizes.push(10);
+            markerOpacities.push(1.0);
+            markerLineWidths.push(2);
+            markerLineColors.push('white');
+          } else {
+            // This point is NOT selected - fade it out
+            markerColors.push(baseColor);
+            markerSizes.push(8);
+            markerOpacities.push(0.2);
+            markerLineWidths.push(0);
+            markerLineColors.push('white');
+          }
         } else {
-          // This cluster is NOT selected - fade it out
-          markerOpacity = 0.2;
+          // No selection - normal styling
+          markerColors.push(baseColor);
+          markerSizes.push(8);
+          markerOpacities.push(1.0);
+          markerLineWidths.push(0);
+          markerLineColors.push('white');
         }
-      }
+      });
 
       result.push({
         x: points.map(p => p.UMAP_1),
@@ -137,12 +152,12 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
         type: 'scatter',
         name: `Cluster ${clusterId}`,
         marker: {
-          color: markerColor,
-          size: markerSize,
-          opacity: markerOpacity,
+          color: markerColors,
+          size: markerSizes,
+          opacity: markerOpacities,
           line: {
-            color: markerLineColor,
-            width: markerLineWidth,
+            color: markerLineColors,
+            width: markerLineWidths,
           },
         },
         hoverinfo: 'text',
@@ -212,7 +227,7 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
       title={
         <Space>
           <span>UMAP Semantic Space</span>
-          <Tooltip title="GO terms are embedded in 2D space based on semantic similarity. Points closer together represent related biological processes. Use box/lasso select to filter categories, or use the Cluster Picker in the sidebar to select clusters.">
+          <Tooltip title="GO terms are embedded in 2D space based on semantic similarity. Points closer together represent related biological processes. Individual selected categories are highlighted with larger markers and white borders. Select via table rows, box/lasso select, or Cluster Picker.">
             <InfoCircleOutlined style={{ color: '#1890ff', cursor: 'help' }} />
           </Tooltip>
         </Space>
@@ -254,8 +269,8 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
 
       <div style={{ marginTop: 16, fontSize: '12px', color: '#666' }}>
         <p>
-          <strong>How to use:</strong> Use the lasso or box select tool to select GO terms, or use the <strong>Cluster Picker</strong> in the sidebar to select entire clusters.
-          All visualizations will update to show only the selected categories.
+          <strong>How to use:</strong> Select individual categories by clicking table rows, using the lasso/box select tool on this plot, or use the <strong>Cluster Picker</strong> in the sidebar to select entire clusters.
+          Selected categories will be highlighted with larger markers and white borders.
           Small black points form the backdrop (entire UMAP reference space).
           Colored points are categories that pass the Master Filter.
         </p>
