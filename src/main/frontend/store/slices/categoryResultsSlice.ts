@@ -245,9 +245,11 @@ const categoryResultsSlice = createSlice({
     // Phase 4: Legacy actions now sync to reactive state for backward compatibility
     setSelectedCategoryIds: (state, action: PayloadAction<string[]>) => {
       state.selectedCategoryIds = new Set(action.payload);
-      // Sync to reactive state
-      state.reactiveSelection.category.selectedIds = new Set(action.payload);
-      state.reactiveSelection.category.source = 'table';
+      // Sync to reactive state - REPLACE entire parent object to trigger React updates
+      state.reactiveSelection.category = {
+        selectedIds: new Set(action.payload),
+        source: 'table',
+      };
     },
 
     toggleCategorySelection: (state, action: PayloadAction<string>) => {
@@ -257,16 +259,20 @@ const categoryResultsSlice = createSlice({
       } else {
         state.selectedCategoryIds.add(categoryId);
       }
-      // Sync to reactive state
-      state.reactiveSelection.category.selectedIds = new Set(state.selectedCategoryIds);
-      state.reactiveSelection.category.source = 'table';
+      // Sync to reactive state - REPLACE entire parent object to trigger React updates
+      state.reactiveSelection.category = {
+        selectedIds: new Set(state.selectedCategoryIds),
+        source: 'table',
+      };
     },
 
     clearSelection: (state) => {
       state.selectedCategoryIds.clear();
-      // Sync to reactive state
-      state.reactiveSelection.category.selectedIds.clear();
-      state.reactiveSelection.category.source = null;
+      // Sync to reactive state - REPLACE entire parent object to trigger React updates
+      state.reactiveSelection.category = {
+        selectedIds: new Set(),
+        source: null,
+      };
     },
 
     // Phase 3: Selection helper actions
@@ -280,18 +286,22 @@ const categoryResultsSlice = createSlice({
           state.selectedCategoryIds.add(id);
         }
       });
-      // Sync to reactive state
-      state.reactiveSelection.category.selectedIds = new Set(state.selectedCategoryIds);
-      state.reactiveSelection.category.source = 'table';
+      // Sync to reactive state - REPLACE entire parent object to trigger React updates
+      state.reactiveSelection.category = {
+        selectedIds: new Set(state.selectedCategoryIds),
+        source: 'table',
+      };
     },
 
     selectAllCategories: (state, action: PayloadAction<string[] | undefined>) => {
       // Select all categories (optionally provide specific IDs, otherwise uses all data)
       const idsToSelect = action.payload || state.data.map(cat => cat.categoryId).filter(Boolean) as string[];
       state.selectedCategoryIds = new Set(idsToSelect);
-      // Sync to reactive state
-      state.reactiveSelection.category.selectedIds = new Set(idsToSelect);
-      state.reactiveSelection.category.source = 'table';
+      // Sync to reactive state - REPLACE entire parent object to trigger React updates
+      state.reactiveSelection.category = {
+        selectedIds: new Set(idsToSelect),
+        source: 'table',
+      };
     },
 
     invertSelection: (state, action: PayloadAction<string[] | undefined>) => {
@@ -306,9 +316,11 @@ const categoryResultsSlice = createSlice({
       });
 
       state.selectedCategoryIds = newSelection;
-      // Sync to reactive state
-      state.reactiveSelection.category.selectedIds = new Set(newSelection);
-      state.reactiveSelection.category.source = 'table';
+      // Sync to reactive state - REPLACE entire parent object to trigger React updates
+      state.reactiveSelection.category = {
+        selectedIds: new Set(newSelection),
+        source: 'table',
+      };
     },
 
     // Phase 4: Generic reactive selection actions
@@ -438,11 +450,15 @@ const categoryResultsSlice = createSlice({
         // Clear legacy selection state
         state.selectedCategoryIds.clear();
         state.selectedUmapGoIds.clear();
-        // Clear reactive selection state
-        state.reactiveSelection.category.selectedIds.clear();
-        state.reactiveSelection.category.source = null;
-        state.reactiveSelection.cluster.selectedIds.clear();
-        state.reactiveSelection.cluster.source = null;
+        // Clear reactive selection state - REPLACE entire parent objects to trigger React updates
+        state.reactiveSelection.category = {
+          selectedIds: new Set(),
+          source: null,
+        };
+        state.reactiveSelection.cluster = {
+          selectedIds: new Set(),
+          source: null,
+        };
         state.highlightedRow = null;
       })
       .addCase(loadCategoryResults.rejected, (state, action) => {
