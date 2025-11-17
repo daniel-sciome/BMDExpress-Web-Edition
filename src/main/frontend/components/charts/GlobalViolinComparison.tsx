@@ -17,6 +17,8 @@ import { Card, Select, Button, Alert, Spin } from 'antd';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import Plot from 'react-plotly.js';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { useAppSelector } from '../../store/hooks';
+import { applyMasterFilters } from '../../utils/applyMasterFilters';
 
 const { Option } = Select;
 
@@ -24,19 +26,25 @@ interface GlobalViolinComparisonProps {
   projectId: string;
   availableResults: string[];
   selectedResults: string[];
+  analysisType?: string;
 }
 
 export default function GlobalViolinComparison({
   projectId,
   availableResults,
-  selectedResults
+  selectedResults,
+  analysisType
 }: GlobalViolinComparisonProps) {
   const [comparisonData, setComparisonData] = useState<any>(null);
   const [resultDisplayNames, setResultDisplayNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedMetric, setSelectedMetric] = useState<'bmd' | 'bmdl' | 'bmdu'>('bmd');
+  const [selectedMetric, setSelectedMetric] = useState<'bmd' | 'bmdl' | 'bmdu'>('bmd'); // Using bmdMedian (bmd = median)
   const [activeResults, setActiveResults] = useState<string[]>(selectedResults);
+
+  // Get master filters and comparison mode from Redux
+  const filters = useAppSelector((state) => state.categoryResults.filters);
+  const comparisonMode = useAppSelector((state) => state.categoryResults.comparisonMode);
 
   // Color palette for different datasets
   const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd'];
@@ -69,9 +77,51 @@ export default function GlobalViolinComparison({
 
       const allResultsData = await Promise.all(dataPromises);
 
+      // Apply master filters to each dataset
+      const filteredResultsData = allResultsData.map(data =>
+        applyMasterFilters(data || [], filters, analysisType)
+      );
+
+      // Apply intersection/union logic
+      let finalResultsData = filteredResultsData;
+
+      if (comparisonMode === 'intersection') {
+        // Find categories that appear in ALL datasets
+        const categorySetsPerDataset = filteredResultsData.map(data =>
+          new Set(data.map(row => row.categoryId).filter(Boolean))
+        );
+
+        if (categorySetsPerDataset.length > 0) {
+          // Get intersection
+          const intersectionCategories = new Set<string>();
+          const firstDatasetCategories = categorySetsPerDataset[0];
+
+          firstDatasetCategories.forEach(catId => {
+            const appearsInAll = categorySetsPerDataset.every(categorySet =>
+              categorySet.has(catId as string)
+            );
+            if (appearsInAll) {
+              intersectionCategories.add(catId as string);
+            }
+          });
+
+          // Filter each dataset to only include intersection categories
+          finalResultsData = filteredResultsData.map(data =>
+            data.filter(row => intersectionCategories.has(row.categoryId || ''))
+          );
+
+          console.log('[GlobalViolinComparison] Intersection mode:',
+            'Total categories:', intersectionCategories.size,
+            'Per dataset:', finalResultsData.map(d => d.length));
+        }
+      } else {
+        console.log('[GlobalViolinComparison] Union mode:',
+          'Per dataset:', finalResultsData.map(d => d.length));
+      }
+
       setComparisonData({
         results: resultsToLoad,
-        data: allResultsData
+        data: finalResultsData
       });
     } catch (err: any) {
       setError(err.message || 'Failed to generate global violin comparison');
@@ -82,11 +132,12 @@ export default function GlobalViolinComparison({
   };
 
   // Auto-generate on mount if selectedResults are provided
+  // Also regenerate when filters, analysisType, or comparisonMode change
   useEffect(() => {
     if (selectedResults.length > 0) {
       handleGenerate(selectedResults);
     }
-  }, [projectId]); // Only run on mount or projectId change
+  }, [projectId, selectedResults, filters, analysisType, comparisonMode]);
 
   // Toggle other datasets
   const toggleDataset = (resultName: string) => {

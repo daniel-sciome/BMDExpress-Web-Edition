@@ -16,6 +16,8 @@ import Plot from 'react-plotly.js';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { useNonSelectedDisplayMode } from './hooks/useNonSelectedDisplayMode';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { useAppSelector } from '../../store/hooks';
+import { applyMasterFilters } from '../../utils/applyMasterFilters';
 
 const { Option } = Select;
 
@@ -23,17 +25,23 @@ interface AccumulationChartsComparisonProps {
   projectId: string;
   availableResults: string[];
   selectedResults: string[];
+  analysisType?: string;
 }
 
 export default function AccumulationChartsComparison({
   projectId,
   availableResults,
-  selectedResults
+  selectedResults,
+  analysisType
 }: AccumulationChartsComparisonProps) {
   const [comparisonData, setComparisonData] = useState<any>(null);
   const [resultDisplayNames, setResultDisplayNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Get master filters and comparison mode from Redux
+  const filters = useAppSelector((state) => state.categoryResults.filters);
+  const comparisonMode = useAppSelector((state) => state.categoryResults.comparisonMode);
 
   // Cluster selection state (shared across all charts)
   const [selectedCluster, setSelectedCluster] = useState<string | number | null>(null);
@@ -75,9 +83,51 @@ export default function AccumulationChartsComparison({
 
       const allResultsData = await Promise.all(dataPromises);
 
+      // Apply master filters to each dataset
+      const filteredResultsData = allResultsData.map(data =>
+        applyMasterFilters(data || [], filters, analysisType)
+      );
+
+      // Apply intersection/union logic
+      let finalResultsData = filteredResultsData;
+
+      if (comparisonMode === 'intersection') {
+        // Find categories that appear in ALL datasets
+        const categorySetsPerDataset = filteredResultsData.map(data =>
+          new Set(data.map(row => row.categoryId).filter(Boolean))
+        );
+
+        if (categorySetsPerDataset.length > 0) {
+          // Get intersection
+          const intersectionCategories = new Set<string>();
+          const firstDatasetCategories = categorySetsPerDataset[0];
+
+          firstDatasetCategories.forEach(catId => {
+            const appearsInAll = categorySetsPerDataset.every(categorySet =>
+              categorySet.has(catId as string)
+            );
+            if (appearsInAll) {
+              intersectionCategories.add(catId as string);
+            }
+          });
+
+          // Filter each dataset to only include intersection categories
+          finalResultsData = filteredResultsData.map(data =>
+            data.filter(row => intersectionCategories.has(row.categoryId || ''))
+          );
+
+          console.log('[AccumulationChartsComparison] Intersection mode:',
+            'Total categories:', intersectionCategories.size,
+            'Per dataset:', finalResultsData.map(d => d.length));
+        }
+      } else {
+        console.log('[AccumulationChartsComparison] Union mode:',
+          'Per dataset:', finalResultsData.map(d => d.length));
+      }
+
       setComparisonData({
         results: selectedResults,
-        data: allResultsData
+        data: finalResultsData
       });
     } catch (err: any) {
       setError(err.message || 'Failed to generate comparison charts');
@@ -86,6 +136,13 @@ export default function AccumulationChartsComparison({
       setLoading(false);
     }
   };
+
+  // Auto-generate when selectedResults, filters, analysisType, or comparisonMode change
+  useEffect(() => {
+    if (selectedResults.length >= 2 && selectedResults.length <= 5) {
+      handleGenerate();
+    }
+  }, [projectId, selectedResults, filters, analysisType, comparisonMode]);
 
   // Handle legend click - same behavior as single dataset AccumulationCharts
   const handleLegendClick = useCallback((event: any) => {
@@ -306,25 +363,22 @@ export default function AccumulationChartsComparison({
   return (
     <div style={{ width: '100%' }}>
       <div style={{ marginBottom: '1rem' }}>
-        {selectedResults.length > 0 && (
+        {selectedResults.length > 0 && selectedResults.length < 2 && (
           <Alert
-            message={`${selectedResults.length} dataset${selectedResults.length > 1 ? 's' : ''} selected`}
-            description={selectedResults.length < 2 || selectedResults.length > 5
-              ? 'Please select 2-5 datasets using the toggles above to generate comparison charts.'
-              : 'Click "Generate Comparison Charts" to compare the selected datasets.'}
-            type={selectedResults.length >= 2 && selectedResults.length <= 5 ? 'info' : 'warning'}
+            message="Select more datasets"
+            description="Please select at least 2 datasets to generate comparison charts."
+            type="warning"
             style={{ marginBottom: '1rem' }}
           />
         )}
-
-        <Button
-          type="primary"
-          onClick={handleGenerate}
-          loading={loading}
-          disabled={selectedResults.length < 2 || selectedResults.length > 5}
-        >
-          Generate Comparison Charts
-        </Button>
+        {selectedResults.length > 5 && (
+          <Alert
+            message="Too many datasets"
+            description="Please select no more than 5 datasets for comparison."
+            type="warning"
+            style={{ marginBottom: '1rem' }}
+          />
+        )}
       </div>
 
       {error && (

@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Card, Tag, Spin, Checkbox } from 'antd';
+import { Card, Tag, Spin, Collapse } from 'antd';
 import { Icon } from '@vaadin/react-components';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
 import VennDiagram from '../components/charts/VennDiagram';
 import AccumulationChartsComparison from '../components/charts/AccumulationChartsComparison';
 import GlobalViolinComparison from '../components/charts/GlobalViolinComparison';
+import ComparisonTable from '../components/charts/ComparisonTable';
+import MasterFilter, { MasterFilterTitle } from '../components/MasterFilter';
+import { useAppSelector } from '../store/hooks';
 
 interface CategoryAnalysisMultisetViewProps {
   projectId: string;
@@ -29,7 +32,19 @@ export default function CategoryAnalysisMultisetView({
   const [annotations, setAnnotations] = useState<AnalysisAnnotationDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedResults, setSelectedResults] = useState<string[]>([]);
-  const [visibleComparisons, setVisibleComparisons] = useState<string[]>([]);
+
+  // Get master filters from Redux
+  const filters = useAppSelector((state) => state.categoryResults.filters);
+
+  // Debug: Log filters whenever they change
+  useEffect(() => {
+    console.log('[CategoryAnalysisMultisetView] Filters changed:', filters);
+  }, [filters]);
+
+  // Calculate active filter count for Master Filter title
+  const activeFilterCount = Object.entries(filters).filter(
+    ([_, value]) => value !== undefined && value !== null
+  ).length;
 
   // Map analysis types to display names
   const getAnalysisTypeDisplayName = (type: string): string => {
@@ -102,6 +117,14 @@ export default function CategoryAnalysisMultisetView({
   // Extract result names for Venn diagram
   const availableResults = annotations.map((a) => a.fullName || '').filter(Boolean);
 
+  // Build mapping of fullName -> displayName for comparison table
+  const resultDisplayNames: Record<string, string> = {};
+  annotations.forEach((a) => {
+    if (a.fullName) {
+      resultDisplayNames[a.fullName] = a.displayName || a.fullName;
+    }
+  });
+
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
@@ -127,6 +150,18 @@ export default function CategoryAnalysisMultisetView({
         overflowY: 'auto',
         padding: '1rem'
       }}>
+        {/* Master Filter - Collapsible */}
+        <Collapse
+          size="small"
+          items={[{
+            key: 'masterfilter',
+            label: <MasterFilterTitle activeCount={activeFilterCount} />,
+            children: <MasterFilter hideCard={true} />,
+          }]}
+          style={{ marginBottom: '1rem', border: 'none' }}
+          bordered={false}
+        />
+
         {/* Available Results Summary - Click to Toggle */}
         <Card
           title={`Available Category Analysis Results (${selectedResults.length} selected)`}
@@ -172,50 +207,60 @@ export default function CategoryAnalysisMultisetView({
           </div>
         </Card>
 
-        {/* Comparison Tool Selection */}
-        <div style={{ marginBottom: '1rem' }}>
-          <Checkbox.Group
-            value={visibleComparisons}
-            onChange={setVisibleComparisons}
-          >
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <Checkbox value="venn">Venn Diagram</Checkbox>
-              <Checkbox value="accumulation">Accumulation Charts</Checkbox>
-              <Checkbox value="globalViolin">Global Violin Plot</Checkbox>
-            </div>
-          </Checkbox.Group>
-        </div>
-
-        {/* Comparison Tools - Direct rendering based on checkbox selection */}
-        {visibleComparisons.includes('venn') && (
-          <Card size="small" style={{ marginBottom: '1rem' }}>
-            <VennDiagram
-              projectId={projectId}
-              availableResults={availableResults}
-              selectedResults={selectedResults}
-            />
-          </Card>
-        )}
-
-        {visibleComparisons.includes('accumulation') && (
-          <Card size="small" style={{ marginBottom: '1rem' }}>
-            <AccumulationChartsComparison
-              projectId={projectId}
-              availableResults={availableResults}
-              selectedResults={selectedResults}
-            />
-          </Card>
-        )}
-
-        {visibleComparisons.includes('globalViolin') && (
-          <Card size="small" style={{ marginBottom: '1rem' }}>
-            <GlobalViolinComparison
-              projectId={projectId}
-              availableResults={availableResults}
-              selectedResults={selectedResults}
-            />
-          </Card>
-        )}
+        {/* Comparison Tools - All rendered in collapsible panels */}
+        <Collapse
+          defaultActiveKey={['comparisonTable']}
+          style={{ marginBottom: '1rem' }}
+          items={[
+            {
+              key: 'comparisonTable',
+              label: 'Comparison Table',
+              children: (
+                <ComparisonTable
+                  projectId={projectId}
+                  selectedResults={selectedResults}
+                  resultDisplayNames={resultDisplayNames}
+                  analysisType={analysisType}
+                />
+              ),
+            },
+            {
+              key: 'venn',
+              label: 'Venn Diagram',
+              children: (
+                <VennDiagram
+                  projectId={projectId}
+                  availableResults={availableResults}
+                  selectedResults={selectedResults}
+                />
+              ),
+            },
+            {
+              key: 'accumulation',
+              label: 'Accumulation Charts',
+              children: (
+                <AccumulationChartsComparison
+                  projectId={projectId}
+                  availableResults={availableResults}
+                  selectedResults={selectedResults}
+                  analysisType={analysisType}
+                />
+              ),
+            },
+            {
+              key: 'globalViolin',
+              label: 'Global Violin Plot',
+              children: (
+                <GlobalViolinComparison
+                  projectId={projectId}
+                  availableResults={availableResults}
+                  selectedResults={selectedResults}
+                  analysisType={analysisType}
+                />
+              ),
+            },
+          ]}
+        />
       </div>
     </div>
   );

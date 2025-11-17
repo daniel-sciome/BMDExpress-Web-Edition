@@ -7,6 +7,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { FilterState, FilterGroup, Filter } from '../../types/filterTypes';
 import { nanoid } from '@reduxjs/toolkit';
+import { loadFilterGroups, saveFilterGroups, getRememberFiltersPreference } from '../../utils/filterGroupPersistence';
 
 /**
  * Create standard/preset filter groups that correspond to the 3 column categories
@@ -659,16 +660,20 @@ function createStandardFilterGroups(): FilterGroup[] {
 }
 
 // Create initial state with enabled groups automatically activated
+// Try to load from localStorage first if "remember filters" is enabled
+const savedGroups = loadFilterGroups();
 const standardGroups = createStandardFilterGroups();
-const enabledGroupIds = standardGroups.filter(g => g.enabled).map(g => g.id);
+const groups = savedGroups || standardGroups;
+const enabledGroupIds = groups.filter(g => g.enabled).map(g => g.id);
 
 console.log('[filterSlice] Initializing filter state:');
-console.log('[filterSlice] Standard groups count:', standardGroups.length);
-console.log('[filterSlice] Enabled groups:', standardGroups.filter(g => g.enabled).map(g => ({ id: g.id, name: g.name, enabled: g.enabled })));
+console.log('[filterSlice] Loaded from localStorage:', savedGroups !== null);
+console.log('[filterSlice] Groups count:', groups.length);
+console.log('[filterSlice] Enabled groups:', groups.filter(g => g.enabled).map(g => ({ id: g.id, name: g.name, enabled: g.enabled })));
 console.log('[filterSlice] Active group IDs:', enabledGroupIds);
 
 const initialState: FilterState = {
-  groups: standardGroups,
+  groups,
   activeGroupIds: enabledGroupIds,
 };
 

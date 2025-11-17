@@ -8,8 +8,8 @@
  * - View filters within each group
  */
 
-import React, { useState } from 'react';
-import { Tree, Button, Space, Tooltip, Typography, Tag, Popconfirm, Collapse } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Tree, Button, Space, Tooltip, Typography, Tag, Popconfirm, Collapse, Checkbox } from 'antd';
 import {
   PlusOutlined,
   DeleteOutlined,
@@ -26,6 +26,7 @@ import { getCategoryIdsForFilterGroup } from '../../utils/filterEvaluation';
 import { FIELD_METADATA } from '../../utils/filterMetadata';
 import FilterGroupEditor from './FilterGroupEditor';
 import type { FilterGroup, Filter } from '../../types/filterTypes';
+import { getRememberFiltersPreference, setRememberFiltersPreference } from '../../utils/filterGroupPersistence';
 
 const { Text } = Typography;
 
@@ -38,6 +39,19 @@ export default function FilterGroupList() {
   const [editorVisible, setEditorVisible] = useState(false);
   const [editingGroup, setEditingGroup] = useState<FilterGroup | undefined>(undefined);
   const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
+  const [rememberFilters, setRememberFilters] = useState<boolean>(() => getRememberFiltersPreference());
+
+  // Update localStorage when remember filters preference changes
+  const handleRememberFiltersChange = (checked: boolean) => {
+    const wasEnabled = rememberFilters;
+    setRememberFilters(checked);
+    setRememberFiltersPreference(checked);
+
+    // Only reload if user just disabled it (going from true to false)
+    if (wasEnabled && !checked) {
+      window.location.reload();
+    }
+  };
 
   // Only show filters when a project is selected
   if (!selectedProject) {
@@ -271,6 +285,17 @@ export default function FilterGroupList() {
               selectable={false}
             />
           )}
+
+          {/* Remember Filters checkbox */}
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f0f0f0' }}>
+            <Checkbox
+              checked={rememberFilters}
+              onChange={(e) => handleRememberFiltersChange(e.target.checked)}
+              style={{ fontSize: '12px' }}
+            >
+              Remember filter settings
+            </Checkbox>
+          </div>
         </>
       ),
     },

@@ -3,10 +3,10 @@
 // Phase 1: Three numeric range filters with localStorage persistence
 
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, InputNumber, Button, Space, Badge, Tooltip } from 'antd';
+import { Card, Row, Col, InputNumber, Button, Space, Badge, Tooltip, Radio } from 'antd';
 import { FilterOutlined, ClearOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { updateFiltersWithRenderState, clearFilters } from '../store/slices/categoryResultsSlice';
+import { updateFiltersWithRenderState, clearFilters, setComparisonMode } from '../store/slices/categoryResultsSlice';
 
 const STORAGE_KEY = 'bmdexpress_master_filters_global';
 
@@ -51,6 +51,7 @@ export function MasterFilterTitle({ activeCount }: { activeCount: number }) {
 export default function MasterFilter({ hideCard = false }: MasterFilterProps) {
   const dispatch = useAppDispatch();
   const currentFilters = useAppSelector(state => state.categoryResults.filters);
+  const comparisonMode = useAppSelector(state => state.categoryResults.comparisonMode);
 
   // Local state for form inputs (before applying)
   const [localFilters, setLocalFilters] = useState<MasterFilterState>(DEFAULT_FILTERS);
@@ -87,6 +88,7 @@ export default function MasterFilter({ hideCard = false }: MasterFilterProps) {
       Object.entries(localFilters).filter(([_, value]) => value !== undefined && value !== null)
     );
 
+    console.log('[MasterFilter] Applying filters:', filtersToApply);
     dispatch(updateFiltersWithRenderState(filtersToApply));
 
     // Persist to localStorage
@@ -125,6 +127,7 @@ export default function MasterFilter({ hideCard = false }: MasterFilterProps) {
   };
 
   const filterContent = (
+      <>
       <Row gutter={[16, 16]} align="middle">
         {/* Percentage Min */}
         <Col xs={24} sm={12} md={6}>
@@ -222,6 +225,38 @@ export default function MasterFilter({ hideCard = false }: MasterFilterProps) {
           </Space>
         </Col>
       </Row>
+
+      {/* Multi-dataset Comparison Mode */}
+      <Row style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f0f0f0' }}>
+        <Col span={24}>
+          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <div style={{ fontWeight: 500, fontSize: '13px' }}>
+              Multi-Dataset Comparison Mode
+              <Tooltip title="Controls how categories are combined when comparing multiple datasets">
+                <InfoCircleOutlined style={{ marginLeft: '8px', color: '#1890ff', cursor: 'help' }} />
+              </Tooltip>
+            </div>
+            <Radio.Group
+              value={comparisonMode}
+              onChange={(e) => dispatch(setComparisonMode(e.target.value))}
+              size="small"
+              style={{ width: '100%' }}
+            >
+              <Radio.Button value="intersection" style={{ width: '50%', textAlign: 'center' }}>
+                <Tooltip title="Show only categories that appear in ALL selected datasets">
+                  Intersection
+                </Tooltip>
+              </Radio.Button>
+              <Radio.Button value="union" style={{ width: '50%', textAlign: 'center' }}>
+                <Tooltip title="Show all categories from any selected dataset">
+                  Union
+                </Tooltip>
+              </Radio.Button>
+            </Radio.Group>
+          </Space>
+        </Col>
+      </Row>
+      </>
   );
 
   // Render with or without Card wrapper based on hideCard prop

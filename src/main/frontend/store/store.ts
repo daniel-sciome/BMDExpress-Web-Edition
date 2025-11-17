@@ -1,12 +1,26 @@
-import { configureStore } from '@reduxjs/toolkit';
+import { configureStore, Middleware } from '@reduxjs/toolkit';
 import { enableMapSet } from 'immer';
 import categoryResultsReducer from './slices/categoryResultsSlice';
 import navigationReducer from './slices/navigationSlice';
 import renderStateReducer from './slices/renderStateSlice';
 import filterReducer from './slices/filterSlice';
+import { saveFilterGroups } from '../utils/filterGroupPersistence';
 
 // Enable Immer support for Map and Set
 enableMapSet();
+
+// Middleware to save filter groups to localStorage when they change
+const filterGroupPersistenceMiddleware: Middleware = (store) => (next) => (action) => {
+  const result = next(action);
+
+  // Save filter groups after any filter action
+  if (typeof action === 'object' && action !== null && 'type' in action && typeof action.type === 'string' && action.type.startsWith('filters/')) {
+    const state = store.getState();
+    saveFilterGroups(state.filters.groups);
+  }
+
+  return result;
+};
 
 export const store = configureStore({
   reducer: {
@@ -55,7 +69,7 @@ export const store = configureStore({
           'navigation/setSelectedCategoryResult',
         ],
       },
-    }),
+    }).concat(filterGroupPersistenceMiddleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

@@ -37,6 +37,16 @@ export default function VennDiagram({ projectId, availableResults, selectedResul
   const [error, setError] = useState<string | null>(null);
   const vennDiagramRef = useRef<HTMLDivElement>(null);
 
+  // Auto-generate when selectedResults change
+  useEffect(() => {
+    if (selectedResults.length >= 2 && selectedResults.length <= 5) {
+      handleGenerate();
+    } else {
+      setVennData(null);
+      setError(null);
+    }
+  }, [projectId, selectedResults]);
+
   const handleGenerate = async () => {
     if (selectedResults.length < 2 || selectedResults.length > 5) {
       setError('Please select 2-5 category analysis results');
@@ -448,26 +458,24 @@ export default function VennDiagram({ projectId, availableResults, selectedResul
   return (
     <div style={{ width: '100%' }}>
       <div style={{ marginBottom: '1rem' }}>
-        {selectedResults.length > 0 && (
+        {selectedResults.length > 0 && selectedResults.length < 2 && (
           <Alert
-            message={`${selectedResults.length} dataset${selectedResults.length > 1 ? 's' : ''} selected`}
-            description={selectedResults.length < 2 || selectedResults.length > 5
-              ? 'Please select 2-5 datasets using the toggles above to generate a Venn diagram.'
-              : 'Click "Generate Venn Diagram" to compare the selected datasets.'}
-            type={selectedResults.length >= 2 && selectedResults.length <= 5 ? 'info' : 'warning'}
+            message="Select more datasets"
+            description="Please select at least 2 datasets to generate a Venn diagram."
+            type="warning"
+            style={{ marginBottom: '1rem' }}
+          />
+        )}
+        {selectedResults.length > 5 && (
+          <Alert
+            message="Too many datasets"
+            description="Please select no more than 5 datasets for Venn diagram comparison."
+            type="warning"
             style={{ marginBottom: '1rem' }}
           />
         )}
 
         <div style={{ display: 'flex', gap: '8px' }}>
-          <Button
-            type="primary"
-            onClick={handleGenerate}
-            disabled={selectedResults.length < 2 || selectedResults.length > 5}
-            loading={loading}
-          >
-            Generate Venn Diagram
-          </Button>
           <Button
             icon={<DownloadOutlined />}
             onClick={handleExportToExcel}

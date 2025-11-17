@@ -44,6 +44,9 @@ interface CategoryResultsState {
   // Filters
   filters: Filters;
 
+  // Multi-dataset comparison mode (intersection vs union)
+  comparisonMode: 'intersection' | 'union';
+
   // Phase 4: Generic reactive selection state
   reactiveSelection: ReactiveSelectionMap;
 
@@ -75,6 +78,7 @@ const initialState: CategoryResultsState = {
   parametersLoading: false,
   analysisType: null,
   filters: {},
+  comparisonMode: 'intersection',
   // Phase 4: Reactive selection state
   reactiveSelection: {
     category: {
@@ -225,6 +229,11 @@ const categoryResultsSlice = createSlice({
 
     clearFilters: (state) => {
       state.filters = {};
+    },
+
+    // Set comparison mode (intersection vs union)
+    setComparisonMode: (state, action: PayloadAction<'intersection' | 'union'>) => {
+      state.comparisonMode = action.payload;
     },
 
     // Set analysis type (for conditional filter application)
@@ -458,6 +467,7 @@ const categoryResultsSlice = createSlice({
 export const {
   setFilters,
   clearFilters,
+  setComparisonMode,
   setAnalysisType,
   setSelectedCategoryIds,
   toggleCategorySelection,
