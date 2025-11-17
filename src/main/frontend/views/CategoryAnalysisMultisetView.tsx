@@ -209,7 +209,7 @@ export default function CategoryAnalysisMultisetView({
 
         {/* Comparison Tools - All rendered in collapsible panels */}
         <Collapse
-          defaultActiveKey={['comparisonTable']}
+          defaultActiveKey={['comparisonTable', 'venn', 'accumulation', 'globalViolin']}
           style={{ marginBottom: '1rem' }}
           items={[
             {

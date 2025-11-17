@@ -544,6 +544,7 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
               // BMD vertical lines
               if (curve.bmdMarkers) {
                 const markers = curve.bmdMarkers;
+                const isFirstCurve = categoryCurves.indexOf(curve) === 0;
 
                 if (markers.bmd != null) {
                   categoryTraces.push({
@@ -552,7 +553,9 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
                     type: 'scatter',
                     mode: 'lines',
                     line: { color: '#00FF00', width: 2 },
-                    showlegend: false,
+                    name: 'BMD',
+                    showlegend: isFirstCurve,
+                    legendgroup: 'bmd',
                     hovertemplate: `BMD<br>Dose: ${markers.bmd.toFixed(3)}<extra></extra>`,
                   });
                 }
@@ -564,7 +567,9 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
                     type: 'scatter',
                     mode: 'lines',
                     line: { color: '#FF0000', width: 2 },
-                    showlegend: false,
+                    name: 'BMDL',
+                    showlegend: isFirstCurve,
+                    legendgroup: 'bmdl',
                     hovertemplate: `BMDL<br>Dose: ${markers.bmdl.toFixed(3)}<extra></extra>`,
                   });
                 }
@@ -576,7 +581,9 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
                     type: 'scatter',
                     mode: 'lines',
                     line: { color: '#0000FF', width: 2 },
-                    showlegend: false,
+                    name: 'BMDU',
+                    showlegend: isFirstCurve,
+                    legendgroup: 'bmdu',
                     hovertemplate: `BMDU<br>Dose: ${markers.bmdu.toFixed(3)}<extra></extra>`,
                   });
                 }
@@ -602,7 +609,13 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
               height: 400,
               margin: { l: 60, r: 20, t: 60, b: 60 },
               hovermode: 'closest' as const,
-              showlegend: false,
+              showlegend: true,
+              legend: {
+                x: 1.02,
+                xanchor: 'left' as const,
+                y: 1,
+                yanchor: 'top' as const,
+              },
             };
 
             return (
