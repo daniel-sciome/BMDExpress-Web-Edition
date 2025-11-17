@@ -1,6 +1,7 @@
 // UmapScatterPlot.tsx
 // UMAP scatter plot showing GO term semantic embeddings with interactive selection
 // Reacts to individual category selections (table, ClusterPicker, lasso select) - NO legend interaction
+// Three-level styling: selected (full + white border), same cluster (outline only), other clusters (faded)
 
 import React, { useMemo, useCallback, useState } from 'react';
 import Plot from 'react-plotly.js';
@@ -107,26 +108,49 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
       const points = clusterData.get(clusterId)!;
       const baseColor = clusterColors[clusterId] || '#999999';
 
-      // Individual point-level styling based on whether each specific category is selected
+      // Check if this cluster has any selected categories
+      const clusterHasSelection = hasSelection && points.some(p => categoryState.selectedIds.has(p.go_id));
+
+      // Individual point-level styling with three-level hierarchy:
+      // 1. Selected points: full color with white border
+      // 2. Non-selected points in same cluster as selected: outline only
+      // 3. Points in clusters with no selections: faded out
       const markerColors: string[] = [];
       const markerSizes: number[] = [];
       const markerOpacities: number[] = [];
       const markerLineWidths: number[] = [];
       const markerLineColors: string[] = [];
 
+      // Convert hex color to RGB for transparent fill
+      const hexToRgb = (hex: string): [number, number, number] => {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return [r, g, b];
+      };
+
+      const [r, g, b] = hexToRgb(baseColor);
+
       points.forEach(point => {
         const isPointSelected = categoryState.selectedIds.has(point.go_id);
 
         if (hasSelection) {
           if (isPointSelected) {
-            // This specific point is selected - make it stand out
+            // Level 1: This specific point is selected - full highlight
             markerColors.push(baseColor);
             markerSizes.push(10);
             markerOpacities.push(1.0);
             markerLineWidths.push(2);
             markerLineColors.push('white');
+          } else if (clusterHasSelection) {
+            // Level 2: Same cluster as selected point - outline only (transparent fill, colored border)
+            markerColors.push(`rgba(${r}, ${g}, ${b}, 0)`); // Transparent fill
+            markerSizes.push(8);
+            markerOpacities.push(1.0);
+            markerLineWidths.push(1);
+            markerLineColors.push(baseColor); // Colored border
           } else {
-            // This point is NOT selected - fade it out
+            // Level 3: Different cluster - fade it out
             markerColors.push(baseColor);
             markerSizes.push(8);
             markerOpacities.push(0.2);
@@ -227,7 +251,7 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
       title={
         <Space>
           <span>UMAP Semantic Space</span>
-          <Tooltip title="GO terms are embedded in 2D space based on semantic similarity. Points closer together represent related biological processes. Individual selected categories are highlighted with larger markers and white borders. Select via table rows, box/lasso select, or Cluster Picker.">
+          <Tooltip title="GO terms are embedded in 2D space based on semantic similarity. Points closer together represent related biological processes. Selected categories have larger markers with white borders. Other categories in the same cluster show as outlines. Categories in other clusters are faded. Select via table rows, box/lasso select, or Cluster Picker.">
             <InfoCircleOutlined style={{ color: '#1890ff', cursor: 'help' }} />
           </Tooltip>
         </Space>
@@ -270,9 +294,12 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
       <div style={{ marginTop: 16, fontSize: '12px', color: '#666' }}>
         <p>
           <strong>How to use:</strong> Select individual categories by clicking table rows, using the lasso/box select tool on this plot, or use the <strong>Cluster Picker</strong> in the sidebar to select entire clusters.
-          Selected categories will be highlighted with larger markers and white borders.
+        </p>
+        <p style={{ marginTop: '8px' }}>
+          <strong>Visualization:</strong> Selected categories appear with <strong>larger markers and white borders</strong>.
+          Other categories in the same cluster show as <strong>outline markers</strong> (hollow with colored border).
+          Categories in unselected clusters are <strong>faded</strong>.
           Small black points form the backdrop (entire UMAP reference space).
-          Colored points are categories that pass the Master Filter.
         </p>
       </div>
     </Card>
