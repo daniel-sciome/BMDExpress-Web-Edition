@@ -47,3 +47,10 @@ export {
 
 // Fold change columns
 export { getFoldChangeColumns } from './foldChangeColumns';
+
+// Rank columns
+export {
+  getBMDRankColumns,
+  getBMDLRankColumns,
+  getBMDURankColumns,
+} from './rankColumns';

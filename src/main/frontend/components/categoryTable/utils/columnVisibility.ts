@@ -5,7 +5,73 @@
  * including localStorage persistence.
  */
 
-import { ColumnVisibility, DEFAULT_COLUMN_VISIBILITY, COLUMN_VISIBILITY_STORAGE_KEY } from './types';
+import { ColumnVisibility, ColumnGroup, DEFAULT_COLUMN_VISIBILITY, COLUMN_VISIBILITY_STORAGE_KEY } from './types';
+
+/**
+ * List of simple boolean column visibility fields
+ */
+const SIMPLE_BOOLEAN_FIELDS: (keyof ColumnVisibility)[] = [
+  'geneCounts',
+  'fishersFull',
+  'bmdExtended',
+  'bmdConfidence',
+  'bmdlStats',
+  'bmdlConfidence',
+  'bmduStats',
+  'bmduConfidence',
+  'bmdRanks',
+  'bmdlRanks',
+  'bmduRanks',
+];
+
+/**
+ * List of column group fields (ColumnGroup structure with {all, columns})
+ */
+const COLUMN_GROUP_FIELDS: (keyof ColumnVisibility)[] = [
+  'filterCounts',
+  'percentiles',
+  'directionalUp',
+  'directionalDown',
+  'directionalAnalysis',
+  'foldChange',
+  'zScores',
+  'modelFoldChange',
+  'geneLists',
+];
+
+/**
+ * Merge simple boolean fields from parsed data into merged result
+ *
+ * @param parsed - Parsed data from localStorage
+ * @param merged - Target object to merge into
+ */
+function mergeSimpleBooleanFields(parsed: any, merged: ColumnVisibility): void {
+  SIMPLE_BOOLEAN_FIELDS.forEach(fieldName => {
+    if (typeof parsed[fieldName] === 'boolean') {
+      (merged[fieldName] as boolean) = parsed[fieldName];
+    }
+  });
+}
+
+/**
+ * Merge column group fields from parsed data into merged result
+ *
+ * @param parsed - Parsed data from localStorage
+ * @param merged - Target object to merge into
+ */
+function mergeColumnGroupFields(parsed: any, merged: ColumnVisibility): void {
+  COLUMN_GROUP_FIELDS.forEach(fieldName => {
+    if (parsed[fieldName] && typeof parsed[fieldName] === 'object') {
+      const defaultGroup = DEFAULT_COLUMN_VISIBILITY[fieldName] as ColumnGroup<any>;
+      const parsedGroup = parsed[fieldName];
+
+      (merged[fieldName] as ColumnGroup<any>) = {
+        all: typeof parsedGroup.all === 'boolean' ? parsedGroup.all : defaultGroup.all,
+        columns: { ...defaultGroup.columns, ...parsedGroup.columns },
+      };
+    }
+  });
+}
 
 /**
  * Load column visibility settings from localStorage
@@ -13,6 +79,8 @@ import { ColumnVisibility, DEFAULT_COLUMN_VISIBILITY, COLUMN_VISIBILITY_STORAGE_
  * Merges saved settings with defaults to ensure all keys exist,
  * which handles cases where new columns are added in updates.
  * Performs deep merge for Advanced column groups with ColumnGroup structure.
+ *
+ * Uses helper functions to eliminate code duplication.
  *
  * @returns Column visibility settings
  */
@@ -26,82 +94,14 @@ export function loadColumnVisibility(): ColumnVisibility {
   try {
     const parsed = JSON.parse(saved);
 
-    // Deep merge for Advanced column groups (which have {all, columns} structure)
+    // Start with defaults
     const merged: ColumnVisibility = { ...DEFAULT_COLUMN_VISIBILITY };
 
-    // Simple boolean columns (Essential and Statistics)
-    if (typeof parsed.geneCounts === 'boolean') merged.geneCounts = parsed.geneCounts;
-    if (typeof parsed.fishersFull === 'boolean') merged.fishersFull = parsed.fishersFull;
-    if (typeof parsed.bmdExtended === 'boolean') merged.bmdExtended = parsed.bmdExtended;
-    if (typeof parsed.bmdConfidence === 'boolean') merged.bmdConfidence = parsed.bmdConfidence;
-    if (typeof parsed.bmdlStats === 'boolean') merged.bmdlStats = parsed.bmdlStats;
-    if (typeof parsed.bmdlConfidence === 'boolean') merged.bmdlConfidence = parsed.bmdlConfidence;
-    if (typeof parsed.bmduStats === 'boolean') merged.bmduStats = parsed.bmduStats;
-    if (typeof parsed.bmduConfidence === 'boolean') merged.bmduConfidence = parsed.bmduConfidence;
+    // Merge simple boolean columns
+    mergeSimpleBooleanFields(parsed, merged);
 
-    // ColumnGroup structure columns (Advanced groups)
-    if (parsed.filterCounts && typeof parsed.filterCounts === 'object') {
-      merged.filterCounts = {
-        all: typeof parsed.filterCounts.all === 'boolean' ? parsed.filterCounts.all : DEFAULT_COLUMN_VISIBILITY.filterCounts.all,
-        columns: { ...DEFAULT_COLUMN_VISIBILITY.filterCounts.columns, ...parsed.filterCounts.columns }
-      };
-    }
-
-    if (parsed.percentiles && typeof parsed.percentiles === 'object') {
-      merged.percentiles = {
-        all: typeof parsed.percentiles.all === 'boolean' ? parsed.percentiles.all : DEFAULT_COLUMN_VISIBILITY.percentiles.all,
-        columns: { ...DEFAULT_COLUMN_VISIBILITY.percentiles.columns, ...parsed.percentiles.columns }
-      };
-    }
-
-    if (parsed.directionalUp && typeof parsed.directionalUp === 'object') {
-      merged.directionalUp = {
-        all: typeof parsed.directionalUp.all === 'boolean' ? parsed.directionalUp.all : DEFAULT_COLUMN_VISIBILITY.directionalUp.all,
-        columns: { ...DEFAULT_COLUMN_VISIBILITY.directionalUp.columns, ...parsed.directionalUp.columns }
-      };
-    }
-
-    if (parsed.directionalDown && typeof parsed.directionalDown === 'object') {
-      merged.directionalDown = {
-        all: typeof parsed.directionalDown.all === 'boolean' ? parsed.directionalDown.all : DEFAULT_COLUMN_VISIBILITY.directionalDown.all,
-        columns: { ...DEFAULT_COLUMN_VISIBILITY.directionalDown.columns, ...parsed.directionalDown.columns }
-      };
-    }
-
-    if (parsed.directionalAnalysis && typeof parsed.directionalAnalysis === 'object') {
-      merged.directionalAnalysis = {
-        all: typeof parsed.directionalAnalysis.all === 'boolean' ? parsed.directionalAnalysis.all : DEFAULT_COLUMN_VISIBILITY.directionalAnalysis.all,
-        columns: { ...DEFAULT_COLUMN_VISIBILITY.directionalAnalysis.columns, ...parsed.directionalAnalysis.columns }
-      };
-    }
-
-    if (parsed.foldChange && typeof parsed.foldChange === 'object') {
-      merged.foldChange = {
-        all: typeof parsed.foldChange.all === 'boolean' ? parsed.foldChange.all : DEFAULT_COLUMN_VISIBILITY.foldChange.all,
-        columns: { ...DEFAULT_COLUMN_VISIBILITY.foldChange.columns, ...parsed.foldChange.columns }
-      };
-    }
-
-    if (parsed.zScores && typeof parsed.zScores === 'object') {
-      merged.zScores = {
-        all: typeof parsed.zScores.all === 'boolean' ? parsed.zScores.all : DEFAULT_COLUMN_VISIBILITY.zScores.all,
-        columns: { ...DEFAULT_COLUMN_VISIBILITY.zScores.columns, ...parsed.zScores.columns }
-      };
-    }
-
-    if (parsed.modelFoldChange && typeof parsed.modelFoldChange === 'object') {
-      merged.modelFoldChange = {
-        all: typeof parsed.modelFoldChange.all === 'boolean' ? parsed.modelFoldChange.all : DEFAULT_COLUMN_VISIBILITY.modelFoldChange.all,
-        columns: { ...DEFAULT_COLUMN_VISIBILITY.modelFoldChange.columns, ...parsed.modelFoldChange.columns }
-      };
-    }
-
-    if (parsed.geneLists && typeof parsed.geneLists === 'object') {
-      merged.geneLists = {
-        all: typeof parsed.geneLists.all === 'boolean' ? parsed.geneLists.all : DEFAULT_COLUMN_VISIBILITY.geneLists.all,
-        columns: { ...DEFAULT_COLUMN_VISIBILITY.geneLists.columns, ...parsed.geneLists.columns }
-      };
-    }
+    // Merge column group fields
+    mergeColumnGroupFields(parsed, merged);
 
     return merged;
   } catch (e) {
@@ -137,6 +137,10 @@ export function resetColumnVisibility(): ColumnVisibility {
 /**
  * Toggle a specific column group visibility
  *
+ * Handles both simple boolean fields and ColumnGroup fields appropriately.
+ * For boolean fields, toggles the value.
+ * For ColumnGroup fields, toggles the 'all' property.
+ *
  * @param current - Current visibility settings
  * @param key - The column group key to toggle
  * @returns Updated visibility settings
@@ -145,67 +149,52 @@ export function toggleColumnGroup(
   current: ColumnVisibility,
   key: keyof ColumnVisibility
 ): ColumnVisibility {
+  const currentValue = current[key];
+
+  // Check if this is a simple boolean field
+  if (typeof currentValue === 'boolean') {
+    return {
+      ...current,
+      [key]: !currentValue,
+    };
+  }
+
+  // Handle ColumnGroup type (toggle the 'all' property)
+  const columnGroup = currentValue as ColumnGroup<any>;
   return {
     ...current,
-    [key]: !current[key],
+    [key]: {
+      ...columnGroup,
+      all: !columnGroup.all,
+    },
   };
 }
 
 /**
  * Show all column groups
  *
+ * Uses configuration-driven approach to set all columns visible.
+ *
  * @returns Visibility settings with all columns visible
  */
 export function showAllColumns(): ColumnVisibility {
-  return {
-    // Simple boolean columns
-    geneCounts: true,
-    fishersFull: true,
-    bmdExtended: true,
-    bmdConfidence: true,
-    bmdlStats: true,
-    bmdlConfidence: true,
-    bmduStats: true,
-    bmduConfidence: true,
+  const result = { ...DEFAULT_COLUMN_VISIBILITY };
 
-    // Advanced groups - set all: true to show all columns
-    filterCounts: {
+  // Set all simple boolean columns to true
+  SIMPLE_BOOLEAN_FIELDS.forEach(fieldName => {
+    (result[fieldName] as boolean) = true;
+  });
+
+  // Set all column groups to show all columns
+  COLUMN_GROUP_FIELDS.forEach(fieldName => {
+    const defaultGroup = DEFAULT_COLUMN_VISIBILITY[fieldName] as ColumnGroup<any>;
+    (result[fieldName] as ColumnGroup<any>) = {
       all: true,
-      columns: DEFAULT_COLUMN_VISIBILITY.filterCounts.columns,
-    },
-    percentiles: {
-      all: true,
-      columns: DEFAULT_COLUMN_VISIBILITY.percentiles.columns,
-    },
-    directionalUp: {
-      all: true,
-      columns: DEFAULT_COLUMN_VISIBILITY.directionalUp.columns,
-    },
-    directionalDown: {
-      all: true,
-      columns: DEFAULT_COLUMN_VISIBILITY.directionalDown.columns,
-    },
-    directionalAnalysis: {
-      all: true,
-      columns: DEFAULT_COLUMN_VISIBILITY.directionalAnalysis.columns,
-    },
-    foldChange: {
-      all: true,
-      columns: DEFAULT_COLUMN_VISIBILITY.foldChange.columns,
-    },
-    zScores: {
-      all: true,
-      columns: DEFAULT_COLUMN_VISIBILITY.zScores.columns,
-    },
-    modelFoldChange: {
-      all: true,
-      columns: DEFAULT_COLUMN_VISIBILITY.modelFoldChange.columns,
-    },
-    geneLists: {
-      all: true,
-      columns: DEFAULT_COLUMN_VISIBILITY.geneLists.columns,
-    },
-  };
+      columns: defaultGroup.columns,
+    };
+  });
+
+  return result;
 }
 
 /**

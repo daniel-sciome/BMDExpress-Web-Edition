@@ -46,6 +46,15 @@ export interface ColumnVisibility {
   /** BMDU 95% Confidence Interval columns (Lower, Upper) */
   bmduConfidence: boolean;
 
+  /** BMD Rank columns (Mean, Median, Min, Weighted Mean) */
+  bmdRanks: boolean;
+
+  /** BMDL Rank columns (Mean, Median, Min, Weighted Mean) */
+  bmdlRanks: boolean;
+
+  /** BMDU Rank columns (Mean, Median, Min, Weighted Mean) */
+  bmduRanks: boolean;
+
   /** Filter Counts columns - individual selection */
   filterCounts: ColumnGroup<
     | 'bmdLessEqualHighDose'
@@ -160,6 +169,9 @@ export const DEFAULT_COLUMN_VISIBILITY: ColumnVisibility = {
   bmdlConfidence: false,
   bmduStats: false,
   bmduConfidence: false,
+  bmdRanks: false,
+  bmdlRanks: false,
+  bmduRanks: false,
   filterCounts: {
     all: false,
     columns: {

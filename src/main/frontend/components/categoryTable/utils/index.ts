@@ -13,3 +13,6 @@ export * from './formatters';
 
 // Export column visibility helpers
 export * from './columnVisibility';
+
+// Export rank calculation utilities
+export * from './rankCalculation';

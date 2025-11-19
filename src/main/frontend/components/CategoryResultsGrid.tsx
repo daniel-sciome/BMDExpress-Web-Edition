@@ -23,6 +23,8 @@ import {
   saveColumnVisibility,
   showAllColumns,
   resetColumnVisibility,
+  calculateAllBMDRanks,
+  CategoryAnalysisResultWithRank,
 } from './categoryTable/utils';
 
 // Import all column definition functions
@@ -38,6 +40,9 @@ import {
   getBMDLConfidenceColumns,
   getBMDUColumns,
   getBMDUConfidenceColumns,
+  getBMDRankColumns,
+  getBMDLRankColumns,
+  getBMDURankColumns,
   getFilterCountsColumns,
   getPercentilesColumns,
   getDirectionalUpColumns,
@@ -113,15 +118,21 @@ export default function CategoryResultsGrid() {
     }
   }, [rememberColumnSelection]);
 
-  // Apply filter based on toggle
-  const data = useMemo(() => {
+  // Apply filter based on toggle and calculate ranks on filtered data
+  const data: CategoryAnalysisResultWithRank[] = useMemo(() => {
+    let filteredData: CategoryAnalysisResultDto[];
+
     if (!hideRowsWithoutBMD) {
-      return allData;
+      filteredData = allData;
+    } else {
+      // Hide rows where both bmdMean and bmdMedian are null
+      filteredData = allData.filter(row =>
+        row.bmdMean != null || row.bmdMedian != null
+      );
     }
-    // Hide rows where both bmdMean and bmdMedian are null
-    return allData.filter(row =>
-      row.bmdMean != null || row.bmdMedian != null
-    );
+
+    // Calculate ranks on the filtered data
+    return calculateAllBMDRanks(filteredData);
   }, [allData, hideRowsWithoutBMD]);
 
   // Convert Set to array for Ant Design Table
@@ -153,7 +164,7 @@ export default function CategoryResultsGrid() {
   };
 
   // Row selection configuration
-  const rowSelection: TableProps<CategoryAnalysisResultDto>['rowSelection'] = {
+  const rowSelection: TableProps<CategoryAnalysisResultWithRank>['rowSelection'] = {
     type: 'checkbox',
     selectedRowKeys: selectedKeys,
     onChange: handleSelectionChange,
@@ -165,8 +176,8 @@ export default function CategoryResultsGrid() {
   };
 
   // Build columns dynamically based on visibility state
-  const columns: ColumnsType<CategoryAnalysisResultDto> = useMemo(() => {
-    const cols: ColumnsType<CategoryAnalysisResultDto> = [];
+  const columns: ColumnsType<CategoryAnalysisResultWithRank> = useMemo(() => {
+    const cols: ColumnsType<CategoryAnalysisResultWithRank> = [];
 
     // Always show fixed columns
     cols.push(...getFixedColumns(viewMode));
@@ -203,6 +214,17 @@ export default function CategoryResultsGrid() {
     }
     if (columnVisibility.bmduConfidence) {
       cols.push(...getBMDUConfidenceColumns());
+    }
+
+    // Rank columns
+    if (columnVisibility.bmdRanks) {
+      cols.push(...getBMDRankColumns());
+    }
+    if (columnVisibility.bmdlRanks) {
+      cols.push(...getBMDLRankColumns());
+    }
+    if (columnVisibility.bmduRanks) {
+      cols.push(...getBMDURankColumns());
     }
 
     // Advanced column groups - pass individual column visibility
@@ -257,7 +279,7 @@ export default function CategoryResultsGrid() {
   }, [columnVisibility, viewMode]);
 
   // Custom row styles based on selection
-  const getRowClassName = (record: CategoryAnalysisResultDto) => {
+  const getRowClassName = (record: CategoryAnalysisResultWithRank) => {
     // If there are selections and this row is not selected, dim it
     if (selectedCategoryIds.size > 0 && !selectedCategoryIds.has(record.categoryId || '')) {
       return 'dimmed-row';
@@ -371,6 +393,37 @@ export default function CategoryResultsGrid() {
           }}
         >
           BMDU 95% Confidence Interval
+        </Checkbox>
+
+        <div style={{ fontWeight: 600, marginTop: '16px', marginBottom: '8px', borderBottom: '1px solid #f0f0f0', paddingBottom: '8px' }}>
+          Rank Columns
+        </div>
+        <Checkbox
+          checked={columnVisibility.bmdRanks}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, bmdRanks: e.target.checked });
+          }}
+        >
+          BMD Ranks (Mean, Median, Min, W.Mean)
+        </Checkbox>
+        <Checkbox
+          checked={columnVisibility.bmdlRanks}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, bmdlRanks: e.target.checked });
+          }}
+        >
+          BMDL Ranks (Mean, Median, Min, W.Mean)
+        </Checkbox>
+        <Checkbox
+          checked={columnVisibility.bmduRanks}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, bmduRanks: e.target.checked });
+          }}
+        >
+          BMDU Ranks (Mean, Median, Min, W.Mean)
         </Checkbox>
 
         <div style={{ fontWeight: 600, marginTop: '16px', marginBottom: '8px', borderBottom: '1px solid #f0f0f0', paddingBottom: '8px' }}>
@@ -1076,7 +1129,7 @@ export default function CategoryResultsGrid() {
         </div>
       ),
       children: (
-        <Table<CategoryAnalysisResultDto>
+        <Table<CategoryAnalysisResultWithRank>
           columns={columns}
           dataSource={data}
           rowKey="categoryId"
