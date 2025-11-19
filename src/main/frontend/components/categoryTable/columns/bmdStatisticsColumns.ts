@@ -3,11 +3,109 @@
  *
  * This file contains column definitions for BMD (Benchmark Dose) statistics,
  * including essential BMD columns, extended BMD statistics, and BMDL/BMDU columns.
+ *
+ * Uses generic column generators to eliminate code duplication across BMD types.
  */
 
 import type { ColumnsType } from 'antd/es/table';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import { formatNumber } from '../utils/formatters';
+
+/**
+ * Configuration for a statistics column
+ */
+interface StatColumnConfig {
+  key: string;
+  title: string;
+  suffix: string;
+  width?: number;
+}
+
+/**
+ * Configuration for extended statistics columns
+ */
+const EXTENDED_STATS: StatColumnConfig[] = [
+  { key: 'min', title: 'Min', suffix: 'Minimum', width: 55 },
+  { key: 'sd', title: 'SD', suffix: 'SD', width: 55 },
+  { key: 'wmean', title: 'Weighted Mean', suffix: 'WMean', width: 60 },
+  { key: 'wsd', title: 'Weighted SD', suffix: 'WSD', width: 60 },
+];
+
+/**
+ * Configuration for confidence interval columns
+ */
+const CONFIDENCE_STATS: StatColumnConfig[] = [
+  { key: 'lower', title: 'Lower', suffix: 'Lower95', width: 55 },
+  { key: 'upper', title: 'Upper', suffix: 'Upper95', width: 55 },
+];
+
+/**
+ * Generic function to create extended statistics columns for any BMD type
+ *
+ * Eliminates code duplication by generating columns based on prefix parameter.
+ *
+ * @param prefix - The field prefix ('bmd', 'bmdl', or 'bmdu')
+ * @param title - The column group title
+ * @returns Array of extended statistics column definitions
+ */
+function createExtendedStatsColumns(
+  prefix: 'bmd' | 'bmdl' | 'bmdu',
+  title: string
+): ColumnsType<CategoryAnalysisResultDto> {
+  const children = EXTENDED_STATS.map(stat => {
+    const dataIndex = `${prefix}${stat.suffix}` as keyof CategoryAnalysisResultDto;
+
+    return {
+      title: stat.title,
+      dataIndex,
+      key: dataIndex,
+      width: stat.width,
+      align: 'right' as const,
+      render: (value: number) => formatNumber(value),
+      sorter: (a: CategoryAnalysisResultDto, b: CategoryAnalysisResultDto) => {
+        const aValue = a[dataIndex] as number | undefined;
+        const bValue = b[dataIndex] as number | undefined;
+        return (aValue || 0) - (bValue || 0);
+      },
+    };
+  });
+
+  return [{ title, children }];
+}
+
+/**
+ * Generic function to create confidence interval columns for any BMD type
+ *
+ * Eliminates code duplication by generating columns based on prefix parameter.
+ *
+ * @param prefix - The field prefix ('bmd', 'bmdl', or 'bmdu')
+ * @param title - The column group title
+ * @returns Array of confidence interval column definitions
+ */
+function createConfidenceColumns(
+  prefix: 'bmd' | 'bmdl' | 'bmdu',
+  title: string
+): ColumnsType<CategoryAnalysisResultDto> {
+  const children = CONFIDENCE_STATS.map(stat => {
+    const dataIndex = `${prefix}${stat.suffix}` as keyof CategoryAnalysisResultDto;
+
+    return {
+      title: stat.title,
+      dataIndex,
+      key: dataIndex,
+      width: stat.width,
+      align: 'right' as const,
+      render: (value: number) => formatNumber(value),
+      sorter: (a: CategoryAnalysisResultDto, b: CategoryAnalysisResultDto) => {
+        const aValue = a[dataIndex] as number | undefined;
+        const bValue = b[dataIndex] as number | undefined;
+        return (aValue || 0) - (bValue || 0);
+      },
+    };
+  });
+
+  return [{ title, children }];
+}
 
 /**
  * Get the essential BMD statistics columns (Mean and Median)
@@ -53,49 +151,7 @@ export function getBMDEssentialColumns(): ColumnsType<CategoryAnalysisResultDto>
  * @returns Array of extended BMD column definitions
  */
 export function getBMDExtendedColumns(): ColumnsType<CategoryAnalysisResultDto> {
-  return [
-    {
-      title: 'BMD Statistics (Extended)',
-      children: [
-        {
-          title: 'Min',
-          dataIndex: 'bmdMinimum',
-          key: 'bmdMinimum',
-          width: 55,
-          align: 'right',
-          render: (value: number) => formatNumber(value),
-          sorter: (a, b) => (a.bmdMinimum || 0) - (b.bmdMinimum || 0),
-        },
-        {
-          title: 'SD',
-          dataIndex: 'bmdSD',
-          key: 'bmdSD',
-          width: 55,
-          align: 'right',
-          render: (value: number) => formatNumber(value),
-          sorter: (a, b) => (a.bmdSD || 0) - (b.bmdSD || 0),
-        },
-        {
-          title: 'Weighted Mean',
-          dataIndex: 'bmdWMean',
-          key: 'bmdWMean',
-          width: 60,
-          align: 'right',
-          render: (value: number) => formatNumber(value),
-          sorter: (a, b) => (a.bmdWMean || 0) - (b.bmdWMean || 0),
-        },
-        {
-          title: 'Weighted SD',
-          dataIndex: 'bmdWSD',
-          key: 'bmdWSD',
-          width: 60,
-          align: 'right',
-          render: (value: number) => formatNumber(value),
-          sorter: (a, b) => (a.bmdWSD || 0) - (b.bmdWSD || 0),
-        },
-      ],
-    },
-  ];
+  return createExtendedStatsColumns('bmd', 'BMD Statistics (Extended)');
 }
 
 /**
@@ -106,31 +162,7 @@ export function getBMDExtendedColumns(): ColumnsType<CategoryAnalysisResultDto> 
  * @returns Array of BMD confidence interval column definitions
  */
 export function getBMDConfidenceColumns(): ColumnsType<CategoryAnalysisResultDto> {
-  return [
-    {
-      title: 'BMD 95% CI',
-      children: [
-        {
-          title: 'Lower',
-          dataIndex: 'bmdLower95',
-          key: 'bmdLower95',
-          width: 55,
-          align: 'right',
-          render: (value: number) => formatNumber(value),
-          sorter: (a, b) => (a.bmdLower95 || 0) - (b.bmdLower95 || 0),
-        },
-        {
-          title: 'Upper',
-          dataIndex: 'bmdUpper95',
-          key: 'bmdUpper95',
-          width: 55,
-          align: 'right',
-          render: (value: number) => formatNumber(value),
-          sorter: (a, b) => (a.bmdUpper95 || 0) - (b.bmdUpper95 || 0),
-        },
-      ],
-    },
-  ];
+  return createConfidenceColumns('bmd', 'BMD 95% CI');
 }
 
 /**
@@ -142,6 +174,9 @@ export function getBMDConfidenceColumns(): ColumnsType<CategoryAnalysisResultDto
  * @returns Array of BMDL column definitions
  */
 export function getBMDLColumns(): ColumnsType<CategoryAnalysisResultDto> {
+  const extendedChildren = createExtendedStatsColumns('bmdl', '')[0];
+  const extendedCols = 'children' in extendedChildren ? extendedChildren.children : [];
+
   return [
     {
       title: 'BMDL Statistics',
@@ -164,42 +199,7 @@ export function getBMDLColumns(): ColumnsType<CategoryAnalysisResultDto> {
           render: (value: number) => formatNumber(value),
           sorter: (a, b) => (a.bmdlMedian || 0) - (b.bmdlMedian || 0),
         },
-        {
-          title: 'Min',
-          dataIndex: 'bmdlMinimum',
-          key: 'bmdlMinimum',
-          width: 55,
-          align: 'right',
-          render: (value: number) => formatNumber(value),
-          sorter: (a, b) => (a.bmdlMinimum || 0) - (b.bmdlMinimum || 0),
-        },
-        {
-          title: 'SD',
-          dataIndex: 'bmdlSD',
-          key: 'bmdlSD',
-          width: 55,
-          align: 'right',
-          render: (value: number) => formatNumber(value),
-          sorter: (a, b) => (a.bmdlSD || 0) - (b.bmdlSD || 0),
-        },
-        {
-          title: 'Weighted Mean',
-          dataIndex: 'bmdlWMean',
-          key: 'bmdlWMean',
-          width: 60,
-          align: 'right',
-          render: (value: number) => formatNumber(value),
-          sorter: (a, b) => (a.bmdlWMean || 0) - (b.bmdlWMean || 0),
-        },
-        {
-          title: 'Weighted SD',
-          dataIndex: 'bmdlWSD',
-          key: 'bmdlWSD',
-          width: 60,
-          align: 'right',
-          render: (value: number) => formatNumber(value),
-          sorter: (a, b) => (a.bmdlWSD || 0) - (b.bmdlWSD || 0),
-        },
+        ...(extendedCols || []),
       ],
     },
   ];
@@ -213,31 +213,7 @@ export function getBMDLColumns(): ColumnsType<CategoryAnalysisResultDto> {
  * @returns Array of BMDL confidence interval column definitions
  */
 export function getBMDLConfidenceColumns(): ColumnsType<CategoryAnalysisResultDto> {
-  return [
-    {
-      title: 'BMDL 95% CI',
-      children: [
-        {
-          title: 'Lower',
-          dataIndex: 'bmdlLower95',
-          key: 'bmdlLower95',
-          width: 55,
-          align: 'right',
-          render: (value: number) => formatNumber(value),
-          sorter: (a, b) => (a.bmdlLower95 || 0) - (b.bmdlLower95 || 0),
-        },
-        {
-          title: 'Upper',
-          dataIndex: 'bmdlUpper95',
-          key: 'bmdlUpper95',
-          width: 55,
-          align: 'right',
-          render: (value: number) => formatNumber(value),
-          sorter: (a, b) => (a.bmdlUpper95 || 0) - (b.bmdlUpper95 || 0),
-        },
-      ],
-    },
-  ];
+  return createConfidenceColumns('bmdl', 'BMDL 95% CI');
 }
 
 /**
@@ -249,6 +225,9 @@ export function getBMDLConfidenceColumns(): ColumnsType<CategoryAnalysisResultDt
  * @returns Array of BMDU column definitions
  */
 export function getBMDUColumns(): ColumnsType<CategoryAnalysisResultDto> {
+  const extendedChildren = createExtendedStatsColumns('bmdu', '')[0];
+  const extendedCols = 'children' in extendedChildren ? extendedChildren.children : [];
+
   return [
     {
       title: 'BMDU Statistics',
@@ -271,42 +250,7 @@ export function getBMDUColumns(): ColumnsType<CategoryAnalysisResultDto> {
           render: (value: number) => formatNumber(value),
           sorter: (a, b) => (a.bmduMedian || 0) - (b.bmduMedian || 0),
         },
-        {
-          title: 'Min',
-          dataIndex: 'bmduMinimum',
-          key: 'bmduMinimum',
-          width: 55,
-          align: 'right',
-          render: (value: number) => formatNumber(value),
-          sorter: (a, b) => (a.bmduMinimum || 0) - (b.bmduMinimum || 0),
-        },
-        {
-          title: 'SD',
-          dataIndex: 'bmduSD',
-          key: 'bmduSD',
-          width: 55,
-          align: 'right',
-          render: (value: number) => formatNumber(value),
-          sorter: (a, b) => (a.bmduSD || 0) - (b.bmduSD || 0),
-        },
-        {
-          title: 'Weighted Mean',
-          dataIndex: 'bmduWMean',
-          key: 'bmduWMean',
-          width: 60,
-          align: 'right',
-          render: (value: number) => formatNumber(value),
-          sorter: (a, b) => (a.bmduWMean || 0) - (b.bmduWMean || 0),
-        },
-        {
-          title: 'Weighted SD',
-          dataIndex: 'bmduWSD',
-          key: 'bmduWSD',
-          width: 60,
-          align: 'right',
-          render: (value: number) => formatNumber(value),
-          sorter: (a, b) => (a.bmduWSD || 0) - (b.bmduWSD || 0),
-        },
+        ...(extendedCols || []),
       ],
     },
   ];
@@ -320,29 +264,5 @@ export function getBMDUColumns(): ColumnsType<CategoryAnalysisResultDto> {
  * @returns Array of BMDU confidence interval column definitions
  */
 export function getBMDUConfidenceColumns(): ColumnsType<CategoryAnalysisResultDto> {
-  return [
-    {
-      title: 'BMDU 95% CI',
-      children: [
-        {
-          title: 'Lower',
-          dataIndex: 'bmduLower95',
-          key: 'bmduLower95',
-          width: 55,
-          align: 'right',
-          render: (value: number) => formatNumber(value),
-          sorter: (a, b) => (a.bmduLower95 || 0) - (b.bmduLower95 || 0),
-        },
-        {
-          title: 'Upper',
-          dataIndex: 'bmduUpper95',
-          key: 'bmduUpper95',
-          width: 55,
-          align: 'right',
-          render: (value: number) => formatNumber(value),
-          sorter: (a, b) => (a.bmduUpper95 || 0) - (b.bmduUpper95 || 0),
-        },
-      ],
-    },
-  ];
+  return createConfidenceColumns('bmdu', 'BMDU 95% CI');
 }

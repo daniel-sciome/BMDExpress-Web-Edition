@@ -4,6 +4,8 @@
  * This file contains column definitions for directional gene analysis,
  * including statistics for up-regulated genes, down-regulated genes,
  * and overall directional analysis.
+ *
+ * Uses a generic column generator to eliminate code duplication.
  */
 
 import type { ColumnsType } from 'antd/es/table';
@@ -11,107 +13,72 @@ import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/Ca
 import { formatNumber } from '../utils/formatters';
 
 /**
- * Get the up-regulated genes columns
- *
- * Displays BMD, BMDL, and BMDU statistics (mean, median, SD) specifically
- * for genes that are up-regulated in the category.
- *
- * @param visibleColumns - Record of which individual columns to show
- * @returns Array of up-regulated gene column definitions
+ * Configuration for directional column statistics
  */
-export function getDirectionalUpColumns(
+interface DirectionalStatConfig {
+  key: string;
+  title: string;
+  statType: 'Mean' | 'Median' | 'SD';
+  bmdType: 'BMD' | 'BMDL' | 'BMDU';
+}
+
+/**
+ * Standard statistics to display for directional analysis
+ */
+const DIRECTIONAL_STATS: DirectionalStatConfig[] = [
+  { key: 'bmdMean', title: 'BMD Mean', statType: 'Mean', bmdType: 'BMD' },
+  { key: 'bmdMedian', title: 'BMD Median', statType: 'Median', bmdType: 'BMD' },
+  { key: 'bmdSD', title: 'BMD SD', statType: 'SD', bmdType: 'BMD' },
+  { key: 'bmdlMean', title: 'BMDL Mean', statType: 'Mean', bmdType: 'BMDL' },
+  { key: 'bmdlMedian', title: 'BMDL Median', statType: 'Median', bmdType: 'BMDL' },
+  { key: 'bmdlSD', title: 'BMDL SD', statType: 'SD', bmdType: 'BMDL' },
+  { key: 'bmduMean', title: 'BMDU Mean', statType: 'Mean', bmdType: 'BMDU' },
+  { key: 'bmduMedian', title: 'BMDU Median', statType: 'Median', bmdType: 'BMDU' },
+  { key: 'bmduSD', title: 'BMDU SD', statType: 'SD', bmdType: 'BMDU' },
+];
+
+/**
+ * Generic function to create directional columns for Up or Down regulation
+ *
+ * Eliminates code duplication by generating columns based on direction parameter.
+ *
+ * @param direction - 'Up' or 'Down' regulation
+ * @param visibleColumns - Record of which individual columns to show
+ * @returns Array of directional column definitions
+ */
+function createDirectionalColumns(
+  direction: 'Up' | 'Down',
   visibleColumns?: Record<string, boolean>
 ): ColumnsType<CategoryAnalysisResultDto> {
-  // Map of column keys to their definitions
-  const allColumns: Record<string, any> = {
-    bmdMean: {
-      title: 'BMD Mean',
-      dataIndex: 'genesUpBMDMean',
-      key: 'genesUpBMDMean',
+  const title = `${direction.toUpperCase()}-Regulated Genes`;
+  const dataPrefix = `genes${direction}`;
+
+  // Generate all column definitions based on configuration
+  const allColumns: Record<string, any> = {};
+
+  DIRECTIONAL_STATS.forEach(stat => {
+    const dataIndex = `${dataPrefix}${stat.bmdType}${stat.statType}` as keyof CategoryAnalysisResultDto;
+
+    allColumns[stat.key] = {
+      title: stat.title,
+      dataIndex,
+      key: dataIndex,
       width: 55,
-      align: 'right',
+      align: 'right' as const,
       render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.genesUpBMDMean || 0) - (b.genesUpBMDMean || 0),
-    },
-    bmdMedian: {
-      title: 'BMD Median',
-      dataIndex: 'genesUpBMDMedian',
-      key: 'genesUpBMDMedian',
-      width: 55,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.genesUpBMDMedian || 0) - (b.genesUpBMDMedian || 0),
-    },
-    bmdSD: {
-      title: 'BMD SD',
-      dataIndex: 'genesUpBMDSD',
-      key: 'genesUpBMDSD',
-      width: 55,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.genesUpBMDSD || 0) - (b.genesUpBMDSD || 0),
-    },
-    bmdlMean: {
-      title: 'BMDL Mean',
-      dataIndex: 'genesUpBMDLMean',
-      key: 'genesUpBMDLMean',
-      width: 55,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.genesUpBMDLMean || 0) - (b.genesUpBMDLMean || 0),
-    },
-    bmdlMedian: {
-      title: 'BMDL Median',
-      dataIndex: 'genesUpBMDLMedian',
-      key: 'genesUpBMDLMedian',
-      width: 55,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.genesUpBMDLMedian || 0) - (b.genesUpBMDLMedian || 0),
-    },
-    bmdlSD: {
-      title: 'BMDL SD',
-      dataIndex: 'genesUpBMDLSD',
-      key: 'genesUpBMDLSD',
-      width: 55,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.genesUpBMDLSD || 0) - (b.genesUpBMDLSD || 0),
-    },
-    bmduMean: {
-      title: 'BMDU Mean',
-      dataIndex: 'genesUpBMDUMean',
-      key: 'genesUpBMDUMean',
-      width: 55,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.genesUpBMDUMean || 0) - (b.genesUpBMDUMean || 0),
-    },
-    bmduMedian: {
-      title: 'BMDU Median',
-      dataIndex: 'genesUpBMDUMedian',
-      key: 'genesUpBMDUMedian',
-      width: 55,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.genesUpBMDUMedian || 0) - (b.genesUpBMDUMedian || 0),
-    },
-    bmduSD: {
-      title: 'BMDU SD',
-      dataIndex: 'genesUpBMDUSD',
-      key: 'genesUpBMDUSD',
-      width: 55,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.genesUpBMDUSD || 0) - (b.genesUpBMDUSD || 0),
-    },
-  };
+      sorter: (a: CategoryAnalysisResultDto, b: CategoryAnalysisResultDto) => {
+        const aValue = a[dataIndex] as number | undefined;
+        const bValue = b[dataIndex] as number | undefined;
+        return (aValue || 0) - (bValue || 0);
+      },
+    };
+  });
 
   // If no visibility specified, show all columns
   if (!visibleColumns) {
     return [
       {
-        title: 'UP-Regulated Genes',
+        title,
         children: Object.values(allColumns),
       },
     ];
@@ -129,10 +96,25 @@ export function getDirectionalUpColumns(
 
   return [
     {
-      title: 'UP-Regulated Genes',
+      title,
       children: visibleChildren,
     },
   ];
+}
+
+/**
+ * Get the up-regulated genes columns
+ *
+ * Displays BMD, BMDL, and BMDU statistics (mean, median, SD) specifically
+ * for genes that are up-regulated in the category.
+ *
+ * @param visibleColumns - Record of which individual columns to show
+ * @returns Array of up-regulated gene column definitions
+ */
+export function getDirectionalUpColumns(
+  visibleColumns?: Record<string, boolean>
+): ColumnsType<CategoryAnalysisResultDto> {
+  return createDirectionalColumns('Up', visibleColumns);
 }
 
 /**
@@ -147,117 +129,7 @@ export function getDirectionalUpColumns(
 export function getDirectionalDownColumns(
   visibleColumns?: Record<string, boolean>
 ): ColumnsType<CategoryAnalysisResultDto> {
-  // Map of column keys to their definitions
-  const allColumns: Record<string, any> = {
-    bmdMean: {
-      title: 'BMD Mean',
-      dataIndex: 'genesDownBMDMean',
-      key: 'genesDownBMDMean',
-      width: 55,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.genesDownBMDMean || 0) - (b.genesDownBMDMean || 0),
-    },
-    bmdMedian: {
-      title: 'BMD Median',
-      dataIndex: 'genesDownBMDMedian',
-      key: 'genesDownBMDMedian',
-      width: 55,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.genesDownBMDMedian || 0) - (b.genesDownBMDMedian || 0),
-    },
-    bmdSD: {
-      title: 'BMD SD',
-      dataIndex: 'genesDownBMDSD',
-      key: 'genesDownBMDSD',
-      width: 55,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.genesDownBMDSD || 0) - (b.genesDownBMDSD || 0),
-    },
-    bmdlMean: {
-      title: 'BMDL Mean',
-      dataIndex: 'genesDownBMDLMean',
-      key: 'genesDownBMDLMean',
-      width: 55,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.genesDownBMDLMean || 0) - (b.genesDownBMDLMean || 0),
-    },
-    bmdlMedian: {
-      title: 'BMDL Median',
-      dataIndex: 'genesDownBMDLMedian',
-      key: 'genesDownBMDLMedian',
-      width: 55,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.genesDownBMDLMedian || 0) - (b.genesDownBMDLMedian || 0),
-    },
-    bmdlSD: {
-      title: 'BMDL SD',
-      dataIndex: 'genesDownBMDLSD',
-      key: 'genesDownBMDLSD',
-      width: 55,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.genesDownBMDLSD || 0) - (b.genesDownBMDLSD || 0),
-    },
-    bmduMean: {
-      title: 'BMDU Mean',
-      dataIndex: 'genesDownBMDUMean',
-      key: 'genesDownBMDUMean',
-      width: 55,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.genesDownBMDUMean || 0) - (b.genesDownBMDUMean || 0),
-    },
-    bmduMedian: {
-      title: 'BMDU Median',
-      dataIndex: 'genesDownBMDUMedian',
-      key: 'genesDownBMDUMedian',
-      width: 55,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.genesDownBMDUMedian || 0) - (b.genesDownBMDUMedian || 0),
-    },
-    bmduSD: {
-      title: 'BMDU SD',
-      dataIndex: 'genesDownBMDUSD',
-      key: 'genesDownBMDUSD',
-      width: 55,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.genesDownBMDUSD || 0) - (b.genesDownBMDUSD || 0),
-    },
-  };
-
-  // If no visibility specified, show all columns
-  if (!visibleColumns) {
-    return [
-      {
-        title: 'DOWN-Regulated Genes',
-        children: Object.values(allColumns),
-      },
-    ];
-  }
-
-  // Filter columns based on visibility
-  const visibleChildren = Object.entries(allColumns)
-    .filter(([key]) => visibleColumns[key])
-    .map(([, column]) => column);
-
-  // Only return the group if at least one column is visible
-  if (visibleChildren.length === 0) {
-    return [];
-  }
-
-  return [
-    {
-      title: 'DOWN-Regulated Genes',
-      children: visibleChildren,
-    },
-  ];
+  return createDirectionalColumns('Down', visibleColumns);
 }
 
 /**

@@ -3,6 +3,8 @@
  *
  * This file contains column definitions for advanced analysis metrics,
  * including Z-score statistics, model fold change statistics, and gene lists.
+ *
+ * Uses generic column generators to eliminate code duplication.
  */
 
 import type { ColumnsType } from 'antd/es/table';
@@ -10,62 +12,67 @@ import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/Ca
 import { formatNumber } from '../utils/formatters';
 
 /**
- * Get the Z-score statistics columns
- *
- * Displays Z-score statistics including minimum, median, maximum, and mean
- * values across genes in the category.
- *
- * @param visibleColumns - Record of which individual columns to show
- * @returns Array of Z-score column definitions
+ * Configuration for statistics columns
  */
-export function getZScoresColumns(
+interface StatsConfig {
+  key: string;
+  title: string;
+  suffix: string;
+}
+
+/**
+ * Standard statistics to display (min, median, max, mean)
+ */
+const STANDARD_STATS: StatsConfig[] = [
+  { key: 'min', title: 'Min', suffix: '' },
+  { key: 'median', title: 'Median', suffix: '' },
+  { key: 'max', title: 'Max', suffix: '' },
+  { key: 'mean', title: 'Mean', suffix: '' },
+];
+
+/**
+ * Generic function to create statistics columns
+ *
+ * Eliminates code duplication by generating columns based on field configuration.
+ *
+ * @param title - The column group title
+ * @param fieldPrefix - The field name prefix (e.g., 'min', 'median')
+ * @param fieldSuffix - The field name suffix (e.g., 'ZScore', 'ModelFoldChange')
+ * @param visibleColumns - Record of which individual columns to show
+ * @returns Array of statistics column definitions
+ */
+function createStatsColumns(
+  title: string,
+  fieldPrefix: string,
+  fieldSuffix: string,
   visibleColumns?: Record<string, boolean>
 ): ColumnsType<CategoryAnalysisResultDto> {
-  // Map of column keys to their definitions
-  const allColumns: Record<string, any> = {
-    min: {
-      title: 'Min',
-      dataIndex: 'minZScore',
-      key: 'minZScore',
+  // Generate all column definitions
+  const allColumns: Record<string, any> = {};
+
+  STANDARD_STATS.forEach(stat => {
+    const dataIndex = `${stat.key}${fieldSuffix}` as keyof CategoryAnalysisResultDto;
+
+    allColumns[stat.key] = {
+      title: stat.title,
+      dataIndex,
+      key: dataIndex,
       width: 50,
-      align: 'right',
+      align: 'right' as const,
       render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.minZScore || 0) - (b.minZScore || 0),
-    },
-    median: {
-      title: 'Median',
-      dataIndex: 'medianZScore',
-      key: 'medianZScore',
-      width: 50,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.medianZScore || 0) - (b.medianZScore || 0),
-    },
-    max: {
-      title: 'Max',
-      dataIndex: 'maxZScore',
-      key: 'maxZScore',
-      width: 50,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.maxZScore || 0) - (b.maxZScore || 0),
-    },
-    mean: {
-      title: 'Mean',
-      dataIndex: 'meanZScore',
-      key: 'meanZScore',
-      width: 50,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.meanZScore || 0) - (b.meanZScore || 0),
-    },
-  };
+      sorter: (a: CategoryAnalysisResultDto, b: CategoryAnalysisResultDto) => {
+        const aValue = a[dataIndex] as number | undefined;
+        const bValue = b[dataIndex] as number | undefined;
+        return (aValue || 0) - (bValue || 0);
+      },
+    };
+  });
 
   // If no visibility specified, show all columns
   if (!visibleColumns) {
     return [
       {
-        title: 'Z-Score Statistics',
+        title,
         children: Object.values(allColumns),
       },
     ];
@@ -83,10 +90,25 @@ export function getZScoresColumns(
 
   return [
     {
-      title: 'Z-Score Statistics',
+      title,
       children: visibleChildren,
     },
   ];
+}
+
+/**
+ * Get the Z-score statistics columns
+ *
+ * Displays Z-score statistics including minimum, median, maximum, and mean
+ * values across genes in the category.
+ *
+ * @param visibleColumns - Record of which individual columns to show
+ * @returns Array of Z-score column definitions
+ */
+export function getZScoresColumns(
+  visibleColumns?: Record<string, boolean>
+): ColumnsType<CategoryAnalysisResultDto> {
+  return createStatsColumns('Z-Score Statistics', '', 'ZScore', visibleColumns);
 }
 
 /**
@@ -101,72 +123,7 @@ export function getZScoresColumns(
 export function getModelFoldChangeColumns(
   visibleColumns?: Record<string, boolean>
 ): ColumnsType<CategoryAnalysisResultDto> {
-  // Map of column keys to their definitions
-  const allColumns: Record<string, any> = {
-    min: {
-      title: 'Min',
-      dataIndex: 'minModelFoldChange',
-      key: 'minModelFoldChange',
-      width: 50,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.minModelFoldChange || 0) - (b.minModelFoldChange || 0),
-    },
-    median: {
-      title: 'Median',
-      dataIndex: 'medianModelFoldChange',
-      key: 'medianModelFoldChange',
-      width: 50,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.medianModelFoldChange || 0) - (b.medianModelFoldChange || 0),
-    },
-    max: {
-      title: 'Max',
-      dataIndex: 'maxModelFoldChange',
-      key: 'maxModelFoldChange',
-      width: 50,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.maxModelFoldChange || 0) - (b.maxModelFoldChange || 0),
-    },
-    mean: {
-      title: 'Mean',
-      dataIndex: 'meanModelFoldChange',
-      key: 'meanModelFoldChange',
-      width: 50,
-      align: 'right',
-      render: (value: number) => formatNumber(value),
-      sorter: (a, b) => (a.meanModelFoldChange || 0) - (b.meanModelFoldChange || 0),
-    },
-  };
-
-  // If no visibility specified, show all columns
-  if (!visibleColumns) {
-    return [
-      {
-        title: 'Model Fold Change',
-        children: Object.values(allColumns),
-      },
-    ];
-  }
-
-  // Filter columns based on visibility
-  const visibleChildren = Object.entries(allColumns)
-    .filter(([key]) => visibleColumns[key])
-    .map(([, column]) => column);
-
-  // Only return the group if at least one column is visible
-  if (visibleChildren.length === 0) {
-    return [];
-  }
-
-  return [
-    {
-      title: 'Model Fold Change',
-      children: visibleChildren,
-    },
-  ];
+  return createStatsColumns('Model Fold Change', '', 'ModelFoldChange', visibleColumns);
 }
 
 /**
