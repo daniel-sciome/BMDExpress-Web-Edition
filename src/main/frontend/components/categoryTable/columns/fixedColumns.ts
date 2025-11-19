@@ -15,11 +15,15 @@ import { getClusterIdForCategory } from 'Frontend/components/charts/utils/cluste
  * These columns are always visible and fixed to the left side of the table.
  * They provide the primary identification for each category row.
  *
+ * @param viewMode - Current view mode ('simple' | 'power'). Cluster column only shown in power mode.
  * @returns Array of fixed column definitions
  */
-export function getFixedColumns(): ColumnsType<CategoryAnalysisResultDto> {
-  return [
-    {
+export function getFixedColumns(viewMode: 'simple' | 'power' = 'power'): ColumnsType<CategoryAnalysisResultDto> {
+  const columns: ColumnsType<CategoryAnalysisResultDto> = [];
+
+  // Cluster column - only in power user mode
+  if (viewMode === 'power') {
+    columns.push({
       title: 'Cluster',
       dataIndex: 'categoryId',
       key: 'cluster',
@@ -34,7 +38,11 @@ export function getFixedColumns(): ColumnsType<CategoryAnalysisResultDto> {
         const clusterB = getClusterIdForCategory(b.categoryId);
         return clusterA - clusterB;
       },
-    },
+    });
+  }
+
+  // Category ID and Description - always visible
+  columns.push(
     {
       title: 'Category ID',
       dataIndex: 'categoryId',
@@ -51,6 +59,8 @@ export function getFixedColumns(): ColumnsType<CategoryAnalysisResultDto> {
       ellipsis: true,
       fixed: 'left',
       sorter: (a, b) => (a.categoryDescription || '').localeCompare(b.categoryDescription || ''),
-    },
-  ];
+    }
+  );
+
+  return columns;
 }

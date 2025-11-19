@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Tree, Collapse, Tag, Typography } from 'antd';
+import { Tree, Collapse, Tag, Typography, Switch, Space, Divider, Button } from 'antd';
 import type { TreeDataNode } from 'antd';
 import { ProjectService, CategoryResultsService } from 'Frontend/generated/endpoints';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { setSelectedProject, setSelectedAnalysisType, setSelectedCategoryResult } from '../store/slices/navigationSlice';
+import { setViewMode } from '../store/slices/categoryResultsSlice';
+import { selectAllFilterGroups } from '../store/slices/filterSlice';
 import ClusterPicker from './ClusterPicker';
 import FilterGroupList from './filters/FilterGroupList';
+import FilterGroupEditor from './filters/FilterGroupEditor';
 
 const { Text } = Typography;
 
@@ -14,6 +17,14 @@ export default function ProjectTreeSidebar() {
   const selectedProject = useAppSelector((state) => state.navigation.selectedProject);
   const selectedAnalysisType = useAppSelector((state) => state.navigation.selectedAnalysisType);
   const selectedCategoryResult = useAppSelector((state) => state.navigation.selectedCategoryResult);
+  const viewMode = useAppSelector((state) => state.categoryResults.viewMode);
+  const filterGroups = useAppSelector(selectAllFilterGroups);
+
+  // Find the Essential filter group
+  const essentialGroup = filterGroups.find(group => group.id === 'standard-essential');
+
+  // State for essential filter group editor
+  const [essentialEditorVisible, setEssentialEditorVisible] = useState(false);
 
   const [treeData, setTreeData] = useState<TreeDataNode[]>([]);
   const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
@@ -259,17 +270,99 @@ export default function ProjectTreeSidebar() {
 
   return (
     <div style={{ padding: '8px 0' }}>
+      {/* View Mode Toggle */}
+      <div style={{
+        padding: '12px 16px',
+        marginBottom: '8px',
+        background: '#f0f5ff',
+        borderRadius: '4px',
+        border: '1px solid #adc6ff'
+      }}>
+        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+          <Text strong style={{ fontSize: '12px', color: '#262626' }}>
+            View Mode
+          </Text>
+          <Space align="center" style={{ width: '100%', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: '13px', color: viewMode === 'simple' ? '#1890ff' : '#666' }}>
+              Simple
+            </Text>
+            <Switch
+              checked={viewMode === 'power'}
+              onChange={(checked) => dispatch(setViewMode(checked ? 'power' : 'simple'))}
+              size="small"
+            />
+            <Text style={{ fontSize: '13px', color: viewMode === 'power' ? '#1890ff' : '#666' }}>
+              Power User
+            </Text>
+          </Space>
+          <Text type="secondary" style={{ fontSize: '11px' }}>
+            {viewMode === 'simple'
+              ? 'Simple view with table and filters'
+              : 'Advanced view with charts and visualizations'
+            }
+          </Text>
+        </Space>
+      </div>
+
       <Collapse
         defaultActiveKey={['1']}
         items={projectCollapseItems}
         size="small"
       />
 
-      {/* Cluster picker */}
-      <ClusterPicker />
+      {/* Simple mode: Essential Filter Group */}
+      {viewMode === 'simple' && essentialGroup && selectedProject && (
+        <>
+          <Collapse
+            size="small"
+            defaultActiveKey={['essential']}
+            style={{ marginTop: '8px' }}
+            items={[{
+              key: 'essential',
+              label: (
+                <Space>
+                  <Text strong style={{ fontSize: '13px' }}>{essentialGroup.name}</Text>
+                  {essentialGroup.enabled && (
+                    <Tag color="green" style={{ fontSize: '11px' }}>Active</Tag>
+                  )}
+                </Space>
+              ),
+              children: (
+                <div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                      {essentialGroup.description}
+                    </Text>
+                  </div>
+                  <Button
+                    size="small"
+                    type="primary"
+                    onClick={() => setEssentialEditorVisible(true)}
+                    style={{ width: '100%' }}
+                  >
+                    Edit Filters
+                  </Button>
+                </div>
+              ),
+            }]}
+          />
+          {essentialEditorVisible && (
+            <FilterGroupEditor
+              visible={essentialEditorVisible}
+              onClose={() => setEssentialEditorVisible(false)}
+              editingGroup={essentialGroup}
+            />
+          )}
+        </>
+      )}
 
-      {/* Filter groups */}
-      <FilterGroupList />
+      {/* Power User mode: Cluster picker and Filter groups */}
+      {viewMode === 'power' && (
+        <>
+          <ClusterPicker />
+          <FilterGroupList />
+        </>
+      )}
     </div>
   );
 }

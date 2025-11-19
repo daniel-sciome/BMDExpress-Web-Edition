@@ -8,6 +8,32 @@ import { createClusterSets, createMasterFilterSet } from '../utils/initializeRen
 import { applyFilterGroups } from '../../utils/filterEvaluation';
 import { selectEnabledFilterGroups } from './filterSlice';
 
+// View mode localStorage key
+const VIEW_MODE_STORAGE_KEY = 'bmdexpress_view_mode';
+
+// Helper to load view mode from localStorage
+function loadViewMode(): 'simple' | 'power' {
+  try {
+    const saved = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    if (saved === 'simple' || saved === 'power') {
+      return saved;
+    }
+  } catch (error) {
+    console.error('Failed to load view mode from localStorage:', error);
+  }
+  // Default to 'simple' for simplest experience
+  return 'simple';
+}
+
+// Helper to save view mode to localStorage
+function saveViewMode(mode: 'simple' | 'power'): void {
+  try {
+    localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
+  } catch (error) {
+    console.error('Failed to save view mode to localStorage:', error);
+  }
+}
+
 // Filters interface
 interface Filters {
   bmdMin?: number;
@@ -47,6 +73,9 @@ interface CategoryResultsState {
   // Multi-dataset comparison mode (intersection vs union)
   comparisonMode: 'intersection' | 'union';
 
+  // View mode (normal vs power user)
+  viewMode: 'simple' | 'power';
+
   // Phase 4: Generic reactive selection state
   reactiveSelection: ReactiveSelectionMap;
 
@@ -79,6 +108,7 @@ const initialState: CategoryResultsState = {
   analysisType: null,
   filters: {},
   comparisonMode: 'intersection',
+  viewMode: loadViewMode(),
   // Phase 4: Reactive selection state
   reactiveSelection: {
     category: {
@@ -234,6 +264,11 @@ const categoryResultsSlice = createSlice({
     // Set comparison mode (intersection vs union)
     setComparisonMode: (state, action: PayloadAction<'intersection' | 'union'>) => {
       state.comparisonMode = action.payload;
+    },
+
+    setViewMode: (state, action: PayloadAction<'simple' | 'power'>) => {
+      state.viewMode = action.payload;
+      saveViewMode(action.payload);
     },
 
     // Set analysis type (for conditional filter application)
@@ -484,6 +519,7 @@ export const {
   setFilters,
   clearFilters,
   setComparisonMode,
+  setViewMode,
   setAnalysisType,
   setSelectedCategoryIds,
   toggleCategorySelection,

@@ -48,7 +48,7 @@ function AnalysisParametersTitle({ paramCount }: { paramCount: number }) {
 
 export default function CategoryResultsView({ projectId, resultName }: CategoryResultsViewProps) {
   const dispatch = useAppDispatch();
-  const { loading, error, data, analysisParameters, filters } = useAppSelector((state) => state.categoryResults);
+  const { loading, error, data, analysisParameters, filters, viewMode } = useAppSelector((state) => state.categoryResults);
   const [annotation, setAnnotation] = useState<AnalysisAnnotationDto | null>(null);
   const [visibleCharts, setVisibleCharts] = useState<string[]>([]);
   const [availableResults, setAvailableResults] = useState<string[]>([]);
@@ -261,32 +261,34 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         minHeight: 0,
         padding: '1rem'
       }}>
-        {/* Chart Selection Controls */}
-        <div style={{ marginBottom: '1rem' }}>
-          <Checkbox.Group
-            value={visibleCharts}
-            onChange={setVisibleCharts}
-          >
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <Checkbox value="1">Default Charts</Checkbox>
-              <Checkbox value="2">UMAP Semantic Space</Checkbox>
-              <Checkbox value="3">Curve Overlay</Checkbox>
-              <Checkbox value="4">Range Plot</Checkbox>
-              <Checkbox value="5">Bubble Chart</Checkbox>
-              <Checkbox value="6">Best Models Pie</Checkbox>
-              <Checkbox value="7">Bar Charts</Checkbox>
-              <Checkbox value="8">Accumulation Charts</Checkbox>
-              <Checkbox value="9">Mean Histograms</Checkbox>
-              <Checkbox value="10">Median Histograms</Checkbox>
-              <Checkbox value="11">BMD vs BMDL Scatter</Checkbox>
-              <Checkbox value="12">Violin Per Category</Checkbox>
-              <Checkbox value="13">Global Violin Plot</Checkbox>
-            </div>
-          </Checkbox.Group>
-        </div>
+        {/* Chart Selection Controls - Only in Power User mode */}
+        {viewMode === 'power' && (
+          <div style={{ marginBottom: '1rem' }}>
+            <Checkbox.Group
+              value={visibleCharts}
+              onChange={setVisibleCharts}
+            >
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <Checkbox value="1">Default Charts</Checkbox>
+                <Checkbox value="2">UMAP Semantic Space</Checkbox>
+                <Checkbox value="3">Curve Overlay</Checkbox>
+                <Checkbox value="4">Range Plot</Checkbox>
+                <Checkbox value="5">Bubble Chart</Checkbox>
+                <Checkbox value="6">Best Models Pie</Checkbox>
+                <Checkbox value="7">Bar Charts</Checkbox>
+                <Checkbox value="8">Accumulation Charts</Checkbox>
+                <Checkbox value="9">Mean Histograms</Checkbox>
+                <Checkbox value="10">Median Histograms</Checkbox>
+                <Checkbox value="11">BMD vs BMDL Scatter</Checkbox>
+                <Checkbox value="12">Violin Per Category</Checkbox>
+                <Checkbox value="13">Global Violin Plot</Checkbox>
+              </div>
+            </Checkbox.Group>
+          </div>
+        )}
 
-        {/* Charts - Direct rendering based on checkbox selection */}
-        {visibleCharts.includes('1') && (
+        {/* Charts - Direct rendering based on checkbox selection (Power User mode only) */}
+        {viewMode === 'power' && visibleCharts.includes('1') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
             <Row gutter={16} key={`${projectId}-${resultName}`}>
               <Col xs={24} xl={12}>
@@ -299,73 +301,73 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           </Card>
         )}
 
-        {visibleCharts.includes('2') && (
+        {viewMode === 'power' && visibleCharts.includes('2') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
             <UmapScatterPlot key={`${projectId}-${resultName}`} />
           </Card>
         )}
 
-        {visibleCharts.includes('3') && (
+        {viewMode === 'power' && visibleCharts.includes('3') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
             <PathwayCurveViewer key={`${projectId}-${resultName}`} projectId={projectId} resultName={resultName} />
           </Card>
         )}
 
-        {visibleCharts.includes('4') && (
+        {viewMode === 'power' && visibleCharts.includes('4') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
             <RangePlot key={`${projectId}-${resultName}`} />
           </Card>
         )}
 
-        {visibleCharts.includes('5') && (
+        {viewMode === 'power' && visibleCharts.includes('5') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
             <BubbleChart key={`${projectId}-${resultName}`} />
           </Card>
         )}
 
-        {visibleCharts.includes('6') && (
+        {viewMode === 'power' && visibleCharts.includes('6') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
             <BestModelsPieChart key={`${projectId}-${resultName}`} projectId={projectId} resultName={resultName} />
           </Card>
         )}
 
-        {visibleCharts.includes('7') && (
+        {viewMode === 'power' && visibleCharts.includes('7') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
             <BarCharts key={`${projectId}-${resultName}`} />
           </Card>
         )}
 
-        {visibleCharts.includes('8') && (
+        {viewMode === 'power' && visibleCharts.includes('8') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
             <AccumulationCharts key={`${projectId}-${resultName}`} />
           </Card>
         )}
 
-        {visibleCharts.includes('9') && (
+        {viewMode === 'power' && visibleCharts.includes('9') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
             <MeanHistograms key={`${projectId}-${resultName}`} />
           </Card>
         )}
 
-        {visibleCharts.includes('10') && (
+        {viewMode === 'power' && visibleCharts.includes('10') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
             <MedianHistograms key={`${projectId}-${resultName}`} />
           </Card>
         )}
 
-        {visibleCharts.includes('11') && (
+        {viewMode === 'power' && visibleCharts.includes('11') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
             <BMDvsBMDLScatter key={`${projectId}-${resultName}`} />
           </Card>
         )}
 
-        {visibleCharts.includes('12') && (
+        {viewMode === 'power' && visibleCharts.includes('12') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
             <ViolinPlotPerCategory key={`${projectId}-${resultName}`} />
           </Card>
         )}
 
-        {visibleCharts.includes('13') && (
+        {viewMode === 'power' && visibleCharts.includes('13') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
             <GlobalViolinComparison
               key={`${projectId}-${resultName}`}

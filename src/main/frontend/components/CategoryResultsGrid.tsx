@@ -53,6 +53,7 @@ export default function CategoryResultsGrid() {
   const dispatch = useAppDispatch();
   const allData = useAppSelector(selectSortedData);
   const selectedCategoryIds = useAppSelector((state) => state.categoryResults.selectedCategoryIds);
+  const viewMode = useAppSelector((state) => state.categoryResults.viewMode);
 
   // Phase 7: Selection state from Phase 3 selectors
   const isAnythingSelected = useAppSelector(selectIsAnythingSelected);
@@ -168,7 +169,7 @@ export default function CategoryResultsGrid() {
     const cols: ColumnsType<CategoryAnalysisResultDto> = [];
 
     // Always show fixed columns
-    cols.push(...getFixedColumns());
+    cols.push(...getFixedColumns(viewMode));
 
     // Conditionally add column groups based on visibility
     if (columnVisibility.geneCounts) {
@@ -253,7 +254,7 @@ export default function CategoryResultsGrid() {
     }
 
     return cols;
-  }, [columnVisibility]);
+  }, [columnVisibility, viewMode]);
 
   // Custom row styles based on selection
   const getRowClassName = (record: CategoryAnalysisResultDto) => {
