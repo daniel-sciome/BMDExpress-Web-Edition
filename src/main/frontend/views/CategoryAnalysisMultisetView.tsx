@@ -156,7 +156,7 @@ export default function CategoryAnalysisMultisetView({
           items={[{
             key: 'masterfilter',
             label: <PrimaryFilterTitle activeCount={activeFilterCount} />,
-            children: <PrimaryFilter hideCard={true} />,
+            children: <PrimaryFilter hideCard={true} showComparisonMode={true} />,
           }]}
           style={{ marginBottom: '1rem', border: 'none' }}
           bordered={false}

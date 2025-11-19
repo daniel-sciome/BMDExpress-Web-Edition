@@ -27,6 +27,7 @@ const DEFAULT_FILTERS: PrimaryFilterState = {
 
 interface PrimaryFilterProps {
   hideCard?: boolean; // When true, renders content without Card wrapper
+  showComparisonMode?: boolean; // When true, shows Multi-Dataset Comparison Mode controls
 }
 
 /**
@@ -48,7 +49,7 @@ export function PrimaryFilterTitle({ activeCount }: { activeCount: number }) {
   );
 }
 
-export default function PrimaryFilter({ hideCard = false }: PrimaryFilterProps) {
+export default function PrimaryFilter({ hideCard = false, showComparisonMode = false }: PrimaryFilterProps) {
   const dispatch = useAppDispatch();
   const currentFilters = useAppSelector(state => state.categoryResults.filters);
   const comparisonMode = useAppSelector(state => state.categoryResults.comparisonMode);
@@ -226,36 +227,38 @@ export default function PrimaryFilter({ hideCard = false }: PrimaryFilterProps) 
         </Col>
       </Row>
 
-      {/* Multi-dataset Comparison Mode */}
-      <Row style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f0f0f0' }}>
-        <Col span={24}>
-          <Space direction="vertical" size="small" style={{ width: '100%' }}>
-            <div style={{ fontWeight: 500, fontSize: '13px' }}>
-              Multi-Dataset Comparison Mode
-              <Tooltip title="Controls how categories are combined when comparing multiple datasets">
-                <InfoCircleOutlined style={{ marginLeft: '8px', color: '#1890ff', cursor: 'help' }} />
-              </Tooltip>
-            </div>
-            <Radio.Group
-              value={comparisonMode}
-              onChange={(e) => dispatch(setComparisonMode(e.target.value))}
-              size="small"
-              style={{ width: '100%' }}
-            >
-              <Radio.Button value="intersection" style={{ width: '50%', textAlign: 'center' }}>
-                <Tooltip title="Show only categories that appear in ALL selected datasets">
-                  Intersection
+      {/* Multi-dataset Comparison Mode - only shown in multi-dataset context */}
+      {showComparisonMode && (
+        <Row style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f0f0f0' }}>
+          <Col span={24}>
+            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+              <div style={{ fontWeight: 500, fontSize: '13px' }}>
+                Multi-Dataset Comparison Mode
+                <Tooltip title="Controls how categories are combined when comparing multiple datasets">
+                  <InfoCircleOutlined style={{ marginLeft: '8px', color: '#1890ff', cursor: 'help' }} />
                 </Tooltip>
-              </Radio.Button>
-              <Radio.Button value="union" style={{ width: '50%', textAlign: 'center' }}>
-                <Tooltip title="Show all categories from any selected dataset">
-                  Union
-                </Tooltip>
-              </Radio.Button>
-            </Radio.Group>
-          </Space>
-        </Col>
-      </Row>
+              </div>
+              <Radio.Group
+                value={comparisonMode}
+                onChange={(e) => dispatch(setComparisonMode(e.target.value))}
+                size="small"
+                style={{ width: '100%' }}
+              >
+                <Radio.Button value="intersection" style={{ width: '50%', textAlign: 'center' }}>
+                  <Tooltip title="Show only categories that appear in ALL selected datasets">
+                    Intersection
+                  </Tooltip>
+                </Radio.Button>
+                <Radio.Button value="union" style={{ width: '50%', textAlign: 'center' }}>
+                  <Tooltip title="Show all categories from any selected dataset">
+                    Union
+                  </Tooltip>
+                </Radio.Button>
+              </Radio.Group>
+            </Space>
+          </Col>
+        </Row>
+      )}
       </>
   );
 
