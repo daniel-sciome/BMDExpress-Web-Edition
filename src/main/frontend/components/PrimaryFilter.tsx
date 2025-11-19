@@ -1,4 +1,4 @@
-// MasterFilter.tsx
+// PrimaryFilter.tsx
 // Master filter component for global filtering of category results
 // Phase 1: Three numeric range filters with localStorage persistence
 
@@ -10,7 +10,7 @@ import { updateFiltersWithRenderState, clearFilters, setComparisonMode } from '.
 
 const STORAGE_KEY = 'bmdexpress_master_filters_global';
 
-interface MasterFilterState {
+interface PrimaryFilterState {
   percentageMin?: number;
   genesPassedFiltersMin?: number;
   allGenesMin?: number;
@@ -18,26 +18,26 @@ interface MasterFilterState {
 }
 
 // Default filter values
-const DEFAULT_FILTERS: MasterFilterState = {
+const DEFAULT_FILTERS: PrimaryFilterState = {
   percentageMin: 5,
   genesPassedFiltersMin: 3,
   allGenesMin: 40,
   allGenesMax: 500,
 };
 
-interface MasterFilterProps {
+interface PrimaryFilterProps {
   hideCard?: boolean; // When true, renders content without Card wrapper
 }
 
 /**
- * Master Filter Title Component
+ * Primary Filter Title Component
  * Exported for use in Collapse headers
  */
-export function MasterFilterTitle({ activeCount }: { activeCount: number }) {
+export function PrimaryFilterTitle({ activeCount }: { activeCount: number }) {
   return (
     <Space>
       <FilterOutlined />
-      <span>Master Filters</span>
+      <span>Primary Filters</span>
       {activeCount > 0 && (
         <Badge count={activeCount} style={{ backgroundColor: '#52c41a' }} />
       )}
@@ -48,13 +48,13 @@ export function MasterFilterTitle({ activeCount }: { activeCount: number }) {
   );
 }
 
-export default function MasterFilter({ hideCard = false }: MasterFilterProps) {
+export default function PrimaryFilter({ hideCard = false }: PrimaryFilterProps) {
   const dispatch = useAppDispatch();
   const currentFilters = useAppSelector(state => state.categoryResults.filters);
   const comparisonMode = useAppSelector(state => state.categoryResults.comparisonMode);
 
   // Local state for form inputs (before applying)
-  const [localFilters, setLocalFilters] = useState<MasterFilterState>(DEFAULT_FILTERS);
+  const [localFilters, setLocalFilters] = useState<PrimaryFilterState>(DEFAULT_FILTERS);
 
   // Load from localStorage on mount, merge with defaults
   useEffect(() => {
@@ -88,7 +88,7 @@ export default function MasterFilter({ hideCard = false }: MasterFilterProps) {
       Object.entries(localFilters).filter(([_, value]) => value !== undefined && value !== null)
     );
 
-    console.log('[MasterFilter] Applying filters:', filtersToApply);
+    console.log('[PrimaryFilter] Applying filters:', filtersToApply);
     dispatch(updateFiltersWithRenderState(filtersToApply));
 
     // Persist to localStorage
@@ -104,7 +104,7 @@ export default function MasterFilter({ hideCard = false }: MasterFilterProps) {
 
   // Handle show all (clear all filters)
   const handleShowAll = () => {
-    const emptyFilters: MasterFilterState = {
+    const emptyFilters: PrimaryFilterState = {
       percentageMin: undefined,
       genesPassedFiltersMin: undefined,
       allGenesMin: undefined,
@@ -116,7 +116,7 @@ export default function MasterFilter({ hideCard = false }: MasterFilterProps) {
   };
 
   // Handle individual filter changes
-  const updateFilter = <K extends keyof MasterFilterState>(
+  const updateFilter = <K extends keyof PrimaryFilterState>(
     key: K,
     value: number | null
   ) => {
@@ -266,7 +266,7 @@ export default function MasterFilter({ hideCard = false }: MasterFilterProps) {
 
   return (
     <Card
-      title={<MasterFilterTitle activeCount={activeFilterCount} />}
+      title={<PrimaryFilterTitle activeCount={activeFilterCount} />}
       style={{ marginBottom: 16 }}
       size="small"
     >

@@ -4,7 +4,7 @@ import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/Ca
 import type { RootState, AppDispatch } from '../store';
 import type { ReactiveSelectionMap, SelectionSource } from 'Frontend/types/reactiveTypes';
 import { initializeCategories, upsertCategorySet } from './renderStateSlice';
-import { createClusterSets, createMasterFilterSet } from '../utils/initializeRenderState';
+import { createClusterSets, createPrimaryFilterSet } from '../utils/initializeRenderState';
 import { applyFilterGroups } from '../../utils/filterEvaluation';
 import { selectEnabledFilterGroups } from './filterSlice';
 
@@ -42,7 +42,7 @@ interface Filters {
   minGenesInCategory?: number;
   fisherPValueMax?: number;
   foldChangeMin?: number;
-  // Master Filter fields (Phase 1)
+  // Primary Filter fields (Phase 1)
   percentageMin?: number;
   genesPassedFiltersMin?: number;
   allGenesMin?: number;
@@ -180,13 +180,13 @@ export const loadCategoryResultsWithRenderState = createAsyncThunk<
       const state = getState();
       const filters = state.categoryResults.filters;
       console.log('[Redux] Creating master filter CategorySet with criteria:', filters);
-      const masterFilterSet = createMasterFilterSet(categories, {
+      const primaryFilterSet = createPrimaryFilterSet(categories, {
         minBmd: filters.bmdMin,
         maxBmd: filters.bmdMax,
         minPValue: undefined, // Not currently a filter
         maxPValue: filters.pValueMax,
       });
-      dispatch(upsertCategorySet(masterFilterSet));
+      dispatch(upsertCategorySet(primaryFilterSet));
 
       console.log('[Redux] Render state initialization complete');
     }
@@ -211,20 +211,20 @@ export const updateFiltersWithRenderState = createAsyncThunk<
 
     // Update master filter CategorySet
     console.log('[Redux] Updating master filter CategorySet with criteria:', filters);
-    const masterFilterSet = createMasterFilterSet(categories, {
+    const primaryFilterSet = createPrimaryFilterSet(categories, {
       minBmd: filters.bmdMin,
       maxBmd: filters.bmdMax,
       minPValue: undefined,
       maxPValue: filters.pValueMax,
     });
-    dispatch(upsertCategorySet(masterFilterSet));
+    dispatch(upsertCategorySet(primaryFilterSet));
 
     // Also update the filtered status on each CategoryRenderState
     // (This will be used by charts to determine what to display)
     const { updateFilteredStatus } = await import('./renderStateSlice');
     const filteredStatusUpdates = categories.map(cat => ({
       categoryId: cat.categoryId!,
-      filtered: masterFilterSet.categoryIds.includes(cat.categoryId!),
+      filtered: primaryFilterSet.categoryIds.includes(cat.categoryId!),
     }));
     dispatch(updateFilteredStatus(filteredStatusUpdates));
   }
@@ -567,7 +567,7 @@ export const selectFilteredData = createSelector(
       if (filters.minGenesInCategory !== undefined && row.genesThatPassedAllFilters !== undefined && row.genesThatPassedAllFilters < filters.minGenesInCategory) return false;
       if (filters.fisherPValueMax !== undefined && row.fishersExactTwoTailPValue !== undefined && row.fishersExactTwoTailPValue > filters.fisherPValueMax) return false;
 
-      // Master Filter fields (Phase 1) - skip for GENE analyses
+      // Primary Filter fields (Phase 1) - skip for GENE analyses
       if (analysisType !== 'GENE') {
         if (filters.percentageMin !== undefined && row.percentage !== undefined && row.percentage < filters.percentageMin) return false;
         if (filters.genesPassedFiltersMin !== undefined && row.genesThatPassedAllFilters !== undefined && row.genesThatPassedAllFilters < filters.genesPassedFiltersMin) return false;

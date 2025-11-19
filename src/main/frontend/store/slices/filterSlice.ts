@@ -17,7 +17,7 @@ function createStandardFilterGroups(): FilterGroup[] {
   const now = Date.now();
 
   return [
-    // 1. Essential Columns: Gene Counts
+    // 1. Primary Filter Columns: Gene Counts
     {
       id: 'standard-essential',
       name: 'Essential: Gene Counts',

@@ -31,6 +31,7 @@ import {
 import {
   getFixedColumns,
   getGeneCountsColumns,
+  getSignificantANOVAColumn,
   getFishersEssentialColumn,
   getFishersFullColumns,
   getBMDEssentialColumns,
@@ -148,7 +149,7 @@ export default function CategoryResultsGrid() {
 
   // Phase 7: Bulk selection handlers (operate on filtered data only)
   const handleSelectAll = () => {
-    // Get all visible category IDs (after Master Filter and hideRowsWithoutBMD)
+    // Get all visible category IDs (after Primary Filter and hideRowsWithoutBMD)
     const visibleIds = data.map(cat => cat.categoryId).filter(Boolean) as string[];
     dispatch(selectAllCategories(visibleIds));
   };
@@ -183,8 +184,15 @@ export default function CategoryResultsGrid() {
     cols.push(...getFixedColumns(viewMode));
 
     // Conditionally add column groups based on visibility
-    if (columnVisibility.geneCounts) {
-      cols.push(...getGeneCountsColumns());
+    if (columnVisibility.geneCounts.all || Object.values(columnVisibility.geneCounts.columns).some(v => v)) {
+      cols.push(...getGeneCountsColumns(
+        columnVisibility.geneCounts.all ? undefined : columnVisibility.geneCounts.columns
+      ));
+    }
+
+    // Significant ANOVA statistics column
+    if (columnVisibility.significantANOVA) {
+      cols.push(...getSignificantANOVAColumn());
     }
 
     // Fisher's Test - show full columns when checked
@@ -316,21 +324,66 @@ export default function CategoryResultsGrid() {
 
       <Space direction="vertical" style={{ width: '100%' }}>
         <div style={{ fontWeight: 600, marginBottom: '8px', borderBottom: '1px solid #f0f0f0', paddingBottom: '8px' }}>
-          Essential Columns
+          Primary Filter Columns
         </div>
         <Checkbox
-          checked={columnVisibility.geneCounts}
+          checked={columnVisibility.geneCounts.columns.genesPassed}
           onChange={(e) => {
             e.stopPropagation();
-            setColumnVisibility({ ...columnVisibility, geneCounts: e.target.checked });
+            setColumnVisibility({
+              ...columnVisibility,
+              geneCounts: {
+                ...columnVisibility.geneCounts,
+                columns: { ...columnVisibility.geneCounts.columns, genesPassed: e.target.checked }
+              }
+            });
           }}
         >
-          Gene Counts (4 columns)
+          Genes (Passed)
+        </Checkbox>
+        <Checkbox
+          checked={columnVisibility.geneCounts.columns.allGenes}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({
+              ...columnVisibility,
+              geneCounts: {
+                ...columnVisibility.geneCounts,
+                columns: { ...columnVisibility.geneCounts.columns, allGenes: e.target.checked }
+              }
+            });
+          }}
+        >
+          All Genes
+        </Checkbox>
+        <Checkbox
+          checked={columnVisibility.geneCounts.columns.percentage}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({
+              ...columnVisibility,
+              geneCounts: {
+                ...columnVisibility.geneCounts,
+                columns: { ...columnVisibility.geneCounts.columns, percentage: e.target.checked }
+              }
+            });
+          }}
+        >
+          Percentage
         </Checkbox>
 
         <div style={{ fontWeight: 600, marginTop: '16px', marginBottom: '8px', borderBottom: '1px solid #f0f0f0', paddingBottom: '8px' }}>
           Statistics Columns
         </div>
+        <Checkbox
+          checked={columnVisibility.significantANOVA}
+          onChange={(e) => {
+            e.stopPropagation();
+            setColumnVisibility({ ...columnVisibility, significantANOVA: e.target.checked });
+          }}
+        >
+          Significant ANOVA
+        </Checkbox>
         <Checkbox
           checked={columnVisibility.fishersFull}
           onChange={(e) => {

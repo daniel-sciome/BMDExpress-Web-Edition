@@ -7,7 +7,7 @@ import VennDiagram from '../components/charts/VennDiagram';
 import AccumulationChartsComparison from '../components/charts/AccumulationChartsComparison';
 import GlobalViolinComparison from '../components/charts/GlobalViolinComparison';
 import ComparisonTable from '../components/charts/ComparisonTable';
-import MasterFilter, { MasterFilterTitle } from '../components/MasterFilter';
+import PrimaryFilter, { PrimaryFilterTitle } from '../components/PrimaryFilter';
 import { useAppSelector } from '../store/hooks';
 
 interface CategoryAnalysisMultisetViewProps {
@@ -41,7 +41,7 @@ export default function CategoryAnalysisMultisetView({
     console.log('[CategoryAnalysisMultisetView] Filters changed:', filters);
   }, [filters]);
 
-  // Calculate active filter count for Master Filter title
+  // Calculate active filter count for Primary Filter title
   const activeFilterCount = Object.entries(filters).filter(
     ([_, value]) => value !== undefined && value !== null
   ).length;
@@ -150,13 +150,13 @@ export default function CategoryAnalysisMultisetView({
         overflowY: 'auto',
         padding: '1rem'
       }}>
-        {/* Master Filter - Collapsible */}
+        {/* Primary Filter - Collapsible */}
         <Collapse
           size="small"
           items={[{
             key: 'masterfilter',
-            label: <MasterFilterTitle activeCount={activeFilterCount} />,
-            children: <MasterFilter hideCard={true} />,
+            label: <PrimaryFilterTitle activeCount={activeFilterCount} />,
+            children: <PrimaryFilter hideCard={true} />,
           }]}
           style={{ marginBottom: '1rem', border: 'none' }}
           bordered={false}

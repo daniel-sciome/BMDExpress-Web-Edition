@@ -101,7 +101,7 @@ export function createClusterSets(categories: CategoryAnalysisResultDto[]): Cate
  * @param filterCriteria - The filter criteria to apply
  * @returns A MASTER_FILTER type CategorySet
  */
-export function createMasterFilterSet(
+export function createPrimaryFilterSet(
   categories: CategoryAnalysisResultDto[],
   filterCriteria: {
     minBmd?: number;

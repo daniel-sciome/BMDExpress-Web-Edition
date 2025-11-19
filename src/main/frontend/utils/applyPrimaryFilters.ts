@@ -6,14 +6,14 @@
 
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 
-interface MasterFilters {
+interface PrimaryFilters {
   bmdMin?: number;
   bmdMax?: number;
   pValueMax?: number;
   minGenesInCategory?: number;
   fisherPValueMax?: number;
   foldChangeMin?: number;
-  // Master Filter fields (Phase 1)
+  // Primary Filter fields (Phase 1)
   percentageMin?: number;
   genesPassedFiltersMin?: number;
   allGenesMin?: number;
@@ -27,9 +27,9 @@ interface MasterFilters {
  * @param analysisType - Analysis type (e.g., "GO_BP", "GENE")
  * @returns Filtered array
  */
-export function applyMasterFilters(
+export function applyPrimaryFilters(
   data: CategoryAnalysisResultDto[],
-  filters: MasterFilters,
+  filters: PrimaryFilters,
   analysisType?: string | null
 ): CategoryAnalysisResultDto[] {
   return data.filter(row => {
@@ -39,7 +39,7 @@ export function applyMasterFilters(
     if (filters.minGenesInCategory !== undefined && row.genesThatPassedAllFilters !== undefined && row.genesThatPassedAllFilters < filters.minGenesInCategory) return false;
     if (filters.fisherPValueMax !== undefined && row.fishersExactTwoTailPValue !== undefined && row.fishersExactTwoTailPValue > filters.fisherPValueMax) return false;
 
-    // Master Filter fields (Phase 1) - skip for GENE analyses
+    // Primary Filter fields (Phase 1) - skip for GENE analyses
     if (analysisType !== 'GENE') {
       if (filters.percentageMin !== undefined && row.percentage !== undefined && row.percentage < filters.percentageMin) return false;
       if (filters.genesPassedFiltersMin !== undefined && row.genesThatPassedAllFilters !== undefined && row.genesThatPassedAllFilters < filters.genesPassedFiltersMin) return false;

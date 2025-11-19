@@ -18,7 +18,7 @@ import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import Plot from 'react-plotly.js';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 import { useAppSelector } from '../../store/hooks';
-import { applyMasterFilters } from '../../utils/applyMasterFilters';
+import { applyPrimaryFilters } from '../../utils/applyPrimaryFilters';
 
 const { Option } = Select;
 
@@ -79,7 +79,7 @@ export default function GlobalViolinComparison({
 
       // Apply master filters to each dataset
       const filteredResultsData = allResultsData.map(data =>
-        applyMasterFilters(data || [], filters, analysisType)
+        applyPrimaryFilters(data || [], filters, analysisType)
       );
 
       // Apply intersection/union logic

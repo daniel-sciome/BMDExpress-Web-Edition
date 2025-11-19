@@ -26,7 +26,7 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
   // Reference space visibility toggle
   const [showReference, setShowReference] = useState<boolean>(true);
 
-  // Get FILTERED analysis results (after Master Filter is applied)
+  // Get FILTERED analysis results (after Primary Filter is applied)
   const filteredCategories = useAppSelector(selectFilteredData);
 
   // Debug logging
@@ -38,7 +38,7 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
     });
   }, [categoryState.selectedIds, categoryState.source]);
 
-  // Create a set of GO IDs that pass the Master Filter
+  // Create a set of GO IDs that pass the Primary Filter
   const filteredGoIds = useMemo(() => {
     return new Set(filteredCategories.map(cat => cat.categoryId).filter(Boolean) as string[]);
   }, [filteredCategories]);
@@ -46,7 +46,7 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
   // Get all UMAP reference data
   const allUmapData = useMemo(() => umapDataService.getAllData(), []);
 
-  // Filter to only categories that pass the Master Filter
+  // Filter to only categories that pass the Primary Filter
   const filteredPoints = useMemo(() => {
     return allUmapData.filter(item => filteredGoIds.has(item.go_id));
   }, [allUmapData, filteredGoIds]);

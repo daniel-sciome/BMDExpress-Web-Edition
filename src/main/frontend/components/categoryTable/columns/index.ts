@@ -9,7 +9,7 @@
 export { getFixedColumns } from './fixedColumns';
 
 // Gene count columns
-export { getGeneCountsColumns } from './geneCountColumns';
+export { getGeneCountsColumns, getSignificantANOVAColumn } from './geneCountColumns';
 
 // Fisher's exact test columns
 export { getFishersEssentialColumn, getFishersFullColumns } from './fishersColumns';

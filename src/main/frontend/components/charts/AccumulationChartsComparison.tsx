@@ -17,7 +17,7 @@ import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './ut
 import { useNonSelectedDisplayMode } from './hooks/useNonSelectedDisplayMode';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 import { useAppSelector } from '../../store/hooks';
-import { applyMasterFilters } from '../../utils/applyMasterFilters';
+import { applyPrimaryFilters } from '../../utils/applyPrimaryFilters';
 
 const { Option } = Select;
 
@@ -85,7 +85,7 @@ export default function AccumulationChartsComparison({
 
       // Apply master filters to each dataset
       const filteredResultsData = allResultsData.map(data =>
-        applyMasterFilters(data || [], filters, analysisType)
+        applyPrimaryFilters(data || [], filters, analysisType)
       );
 
       // Apply intersection/union logic

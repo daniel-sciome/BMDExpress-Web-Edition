@@ -12,7 +12,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import { useAppSelector } from '../../store/hooks';
-import { applyMasterFilters } from '../../utils/applyMasterFilters';
+import { applyPrimaryFilters } from '../../utils/applyPrimaryFilters';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -105,7 +105,7 @@ export default function ComparisonTable({
             console.log(`[ComparisonTable] Loaded ${data?.length || 0} rows for ${resultName}`);
 
             // Apply master filters to the loaded data
-            const filteredData = applyMasterFilters(data || [], filters, analysisType);
+            const filteredData = applyPrimaryFilters(data || [], filters, analysisType);
             console.log(`[ComparisonTable] After filtering: ${filteredData.length} rows for ${resultName}`);
 
             dataMap[resultName] = filteredData;

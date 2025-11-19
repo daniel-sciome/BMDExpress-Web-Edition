@@ -22,8 +22,15 @@ export interface ColumnGroup<T extends string> {
  * Advanced columns use ColumnGroup structure for individual column control.
  */
 export interface ColumnVisibility {
-  /** Gene Counts columns (Passed, All, %) */
-  geneCounts: boolean;
+  /** Gene Counts columns - individual selection */
+  geneCounts: ColumnGroup<
+    | 'genesPassed'
+    | 'allGenes'
+    | 'percentage'
+  >;
+
+  /** Significant ANOVA count column */
+  significantANOVA: boolean;
 
   /** Fisher's Exact Test columns (7 columns: A, B, C, D, Left P, Right P, Two-Tail P) */
   fishersFull: boolean;
@@ -161,7 +168,15 @@ export interface ColumnVisibility {
  * with many columns. Users can expand column groups as needed.
  */
 export const DEFAULT_COLUMN_VISIBILITY: ColumnVisibility = {
-  geneCounts: true,
+  geneCounts: {
+    all: true,
+    columns: {
+      genesPassed: true,
+      allGenes: true,
+      percentage: true,
+    },
+  },
+  significantANOVA: true,
   fishersFull: false,
   bmdExtended: false,
   bmdConfidence: false,

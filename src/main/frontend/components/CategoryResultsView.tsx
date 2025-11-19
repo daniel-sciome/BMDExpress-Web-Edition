@@ -15,7 +15,7 @@ import AccumulationCharts from './charts/AccumulationCharts';
 import BestModelsPieChart from './charts/BestModelsPieChart';
 import PathwayCurveViewer from './PathwayCurveViewer';
 import UmapScatterPlot from './charts/UmapScatterPlot';
-import MasterFilter, { MasterFilterTitle } from './MasterFilter';
+import PrimaryFilter, { PrimaryFilterTitle } from './PrimaryFilter';
 import ViolinPlotPerCategory from './charts/ViolinPlotPerCategory';
 import GlobalViolinComparison from './charts/GlobalViolinComparison';
 import MeanHistograms from './charts/MeanHistograms';
@@ -53,7 +53,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   const [visibleCharts, setVisibleCharts] = useState<string[]>([]);
   const [availableResults, setAvailableResults] = useState<string[]>([]);
 
-  // Calculate active filter count for Master Filter title
+  // Calculate active filter count for Primary Filter title
   const activeFilterCount = Object.entries(filters).filter(
     ([_, value]) => value !== undefined && value !== null
   ).length;
@@ -64,7 +64,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
       projectId,
       resultName,
       dataLength: data.length,
-      masterFilters: filters
+      primaryFilters: filters
     });
     return () => {
       console.log('[CategoryResultsView] Component unmounting');
@@ -237,15 +237,15 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         </div>
       )}
 
-      {/* Master Filter - Collapsible (skip for GENE analyses) */}
+      {/* Primary Filter - Collapsible (skip for GENE analyses) */}
       {annotation && annotation.analysisType !== 'GENE' && (
         <div style={{ padding: '0 1rem', flexShrink: 0 }}>
           <Collapse
             size="small"
             items={[{
               key: 'masterfilter',
-              label: <MasterFilterTitle activeCount={activeFilterCount} />,
-              children: <MasterFilter hideCard={true} />,
+              label: <PrimaryFilterTitle activeCount={activeFilterCount} />,
+              children: <PrimaryFilter hideCard={true} />,
             }]}
             style={{ marginBottom: '4px', border: 'none' }}
             bordered={false}

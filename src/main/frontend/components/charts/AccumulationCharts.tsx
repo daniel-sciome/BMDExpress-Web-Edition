@@ -9,7 +9,7 @@ import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './ut
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 export default function AccumulationCharts() {
-  // Get ALL filtered data (after Master Filter)
+  // Get ALL filtered data (after Primary Filter)
   const allData = useAppSelector(selectFilteredData);
 
   // Get selection state using reactive infrastructure
