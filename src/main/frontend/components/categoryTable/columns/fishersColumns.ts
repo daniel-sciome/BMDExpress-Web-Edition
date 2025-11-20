@@ -21,13 +21,14 @@ export function getFishersEssentialColumn(): ColumnsType<CategoryAnalysisResultD
   return [
     {
       title: "Fisher's Test",
+      align: 'center',
       children: [
         {
           title: 'Two-Tail P',
           dataIndex: 'fishersExactTwoTailPValue',
           key: 'fishersExactTwoTailPValue',
           width: 55,
-          align: 'right',
+          align: 'center',
           render: (value: number) => formatPValue(value),
           sorter: (a, b) => (a.fishersExactTwoTailPValue || 0) - (b.fishersExactTwoTailPValue || 0),
         },
@@ -50,13 +51,14 @@ export function getFishersFullColumns(): ColumnsType<CategoryAnalysisResultDto> 
   return [
     {
       title: "Fisher's Exact Test (Full)",
+      align: 'center',
       children: [
         {
           title: 'A',
           dataIndex: 'fishersA',
           key: 'fishersA',
           width: 40,
-          align: 'right',
+          align: 'center',
           sorter: (a, b) => (a.fishersA || 0) - (b.fishersA || 0),
         },
         {
@@ -64,7 +66,7 @@ export function getFishersFullColumns(): ColumnsType<CategoryAnalysisResultDto> 
           dataIndex: 'fishersB',
           key: 'fishersB',
           width: 40,
-          align: 'right',
+          align: 'center',
           sorter: (a, b) => (a.fishersB || 0) - (b.fishersB || 0),
         },
         {
@@ -72,7 +74,7 @@ export function getFishersFullColumns(): ColumnsType<CategoryAnalysisResultDto> 
           dataIndex: 'fishersC',
           key: 'fishersC',
           width: 40,
-          align: 'right',
+          align: 'center',
           sorter: (a, b) => (a.fishersC || 0) - (b.fishersC || 0),
         },
         {
@@ -80,7 +82,7 @@ export function getFishersFullColumns(): ColumnsType<CategoryAnalysisResultDto> 
           dataIndex: 'fishersD',
           key: 'fishersD',
           width: 40,
-          align: 'right',
+          align: 'center',
           sorter: (a, b) => (a.fishersD || 0) - (b.fishersD || 0),
         },
         {
@@ -88,7 +90,7 @@ export function getFishersFullColumns(): ColumnsType<CategoryAnalysisResultDto> 
           dataIndex: 'fishersExactLeftPValue',
           key: 'fishersExactLeftPValue',
           width: 55,
-          align: 'right',
+          align: 'center',
           render: (value: number) => formatPValue(value),
           sorter: (a, b) => (a.fishersExactLeftPValue || 0) - (b.fishersExactLeftPValue || 0),
         },
@@ -97,7 +99,7 @@ export function getFishersFullColumns(): ColumnsType<CategoryAnalysisResultDto> 
           dataIndex: 'fishersExactRightPValue',
           key: 'fishersExactRightPValue',
           width: 55,
-          align: 'right',
+          align: 'center',
           render: (value: number) => formatPValue(value),
           sorter: (a, b) => (a.fishersExactRightPValue || 0) - (b.fishersExactRightPValue || 0),
         },

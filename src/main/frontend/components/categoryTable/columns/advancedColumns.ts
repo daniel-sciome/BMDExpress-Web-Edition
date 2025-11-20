@@ -58,7 +58,7 @@ function createStatsColumns(
       dataIndex,
       key: dataIndex,
       width: 50,
-      align: 'right' as const,
+      align: 'center' as const,
       render: (value: number) => formatNumber(value),
       sorter: (a: CategoryAnalysisResultDto, b: CategoryAnalysisResultDto) => {
         const aValue = a[dataIndex] as number | undefined;

@@ -61,7 +61,7 @@ function createRankColumns(config: RankColumnConfig): ColumnsType<CategoryAnalys
           dataIndex,
           key: dataIndex,
           width: 50,
-          align: 'right' as const,
+          align: 'center' as const,
           sorter: (a: CategoryAnalysisResultWithRank, b: CategoryAnalysisResultWithRank) => {
             const aValue = a[dataIndex] as number | undefined;
             const bValue = b[dataIndex] as number | undefined;

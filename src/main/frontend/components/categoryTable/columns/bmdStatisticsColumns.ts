@@ -60,7 +60,7 @@ function createExtendedStatsColumns(
       dataIndex,
       key: dataIndex,
       width: stat.width,
-      align: 'right' as const,
+      align: 'center' as const,
       render: (value: number) => formatNumber(value),
       sorter: (a: CategoryAnalysisResultDto, b: CategoryAnalysisResultDto) => {
         const aValue = a[dataIndex] as number | undefined;
@@ -70,7 +70,7 @@ function createExtendedStatsColumns(
     };
   });
 
-  return [{ title, children }];
+  return [{ title, align: 'center' as const, children }];
 }
 
 /**
@@ -94,7 +94,7 @@ function createConfidenceColumns(
       dataIndex,
       key: dataIndex,
       width: stat.width,
-      align: 'right' as const,
+      align: 'center' as const,
       render: (value: number) => formatNumber(value),
       sorter: (a: CategoryAnalysisResultDto, b: CategoryAnalysisResultDto) => {
         const aValue = a[dataIndex] as number | undefined;
@@ -104,7 +104,7 @@ function createConfidenceColumns(
     };
   });
 
-  return [{ title, children }];
+  return [{ title, align: 'center' as const, children }];
 }
 
 /**
@@ -124,7 +124,7 @@ export function getBMDEssentialColumns(): ColumnsType<CategoryAnalysisResultDto>
           dataIndex: 'bmdMean',
           key: 'bmdMean',
           width: 55,
-          align: 'right',
+          align: 'center',
           render: (value: number) => formatNumber(value),
           sorter: (a, b) => (a.bmdMean || 0) - (b.bmdMean || 0),
         },
@@ -133,7 +133,7 @@ export function getBMDEssentialColumns(): ColumnsType<CategoryAnalysisResultDto>
           dataIndex: 'bmdMedian',
           key: 'bmdMedian',
           width: 55,
-          align: 'right',
+          align: 'center',
           render: (value: number) => formatNumber(value),
           sorter: (a, b) => (a.bmdMedian || 0) - (b.bmdMedian || 0),
         },
@@ -186,7 +186,7 @@ export function getBMDLColumns(): ColumnsType<CategoryAnalysisResultDto> {
           dataIndex: 'bmdlMean',
           key: 'bmdlMean',
           width: 55,
-          align: 'right',
+          align: 'center',
           render: (value: number) => formatNumber(value),
           sorter: (a, b) => (a.bmdlMean || 0) - (b.bmdlMean || 0),
         },
@@ -195,7 +195,7 @@ export function getBMDLColumns(): ColumnsType<CategoryAnalysisResultDto> {
           dataIndex: 'bmdlMedian',
           key: 'bmdlMedian',
           width: 55,
-          align: 'right',
+          align: 'center',
           render: (value: number) => formatNumber(value),
           sorter: (a, b) => (a.bmdlMedian || 0) - (b.bmdlMedian || 0),
         },
@@ -237,7 +237,7 @@ export function getBMDUColumns(): ColumnsType<CategoryAnalysisResultDto> {
           dataIndex: 'bmduMean',
           key: 'bmduMean',
           width: 55,
-          align: 'right',
+          align: 'center',
           render: (value: number) => formatNumber(value),
           sorter: (a, b) => (a.bmduMean || 0) - (b.bmduMean || 0),
         },
@@ -246,7 +246,7 @@ export function getBMDUColumns(): ColumnsType<CategoryAnalysisResultDto> {
           dataIndex: 'bmduMedian',
           key: 'bmduMedian',
           width: 55,
-          align: 'right',
+          align: 'center',
           render: (value: number) => formatNumber(value),
           sorter: (a, b) => (a.bmduMedian || 0) - (b.bmduMedian || 0),
         },

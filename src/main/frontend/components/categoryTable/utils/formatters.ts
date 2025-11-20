@@ -5,17 +5,32 @@
  * p-values, and other data for display in the table.
  */
 
+import { padNumber, type ColumnPaddingInfo } from './numberPadding';
+
 /**
  * Format a numeric value with specified decimal places
  *
  * @param value - The number to format
  * @param decimals - Number of decimal places (default: 3)
+ * @param paddingInfo - Optional padding info to align decimal points
  * @returns Formatted string or '-' if value is invalid
  */
-export function formatNumber(value: any, decimals: number = 3): string {
+export function formatNumber(value: any, decimals: number = 3, paddingInfo?: ColumnPaddingInfo): string {
   if (value === undefined || value === null || typeof value !== 'number' || isNaN(value)) {
+    if (paddingInfo) {
+      // Return padded placeholder for empty values
+      return padNumber(null, paddingInfo, decimals);
+    }
     return '-';
   }
+
+  if (paddingInfo) {
+    // Use the raw number and let padNumber handle formatting
+    const formatted = value.toFixed(decimals);
+    const num = parseFloat(formatted);
+    return padNumber(num, paddingInfo, decimals);
+  }
+
   return value.toFixed(decimals);
 }
 
@@ -26,15 +41,26 @@ export function formatNumber(value: any, decimals: number = 3): string {
  * Otherwise uses 4 decimal places
  *
  * @param value - The p-value to format
+ * @param paddingInfo - Optional padding info to align decimal points
  * @returns Formatted string or '-' if value is invalid
  */
-export function formatPValue(value: any): string {
+export function formatPValue(value: any, paddingInfo?: ColumnPaddingInfo): string {
   if (value === undefined || value === null || typeof value !== 'number' || isNaN(value)) {
+    if (paddingInfo) {
+      return padNumber(null, paddingInfo, 4);
+    }
     return '-';
   }
+
   if (value < 0.001) {
+    // Don't pad scientific notation
     return value.toExponential(2);
   }
+
+  if (paddingInfo) {
+    return padNumber(value, paddingInfo, 4);
+  }
+
   return value.toFixed(4);
 }
 

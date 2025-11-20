@@ -27,6 +27,13 @@ import {
   CategoryAnalysisResultWithRank,
 } from './categoryTable/utils';
 
+// Import number padding utilities
+import {
+  calculatePaddingMap,
+  NUMERIC_FIELDS,
+  type PaddingMap,
+} from './categoryTable/utils/numberPadding';
+
 // Import all column definition functions
 import {
   getFixedColumns,
@@ -136,6 +143,11 @@ export default function CategoryResultsGrid() {
     return calculateAllBMDRanks(filteredData);
   }, [allData, hideRowsWithoutBMD]);
 
+  // Calculate padding requirements for all numeric columns
+  const paddingMap: PaddingMap = useMemo(() => {
+    return calculatePaddingMap(data, NUMERIC_FIELDS);
+  }, [data]);
+
   // Convert Set to array for Ant Design Table
   const selectedKeys = useMemo(() => {
     return Array.from(selectedCategoryIds);
@@ -186,13 +198,14 @@ export default function CategoryResultsGrid() {
     // Conditionally add column groups based on visibility
     if (columnVisibility.geneCounts.all || Object.values(columnVisibility.geneCounts.columns).some(v => v)) {
       cols.push(...getGeneCountsColumns(
-        columnVisibility.geneCounts.all ? undefined : columnVisibility.geneCounts.columns
+        columnVisibility.geneCounts.all ? undefined : columnVisibility.geneCounts.columns,
+        paddingMap
       ));
     }
 
     // Significant ANOVA statistics column
     if (columnVisibility.significantANOVA) {
-      cols.push(...getSignificantANOVAColumn());
+      cols.push(...getSignificantANOVAColumn(paddingMap));
     }
 
     // Fisher's Test - show full columns when checked
@@ -284,7 +297,7 @@ export default function CategoryResultsGrid() {
     }
 
     return cols;
-  }, [columnVisibility, viewMode]);
+  }, [columnVisibility, viewMode, paddingMap]);
 
   // Custom row styles based on selection
   const getRowClassName = (record: CategoryAnalysisResultWithRank) => {
@@ -382,7 +395,7 @@ export default function CategoryResultsGrid() {
             setColumnVisibility({ ...columnVisibility, significantANOVA: e.target.checked });
           }}
         >
-          Significant ANOVA
+          ANOVA - Significant Count
         </Checkbox>
         <Checkbox
           checked={columnVisibility.fishersFull}
@@ -588,7 +601,7 @@ export default function CategoryResultsGrid() {
                     });
                   }}
                 >
-                  Percentile Values (6 columns)
+                  Percentile BMDs (6 columns)
                 </Checkbox>
               </div>
             ),
@@ -596,12 +609,12 @@ export default function CategoryResultsGrid() {
               <div style={{ paddingLeft: '24px' }}>
                 <Space direction="vertical" size={4}>
                   {Object.entries({
-                    bmd5th: 'BMD 5th %',
-                    bmd10th: 'BMD 10th %',
-                    bmdl5th: 'BMDL 5th %',
-                    bmdl10th: 'BMDL 10th %',
-                    bmdu5th: 'BMDU 5th %',
-                    bmdu10th: 'BMDU 10th %',
+                    bmd5th: 'BMD 5th %ile Total Genes',
+                    bmd10th: 'BMD 10th %ile Total Genes',
+                    bmdl5th: 'BMDL 5th %ile Total Genes',
+                    bmdl10th: 'BMDL 10th %ile Total Genes',
+                    bmdu5th: 'BMDU 5th %ile Total Genes',
+                    bmdu10th: 'BMDU 10th %ile Total Genes',
                   }).map(([key, label]) => (
                     <Checkbox
                       key={key}
@@ -1212,6 +1225,22 @@ export default function CategoryResultsGrid() {
           }
           .dimmed-row:hover {
             opacity: 0.6;
+          }
+
+          /* Apply monospace font to all table cells for proper alignment */
+          .ant-table-tbody > tr > td,
+          .ant-table-thead > tr > th {
+            font-family: 'Roboto Mono', 'SF Mono', 'Segoe UI Mono', 'Ubuntu Mono', Menlo, Monaco, Consolas, monospace;
+            font-variant-numeric: tabular-nums;
+            font-size: 13px;
+          }
+
+          /* Exclude Description column - use proportional Roboto */
+          .ant-table-tbody > tr > td[data-index="categoryDescription"],
+          .ant-table-thead > tr > th[data-index="categoryDescription"] {
+            font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            font-variant-numeric: normal;
+            font-size: 14px;
           }
         `}
       </style>
