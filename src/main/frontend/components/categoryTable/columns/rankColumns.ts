@@ -8,6 +8,7 @@
  * Uses a generic column generator to eliminate code duplication.
  */
 
+import React from 'react';
 import type { ColumnsType } from 'antd/es/table';
 import type { CategoryAnalysisResultWithRank } from '../utils/rankCalculation';
 import { formatHeader } from '../utils/headerFormatting';
@@ -17,7 +18,7 @@ import { formatHeader } from '../utils/headerFormatting';
  */
 interface RankColumnConfig {
   /** Display title for the column group */
-  title: string;
+  title: React.ReactElement;
   /** Prefix for the rank property names (e.g., 'rankByBmd', 'rankByBmdl') */
   propertyPrefix: string;
 }
@@ -27,7 +28,7 @@ interface RankColumnConfig {
  */
 interface RankSubColumn {
   /** Display title for the column */
-  title: string;
+  title: React.ReactElement;
   /** Property suffix (e.g., 'Mean', 'Median', 'Minimum', 'WMean') */
   propertySuffix: string;
 }

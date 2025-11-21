@@ -7,6 +7,7 @@
  * Uses generic column generators to eliminate code duplication across BMD types.
  */
 
+import React from 'react';
 import type { ColumnsType } from 'antd/es/table';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import { formatNumber } from '../utils/formatters';
@@ -17,7 +18,7 @@ import { formatHeader } from '../utils/headerFormatting';
  */
 interface StatColumnConfig {
   key: string;
-  title: string;
+  title: React.ReactElement;
   suffix: string;
   width?: number;
 }
