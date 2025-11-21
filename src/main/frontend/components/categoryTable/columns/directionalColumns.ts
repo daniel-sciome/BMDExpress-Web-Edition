@@ -11,6 +11,7 @@
 import type { ColumnsType } from 'antd/es/table';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import { formatNumber } from '../utils/formatters';
+import { formatHeader } from '../utils/headerFormatting';
 
 /**
  * Configuration for directional column statistics
@@ -26,15 +27,15 @@ interface DirectionalStatConfig {
  * Standard statistics to display for directional analysis
  */
 const DIRECTIONAL_STATS: DirectionalStatConfig[] = [
-  { key: 'bmdMean', title: 'BMD Mean', statType: 'Mean', bmdType: 'BMD' },
-  { key: 'bmdMedian', title: 'BMD Median', statType: 'Median', bmdType: 'BMD' },
-  { key: 'bmdSD', title: 'BMD SD', statType: 'SD', bmdType: 'BMD' },
-  { key: 'bmdlMean', title: 'BMDL Mean', statType: 'Mean', bmdType: 'BMDL' },
-  { key: 'bmdlMedian', title: 'BMDL Median', statType: 'Median', bmdType: 'BMDL' },
-  { key: 'bmdlSD', title: 'BMDL SD', statType: 'SD', bmdType: 'BMDL' },
-  { key: 'bmduMean', title: 'BMDU Mean', statType: 'Mean', bmdType: 'BMDU' },
-  { key: 'bmduMedian', title: 'BMDU Median', statType: 'Median', bmdType: 'BMDU' },
-  { key: 'bmduSD', title: 'BMDU SD', statType: 'SD', bmdType: 'BMDU' },
+  { key: 'bmdMean', title: formatHeader('BMD Mean'), statType: 'Mean', bmdType: 'BMD' },
+  { key: 'bmdMedian', title: formatHeader('BMD Median'), statType: 'Median', bmdType: 'BMD' },
+  { key: 'bmdSD', title: formatHeader('BMD SD'), statType: 'SD', bmdType: 'BMD' },
+  { key: 'bmdlMean', title: formatHeader('BMDL Mean'), statType: 'Mean', bmdType: 'BMDL' },
+  { key: 'bmdlMedian', title: formatHeader('BMDL Median'), statType: 'Median', bmdType: 'BMDL' },
+  { key: 'bmdlSD', title: formatHeader('BMDL SD'), statType: 'SD', bmdType: 'BMDL' },
+  { key: 'bmduMean', title: formatHeader('BMDU Mean'), statType: 'Mean', bmdType: 'BMDU' },
+  { key: 'bmduMedian', title: formatHeader('BMDU Median'), statType: 'Median', bmdType: 'BMDU' },
+  { key: 'bmduSD', title: formatHeader('BMDU SD'), statType: 'SD', bmdType: 'BMDU' },
 ];
 
 /**
@@ -150,7 +151,7 @@ export function getDirectionalAnalysisColumns(
   // Map of column keys to their definitions
   const allColumns: Record<string, any> = {
     overallDirection: {
-      title: 'Overall Direction',
+      title: formatHeader('Overall Direction'),
       dataIndex: 'overallDirection',
       key: 'overallDirection',
       width: 60,
@@ -158,7 +159,7 @@ export function getDirectionalAnalysisColumns(
       sorter: (a, b) => (a.overallDirection || '').localeCompare(b.overallDirection || ''),
     },
     percentUP: {
-      title: '% UP',
+      title: formatHeader('% UP'),
       dataIndex: 'percentWithOverallDirectionUP',
       key: 'percentWithOverallDirectionUP',
       width: 45,
@@ -167,7 +168,7 @@ export function getDirectionalAnalysisColumns(
       sorter: (a, b) => (a.percentWithOverallDirectionUP || 0) - (b.percentWithOverallDirectionUP || 0),
     },
     percentDOWN: {
-      title: '% DOWN',
+      title: formatHeader('% DOWN'),
       dataIndex: 'percentWithOverallDirectionDOWN',
       key: 'percentWithOverallDirectionDOWN',
       width: 45,
@@ -176,7 +177,7 @@ export function getDirectionalAnalysisColumns(
       sorter: (a, b) => (a.percentWithOverallDirectionDOWN || 0) - (b.percentWithOverallDirectionDOWN || 0),
     },
     percentConflict: {
-      title: '% Conflict',
+      title: formatHeader('% Conflict'),
       dataIndex: 'percentWithOverallDirectionConflict',
       key: 'percentWithOverallDirectionConflict',
       width: 45,
@@ -190,7 +191,7 @@ export function getDirectionalAnalysisColumns(
   if (!visibleColumns) {
     return [
       {
-        title: 'Directional Analysis',
+        title: formatHeader('Directional Analysis'),
         children: Object.values(allColumns),
       },
     ];
@@ -208,7 +209,7 @@ export function getDirectionalAnalysisColumns(
 
   return [
     {
-      title: 'Directional Analysis',
+      title: formatHeader('Directional Analysis'),
       children: visibleChildren,
     },
   ];

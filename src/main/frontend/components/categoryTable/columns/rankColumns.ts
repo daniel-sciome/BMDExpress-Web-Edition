@@ -10,6 +10,7 @@
 
 import type { ColumnsType } from 'antd/es/table';
 import type { CategoryAnalysisResultWithRank } from '../utils/rankCalculation';
+import { formatHeader } from '../utils/headerFormatting';
 
 /**
  * Configuration for a rank column group
@@ -35,10 +36,10 @@ interface RankSubColumn {
  * Reusable sub-column definitions for all rank groups
  */
 const RANK_SUB_COLUMNS: RankSubColumn[] = [
-  { title: 'Mean', propertySuffix: 'Mean' },
-  { title: 'Median', propertySuffix: 'Median' },
-  { title: 'Min', propertySuffix: 'Minimum' },
-  { title: 'W.Mean', propertySuffix: 'WMean' },
+  { title: formatHeader('Mean'), propertySuffix: 'Mean' },
+  { title: formatHeader('Median'), propertySuffix: 'Median' },
+  { title: formatHeader('Min'), propertySuffix: 'Minimum' },
+  { title: formatHeader('W.Mean'), propertySuffix: 'WMean' },
 ];
 
 /**
@@ -82,7 +83,7 @@ function createRankColumns(config: RankColumnConfig): ColumnsType<CategoryAnalys
  */
 export function getBMDRankColumns(): ColumnsType<CategoryAnalysisResultWithRank> {
   return createRankColumns({
-    title: 'BMD Ranks',
+    title: formatHeader('BMD Ranks'),
     propertyPrefix: 'rankByBmd',
   });
 }
@@ -96,7 +97,7 @@ export function getBMDRankColumns(): ColumnsType<CategoryAnalysisResultWithRank>
  */
 export function getBMDLRankColumns(): ColumnsType<CategoryAnalysisResultWithRank> {
   return createRankColumns({
-    title: 'BMDL Ranks',
+    title: formatHeader('BMDL Ranks'),
     propertyPrefix: 'rankByBmdl',
   });
 }
@@ -110,7 +111,7 @@ export function getBMDLRankColumns(): ColumnsType<CategoryAnalysisResultWithRank
  */
 export function getBMDURankColumns(): ColumnsType<CategoryAnalysisResultWithRank> {
   return createRankColumns({
-    title: 'BMDU Ranks',
+    title: formatHeader('BMDU Ranks'),
     propertyPrefix: 'rankByBmdu',
   });
 }

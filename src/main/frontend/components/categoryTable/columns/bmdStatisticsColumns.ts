@@ -10,6 +10,7 @@
 import type { ColumnsType } from 'antd/es/table';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import { formatNumber } from '../utils/formatters';
+import { formatHeader } from '../utils/headerFormatting';
 
 /**
  * Configuration for a statistics column
@@ -25,18 +26,18 @@ interface StatColumnConfig {
  * Configuration for extended statistics columns
  */
 const EXTENDED_STATS: StatColumnConfig[] = [
-  { key: 'min', title: 'Min', suffix: 'Minimum', width: 55 },
-  { key: 'sd', title: 'SD', suffix: 'SD', width: 55 },
-  { key: 'wmean', title: 'Weighted Mean', suffix: 'WMean', width: 60 },
-  { key: 'wsd', title: 'Weighted SD', suffix: 'WSD', width: 60 },
+  { key: 'min', title: formatHeader('Min'), suffix: 'Minimum', width: 55 },
+  { key: 'sd', title: formatHeader('SD'), suffix: 'SD', width: 55 },
+  { key: 'wmean', title: formatHeader('Weighted Mean'), suffix: 'WMean', width: 60 },
+  { key: 'wsd', title: formatHeader('Weighted SD'), suffix: 'WSD', width: 60 },
 ];
 
 /**
  * Configuration for confidence interval columns
  */
 const CONFIDENCE_STATS: StatColumnConfig[] = [
-  { key: 'lower', title: 'Lower', suffix: 'Lower95', width: 55 },
-  { key: 'upper', title: 'Upper', suffix: 'Upper95', width: 55 },
+  { key: 'lower', title: formatHeader('Lower'), suffix: 'Lower95', width: 55 },
+  { key: 'upper', title: formatHeader('Upper'), suffix: 'Upper95', width: 55 },
 ];
 
 /**
@@ -117,10 +118,10 @@ function createConfidenceColumns(
 export function getBMDEssentialColumns(): ColumnsType<CategoryAnalysisResultDto> {
   return [
     {
-      title: 'BMD Statistics',
+      title: formatHeader('BMD Statistics'),
       children: [
         {
-          title: 'Mean',
+          title: formatHeader('Mean'),
           dataIndex: 'bmdMean',
           key: 'bmdMean',
           width: 55,
@@ -129,7 +130,7 @@ export function getBMDEssentialColumns(): ColumnsType<CategoryAnalysisResultDto>
           sorter: (a, b) => (a.bmdMean || 0) - (b.bmdMean || 0),
         },
         {
-          title: 'Median',
+          title: formatHeader('Median'),
           dataIndex: 'bmdMedian',
           key: 'bmdMedian',
           width: 55,
@@ -179,10 +180,10 @@ export function getBMDLColumns(): ColumnsType<CategoryAnalysisResultDto> {
 
   return [
     {
-      title: 'BMDL Statistics',
+      title: formatHeader('BMDL Statistics'),
       children: [
         {
-          title: 'Mean',
+          title: formatHeader('Mean'),
           dataIndex: 'bmdlMean',
           key: 'bmdlMean',
           width: 55,
@@ -191,7 +192,7 @@ export function getBMDLColumns(): ColumnsType<CategoryAnalysisResultDto> {
           sorter: (a, b) => (a.bmdlMean || 0) - (b.bmdlMean || 0),
         },
         {
-          title: 'Median',
+          title: formatHeader('Median'),
           dataIndex: 'bmdlMedian',
           key: 'bmdlMedian',
           width: 55,
@@ -230,10 +231,10 @@ export function getBMDUColumns(): ColumnsType<CategoryAnalysisResultDto> {
 
   return [
     {
-      title: 'BMDU Statistics',
+      title: formatHeader('BMDU Statistics'),
       children: [
         {
-          title: 'Mean',
+          title: formatHeader('Mean'),
           dataIndex: 'bmduMean',
           key: 'bmduMean',
           width: 55,
@@ -242,7 +243,7 @@ export function getBMDUColumns(): ColumnsType<CategoryAnalysisResultDto> {
           sorter: (a, b) => (a.bmduMean || 0) - (b.bmduMean || 0),
         },
         {
-          title: 'Median',
+          title: formatHeader('Median'),
           dataIndex: 'bmduMedian',
           key: 'bmduMedian',
           width: 55,

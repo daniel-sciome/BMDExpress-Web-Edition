@@ -10,6 +10,7 @@
 import type { ColumnsType } from 'antd/es/table';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import { formatNumber } from '../utils/formatters';
+import { formatHeader } from '../utils/headerFormatting';
 
 /**
  * Configuration for statistics columns
@@ -24,10 +25,10 @@ interface StatsConfig {
  * Standard statistics to display (min, median, max, mean)
  */
 const STANDARD_STATS: StatsConfig[] = [
-  { key: 'min', title: 'Min', suffix: '' },
-  { key: 'median', title: 'Median', suffix: '' },
-  { key: 'max', title: 'Max', suffix: '' },
-  { key: 'mean', title: 'Mean', suffix: '' },
+  { key: 'min', title: formatHeader('Min'), suffix: '' },
+  { key: 'median', title: formatHeader('Median'), suffix: '' },
+  { key: 'max', title: formatHeader('Max'), suffix: '' },
+  { key: 'mean', title: formatHeader('Mean'), suffix: '' },
 ];
 
 /**
@@ -142,7 +143,7 @@ export function getGeneListsColumns(
   // Map of column keys to their definitions
   const allColumns: Record<string, any> = {
     genes: {
-      title: 'Genes',
+      title: formatHeader('Genes'),
       dataIndex: 'genes',
       key: 'genes',
       width: 100,
@@ -150,7 +151,7 @@ export function getGeneListsColumns(
       sorter: (a, b) => (a.genes || '').localeCompare(b.genes || ''),
     },
     geneSymbols: {
-      title: 'Gene Symbols',
+      title: formatHeader('Gene Symbols'),
       dataIndex: 'geneSymbols',
       key: 'geneSymbols',
       width: 100,
@@ -158,7 +159,7 @@ export function getGeneListsColumns(
       sorter: (a, b) => (a.geneSymbols || '').localeCompare(b.geneSymbols || ''),
     },
     bmdList: {
-      title: 'BMD List',
+      title: formatHeader('BMD List'),
       dataIndex: 'bmdList',
       key: 'bmdList',
       width: 100,
@@ -166,7 +167,7 @@ export function getGeneListsColumns(
       sorter: (a, b) => (a.bmdList || '').localeCompare(b.bmdList || ''),
     },
     bmdlList: {
-      title: 'BMDL List',
+      title: formatHeader('BMDL List'),
       dataIndex: 'bmdlList',
       key: 'bmdlList',
       width: 100,
@@ -174,7 +175,7 @@ export function getGeneListsColumns(
       sorter: (a, b) => (a.bmdlList || '').localeCompare(b.bmdlList || ''),
     },
     bmduList: {
-      title: 'BMDU List',
+      title: formatHeader('BMDU List'),
       dataIndex: 'bmduList',
       key: 'bmduList',
       width: 100,
@@ -187,7 +188,7 @@ export function getGeneListsColumns(
   if (!visibleColumns) {
     return [
       {
-        title: 'Gene Lists',
+        title: formatHeader('Gene Lists'),
         children: Object.values(allColumns),
       },
     ];
@@ -205,7 +206,7 @@ export function getGeneListsColumns(
 
   return [
     {
-      title: 'Gene Lists',
+      title: formatHeader('Gene Lists'),
       children: visibleChildren,
     },
   ];

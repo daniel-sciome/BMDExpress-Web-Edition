@@ -9,6 +9,7 @@ import type { ColumnsType } from 'antd/es/table';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import { formatNumber } from '../utils/formatters';
 import type { PaddingMap } from '../utils/numberPadding';
+import { formatHeader } from '../utils/headerFormatting';
 
 /**
  * Get the gene count columns
@@ -28,7 +29,7 @@ export function getGeneCountsColumns(
   // Map of column keys to their definitions
   const allColumns: Record<string, any> = {
     genesPassed: {
-      title: 'Genes (Passed)',
+      title: formatHeader('Genes (Passed)'),
       dataIndex: 'genesThatPassedAllFilters',
       key: 'genesThatPassedAllFilters',
       width: 55,
@@ -37,7 +38,7 @@ export function getGeneCountsColumns(
       sorter: (a, b) => (a.genesThatPassedAllFilters || 0) - (b.genesThatPassedAllFilters || 0),
     },
     allGenes: {
-      title: 'All Genes',
+      title: formatHeader('All Genes'),
       dataIndex: 'geneAllCount',
       key: 'geneAllCount',
       width: 50,
@@ -46,10 +47,10 @@ export function getGeneCountsColumns(
       sorter: (a, b) => (a.geneAllCount || 0) - (b.geneAllCount || 0),
     },
     percentage: {
-      title: '%',
+      title: formatHeader('Percentage'),
       dataIndex: 'percentage',
       key: 'percentage',
-      width: 40,
+      width: 70,
       align: 'center' as const,
       render: (value: number) => formatNumber(value, 2, paddingMap?.['percentage']),
       sorter: (a, b) => (a.percentage || 0) - (b.percentage || 0),
@@ -60,7 +61,7 @@ export function getGeneCountsColumns(
   if (!visibleColumns) {
     return [
       {
-        title: 'Gene Counts',
+        title: formatHeader('Gene Counts'),
         align: 'center' as const,
         children: Object.values(allColumns),
       },
@@ -79,7 +80,7 @@ export function getGeneCountsColumns(
 
   return [
     {
-      title: 'Gene Counts',
+      title: formatHeader('Gene Counts'),
       align: 'center' as const,
       children: visibleChildren,
     },
@@ -98,11 +99,11 @@ export function getGeneCountsColumns(
 export function getSignificantANOVAColumn(paddingMap?: PaddingMap): ColumnsType<CategoryAnalysisResultDto> {
   return [
     {
-      title: 'ANOVA',
+      title: formatHeader('ANOVA'),
       align: 'center',
       children: [
         {
-          title: 'Significant Count',
+          title: formatHeader('Significant Count'),
           dataIndex: 'geneCountSignificantANOVA',
           key: 'geneCountSignificantANOVA',
           width: 170,

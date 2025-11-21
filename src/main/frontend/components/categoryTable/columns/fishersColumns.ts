@@ -8,6 +8,7 @@
 import type { ColumnsType } from 'antd/es/table';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import { formatPValue } from '../utils/formatters';
+import { formatHeader } from '../utils/headerFormatting';
 
 /**
  * Get the essential Fisher's Exact Test column (Two-Tail P-Value only)
@@ -20,11 +21,11 @@ import { formatPValue } from '../utils/formatters';
 export function getFishersEssentialColumn(): ColumnsType<CategoryAnalysisResultDto> {
   return [
     {
-      title: "Fisher's Test",
+      title: formatHeader("Fisher's Test"),
       align: 'center',
       children: [
         {
-          title: 'Two-Tail P',
+          title: formatHeader('Two-Tail P'),
           dataIndex: 'fishersExactTwoTailPValue',
           key: 'fishersExactTwoTailPValue',
           width: 55,
@@ -50,11 +51,11 @@ export function getFishersEssentialColumn(): ColumnsType<CategoryAnalysisResultD
 export function getFishersFullColumns(): ColumnsType<CategoryAnalysisResultDto> {
   return [
     {
-      title: "Fisher's Exact Test (Full)",
+      title: formatHeader("Fisher's Exact Test (Full)"),
       align: 'center',
       children: [
         {
-          title: 'A',
+          title: formatHeader('A'),
           dataIndex: 'fishersA',
           key: 'fishersA',
           width: 40,
@@ -62,7 +63,7 @@ export function getFishersFullColumns(): ColumnsType<CategoryAnalysisResultDto> 
           sorter: (a, b) => (a.fishersA || 0) - (b.fishersA || 0),
         },
         {
-          title: 'B',
+          title: formatHeader('B'),
           dataIndex: 'fishersB',
           key: 'fishersB',
           width: 40,
@@ -70,7 +71,7 @@ export function getFishersFullColumns(): ColumnsType<CategoryAnalysisResultDto> 
           sorter: (a, b) => (a.fishersB || 0) - (b.fishersB || 0),
         },
         {
-          title: 'C',
+          title: formatHeader('C'),
           dataIndex: 'fishersC',
           key: 'fishersC',
           width: 40,
@@ -78,7 +79,7 @@ export function getFishersFullColumns(): ColumnsType<CategoryAnalysisResultDto> 
           sorter: (a, b) => (a.fishersC || 0) - (b.fishersC || 0),
         },
         {
-          title: 'D',
+          title: formatHeader('D'),
           dataIndex: 'fishersD',
           key: 'fishersD',
           width: 40,
@@ -86,7 +87,7 @@ export function getFishersFullColumns(): ColumnsType<CategoryAnalysisResultDto> 
           sorter: (a, b) => (a.fishersD || 0) - (b.fishersD || 0),
         },
         {
-          title: 'Left P',
+          title: formatHeader('Left P'),
           dataIndex: 'fishersExactLeftPValue',
           key: 'fishersExactLeftPValue',
           width: 55,
@@ -95,7 +96,7 @@ export function getFishersFullColumns(): ColumnsType<CategoryAnalysisResultDto> 
           sorter: (a, b) => (a.fishersExactLeftPValue || 0) - (b.fishersExactLeftPValue || 0),
         },
         {
-          title: 'Right P',
+          title: formatHeader('Right P'),
           dataIndex: 'fishersExactRightPValue',
           key: 'fishersExactRightPValue',
           width: 55,
