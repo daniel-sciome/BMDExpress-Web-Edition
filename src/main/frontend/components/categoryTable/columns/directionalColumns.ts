@@ -8,6 +8,7 @@
  * Uses a generic column generator to eliminate code duplication.
  */
 
+import React from 'react';
 import type { ColumnsType } from 'antd/es/table';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import { formatNumber } from '../utils/formatters';
@@ -18,7 +19,7 @@ import { formatHeader } from '../utils/headerFormatting';
  */
 interface DirectionalStatConfig {
   key: string;
-  title: string;
+  title: React.ReactElement;
   statType: 'Mean' | 'Median' | 'SD';
   bmdType: 'BMD' | 'BMDL' | 'BMDU';
 }

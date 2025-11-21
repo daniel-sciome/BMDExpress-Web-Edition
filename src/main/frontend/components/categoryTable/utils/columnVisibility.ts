@@ -89,14 +89,14 @@ export function loadColumnVisibility(): ColumnVisibility {
   const saved = localStorage.getItem(COLUMN_VISIBILITY_STORAGE_KEY);
 
   if (!saved) {
-    return { ...DEFAULT_COLUMN_VISIBILITY };
+    return JSON.parse(JSON.stringify(DEFAULT_COLUMN_VISIBILITY));
   }
 
   try {
     const parsed = JSON.parse(saved);
 
-    // Start with defaults
-    const merged: ColumnVisibility = { ...DEFAULT_COLUMN_VISIBILITY };
+    // Start with deep clone of defaults to avoid type issues
+    const merged: ColumnVisibility = JSON.parse(JSON.stringify(DEFAULT_COLUMN_VISIBILITY));
 
     // Merge simple boolean columns
     mergeSimpleBooleanFields(parsed, merged);
@@ -107,7 +107,7 @@ export function loadColumnVisibility(): ColumnVisibility {
     return merged;
   } catch (e) {
     console.error('Failed to parse saved column visibility:', e);
-    return { ...DEFAULT_COLUMN_VISIBILITY };
+    return JSON.parse(JSON.stringify(DEFAULT_COLUMN_VISIBILITY));
   }
 }
 
@@ -130,7 +130,7 @@ export function saveColumnVisibility(visibility: ColumnVisibility): void {
  * @returns Default column visibility settings
  */
 export function resetColumnVisibility(): ColumnVisibility {
-  const defaults = { ...DEFAULT_COLUMN_VISIBILITY };
+  const defaults: ColumnVisibility = JSON.parse(JSON.stringify(DEFAULT_COLUMN_VISIBILITY));
   saveColumnVisibility(defaults);
   return defaults;
 }
@@ -179,7 +179,7 @@ export function toggleColumnGroup(
  * @returns Visibility settings with all columns visible
  */
 export function showAllColumns(): ColumnVisibility {
-  const result = { ...DEFAULT_COLUMN_VISIBILITY };
+  const result: ColumnVisibility = JSON.parse(JSON.stringify(DEFAULT_COLUMN_VISIBILITY));
 
   // Set all simple boolean columns to true
   SIMPLE_BOOLEAN_FIELDS.forEach(fieldName => {
@@ -188,11 +188,9 @@ export function showAllColumns(): ColumnVisibility {
 
   // Set all column groups to show all columns
   COLUMN_GROUP_FIELDS.forEach(fieldName => {
-    const defaultGroup = DEFAULT_COLUMN_VISIBILITY[fieldName] as ColumnGroup<any>;
-    (result[fieldName] as ColumnGroup<any>) = {
-      all: true,
-      columns: defaultGroup.columns,
-    };
+    const group = result[fieldName] as ColumnGroup<any>;
+    group.all = true;
+    // Columns are already deep cloned from DEFAULT
   });
 
   return result;
