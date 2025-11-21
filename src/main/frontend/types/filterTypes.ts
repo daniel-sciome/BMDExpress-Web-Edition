@@ -176,3 +176,18 @@ export interface OperatorMetadata {
   requiresValue: boolean;
   requiresMaxValue: boolean; // For range operators like 'between'
 }
+
+/**
+ * Filter relevance classification
+ *
+ * Different analysis types have different relevant filters. See filterRelevance.ts
+ * for utilities to determine which filters are meaningful for different category types
+ * (GENE vs GO vs pathway, etc.)
+ */
+export type { AnalysisType } from '../utils/filterRelevance';
+export {
+  getRelevantFilters,
+  isFilterRelevant,
+  getFilterRelevanceExplanation,
+  getRelevantFiltersByCategory,
+} from '../utils/filterRelevance';
