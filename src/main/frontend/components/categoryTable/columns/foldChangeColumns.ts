@@ -8,6 +8,7 @@
 import type { ColumnsType } from 'antd/es/table';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import { formatNumber } from '../utils/formatters';
+import { formatHeader } from '../utils/headerFormatting';
 
 /**
  * Get the fold change statistics columns
@@ -24,7 +25,7 @@ export function getFoldChangeColumns(
   // Map of column keys to their definitions
   const allColumns: Record<string, any> = {
     total: {
-      title: 'Total',
+      title: formatHeader('Total'),
       dataIndex: 'totalFoldChange',
       key: 'totalFoldChange',
       width: 50,
@@ -33,7 +34,7 @@ export function getFoldChangeColumns(
       sorter: (a, b) => (a.totalFoldChange || 0) - (b.totalFoldChange || 0),
     },
     mean: {
-      title: 'Mean',
+      title: formatHeader('Mean'),
       dataIndex: 'meanFoldChange',
       key: 'meanFoldChange',
       width: 50,
@@ -42,7 +43,7 @@ export function getFoldChangeColumns(
       sorter: (a, b) => (a.meanFoldChange || 0) - (b.meanFoldChange || 0),
     },
     median: {
-      title: 'Median',
+      title: formatHeader('Median'),
       dataIndex: 'medianFoldChange',
       key: 'medianFoldChange',
       width: 50,
@@ -51,7 +52,7 @@ export function getFoldChangeColumns(
       sorter: (a, b) => (a.medianFoldChange || 0) - (b.medianFoldChange || 0),
     },
     max: {
-      title: 'Max',
+      title: formatHeader('Max'),
       dataIndex: 'maxFoldChange',
       key: 'maxFoldChange',
       width: 50,
@@ -60,7 +61,7 @@ export function getFoldChangeColumns(
       sorter: (a, b) => (a.maxFoldChange || 0) - (b.maxFoldChange || 0),
     },
     min: {
-      title: 'Min',
+      title: formatHeader('Min'),
       dataIndex: 'minFoldChange',
       key: 'minFoldChange',
       width: 50,
@@ -69,7 +70,7 @@ export function getFoldChangeColumns(
       sorter: (a, b) => (a.minFoldChange || 0) - (b.minFoldChange || 0),
     },
     stdDev: {
-      title: 'Std Dev',
+      title: formatHeader('Std Dev'),
       dataIndex: 'stdDevFoldChange',
       key: 'stdDevFoldChange',
       width: 50,
@@ -83,7 +84,7 @@ export function getFoldChangeColumns(
   if (!visibleColumns) {
     return [
       {
-        title: 'Fold Change Statistics',
+        title: formatHeader('Fold Change Statistics'),
         children: Object.values(allColumns),
       },
     ];
@@ -101,7 +102,7 @@ export function getFoldChangeColumns(
 
   return [
     {
-      title: 'Fold Change Statistics',
+      title: formatHeader('Fold Change Statistics'),
       children: visibleChildren,
     },
   ];

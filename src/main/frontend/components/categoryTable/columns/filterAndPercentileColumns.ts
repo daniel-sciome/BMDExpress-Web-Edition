@@ -8,6 +8,7 @@
 import type { ColumnsType } from 'antd/es/table';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import { formatNumber } from '../utils/formatters';
+import { formatHeader } from '../utils/headerFormatting';
 
 /**
  * Get the filter counts columns
@@ -30,7 +31,7 @@ export function getFilterCountsColumns(
   // Map of column keys to their definitions
   const allColumns: Record<string, any> = {
     bmdLessEqualHighDose: {
-      title: 'BMD ≤ High Dose',
+      title: formatHeader('BMD ≤ High Dose'),
       dataIndex: 'genesWithBMDLessEqualHighDose',
       key: 'genesWithBMDLessEqualHighDose',
       width: 60,
@@ -38,7 +39,7 @@ export function getFilterCountsColumns(
       sorter: (a, b) => (a.genesWithBMDLessEqualHighDose || 0) - (b.genesWithBMDLessEqualHighDose || 0),
     },
     bmdPValueGreaterEqual: {
-      title: 'BMD P-Value ≥',
+      title: formatHeader('BMD P-Value ≥'),
       dataIndex: 'genesWithBMDpValueGreaterEqualValue',
       key: 'genesWithBMDpValueGreaterEqualValue',
       width: 55,
@@ -46,7 +47,7 @@ export function getFilterCountsColumns(
       sorter: (a, b) => (a.genesWithBMDpValueGreaterEqualValue || 0) - (b.genesWithBMDpValueGreaterEqualValue || 0),
     },
     foldChangeAbove: {
-      title: 'Fold Change ≥',
+      title: formatHeader('Fold Change ≥'),
       dataIndex: 'genesWithFoldChangeAboveValue',
       key: 'genesWithFoldChangeAboveValue',
       width: 50,
@@ -54,7 +55,7 @@ export function getFilterCountsColumns(
       sorter: (a, b) => (a.genesWithFoldChangeAboveValue || 0) - (b.genesWithFoldChangeAboveValue || 0),
     },
     rSquared: {
-      title: 'R² ≥',
+      title: formatHeader('R² ≥'),
       dataIndex: 'genesWithBMDRSquaredValueGreaterEqualValue',
       key: 'genesWithBMDRSquaredValueGreaterEqualValue',
       width: 45,
@@ -62,7 +63,7 @@ export function getFilterCountsColumns(
       sorter: (a, b) => (a.genesWithBMDRSquaredValueGreaterEqualValue || 0) - (b.genesWithBMDRSquaredValueGreaterEqualValue || 0),
     },
     bmdBmdlRatio: {
-      title: 'BMD/BMDL <',
+      title: formatHeader('BMD/BMDL <'),
       dataIndex: 'genesWithBMDBMDLRatioBelowValue',
       key: 'genesWithBMDBMDLRatioBelowValue',
       width: 50,
@@ -70,7 +71,7 @@ export function getFilterCountsColumns(
       sorter: (a, b) => (a.genesWithBMDBMDLRatioBelowValue || 0) - (b.genesWithBMDBMDLRatioBelowValue || 0),
     },
     bmduBmdlRatio: {
-      title: 'BMDU/BMDL <',
+      title: formatHeader('BMDU/BMDL <'),
       dataIndex: 'genesWithBMDUBMDLRatioBelowValue',
       key: 'genesWithBMDUBMDLRatioBelowValue',
       width: 55,
@@ -78,7 +79,7 @@ export function getFilterCountsColumns(
       sorter: (a, b) => (a.genesWithBMDUBMDLRatioBelowValue || 0) - (b.genesWithBMDUBMDLRatioBelowValue || 0),
     },
     bmduBmdRatio: {
-      title: 'BMDU/BMD <',
+      title: formatHeader('BMDU/BMD <'),
       dataIndex: 'genesWithBMDUBMDRatioBelowValue',
       key: 'genesWithBMDUBMDRatioBelowValue',
       width: 50,
@@ -86,7 +87,7 @@ export function getFilterCountsColumns(
       sorter: (a, b) => (a.genesWithBMDUBMDRatioBelowValue || 0) - (b.genesWithBMDUBMDRatioBelowValue || 0),
     },
     nFoldBelow: {
-      title: 'N-Fold Below',
+      title: formatHeader('N-Fold Below'),
       dataIndex: 'genesWithNFoldBelowLowPostiveDoseValue',
       key: 'genesWithNFoldBelowLowPostiveDoseValue',
       width: 50,
@@ -94,7 +95,7 @@ export function getFilterCountsColumns(
       sorter: (a, b) => (a.genesWithNFoldBelowLowPostiveDoseValue || 0) - (b.genesWithNFoldBelowLowPostiveDoseValue || 0),
     },
     prefilterPValue: {
-      title: 'Pre-P ≥',
+      title: formatHeader('Pre-P ≥'),
       dataIndex: 'genesWithPrefilterPValueAboveValue',
       key: 'genesWithPrefilterPValueAboveValue',
       width: 45,
@@ -102,7 +103,7 @@ export function getFilterCountsColumns(
       sorter: (a, b) => (a.genesWithPrefilterPValueAboveValue || 0) - (b.genesWithPrefilterPValueAboveValue || 0),
     },
     prefilterAdjustedPValue: {
-      title: 'Pre-Adj-P ≥',
+      title: formatHeader('Pre-Adj-P ≥'),
       dataIndex: 'genesWithPrefilterAdjustedPValueAboveValue',
       key: 'genesWithPrefilterAdjustedPValueAboveValue',
       width: 55,
@@ -110,7 +111,7 @@ export function getFilterCountsColumns(
       sorter: (a, b) => (a.genesWithPrefilterAdjustedPValueAboveValue || 0) - (b.genesWithPrefilterAdjustedPValueAboveValue || 0),
     },
     notStepFunction: {
-      title: 'Not Step Fn',
+      title: formatHeader('Not Step Fn'),
       dataIndex: 'genesNotStepFunction',
       key: 'genesNotStepFunction',
       width: 50,
@@ -118,7 +119,7 @@ export function getFilterCountsColumns(
       sorter: (a, b) => (a.genesNotStepFunction || 0) - (b.genesNotStepFunction || 0),
     },
     notStepFunctionBMDL: {
-      title: 'Not Step (BMDL)',
+      title: formatHeader('Not Step (BMDL)'),
       dataIndex: 'genesNotStepFunctionWithBMDLower',
       key: 'genesNotStepFunctionWithBMDLower',
       width: 60,
@@ -126,7 +127,7 @@ export function getFilterCountsColumns(
       sorter: (a, b) => (a.genesNotStepFunctionWithBMDLower || 0) - (b.genesNotStepFunctionWithBMDLower || 0),
     },
     notAdverse: {
-      title: 'Not Adverse',
+      title: formatHeader('Not Adverse'),
       dataIndex: 'genesNotAdverseDirection',
       key: 'genesNotAdverseDirection',
       width: 50,
@@ -134,7 +135,7 @@ export function getFilterCountsColumns(
       sorter: (a, b) => (a.genesNotAdverseDirection || 0) - (b.genesNotAdverseDirection || 0),
     },
     absZScore: {
-      title: 'ABS Z-Score ≥',
+      title: formatHeader('ABS Z-Score ≥'),
       dataIndex: 'genesWithABSZScoreAboveValue',
       key: 'genesWithABSZScoreAboveValue',
       width: 55,
@@ -142,7 +143,7 @@ export function getFilterCountsColumns(
       sorter: (a, b) => (a.genesWithABSZScoreAboveValue || 0) - (b.genesWithABSZScoreAboveValue || 0),
     },
     absModelFC: {
-      title: 'ABS Model FC ≥',
+      title: formatHeader('ABS Model FC ≥'),
       dataIndex: 'genesWithABSModelFCAboveValue',
       key: 'genesWithABSModelFCAboveValue',
       width: 60,
@@ -155,7 +156,7 @@ export function getFilterCountsColumns(
   if (!visibleColumns) {
     return [
       {
-        title: 'Filter Counts',
+        title: formatHeader('Filter Counts'),
         children: Object.values(allColumns),
       },
     ];
@@ -173,7 +174,7 @@ export function getFilterCountsColumns(
 
   return [
     {
-      title: 'Filter Counts',
+      title: formatHeader('Filter Counts'),
       children: visibleChildren,
     },
   ];
@@ -194,7 +195,7 @@ export function getPercentilesColumns(
   // Map of column keys to their definitions
   const allColumns: Record<string, any> = {
     bmd5th: {
-      title: 'BMD 5th %ile Total Genes',
+      title: formatHeader('BMD 5th %ile Total Genes'),
       dataIndex: 'bmdFifthPercentileTotalGenes',
       key: 'bmdFifthPercentileTotalGenes',
       width: 70,
@@ -202,7 +203,7 @@ export function getPercentilesColumns(
       sorter: (a, b) => (a.bmdFifthPercentileTotalGenes || 0) - (b.bmdFifthPercentileTotalGenes || 0),
     },
     bmd10th: {
-      title: 'BMD 10th %ile Total Genes',
+      title: formatHeader('BMD 10th %ile Total Genes'),
       dataIndex: 'bmdTenthPercentileTotalGenes',
       key: 'bmdTenthPercentileTotalGenes',
       width: 70,
@@ -210,7 +211,7 @@ export function getPercentilesColumns(
       sorter: (a, b) => (a.bmdTenthPercentileTotalGenes || 0) - (b.bmdTenthPercentileTotalGenes || 0),
     },
     bmdl5th: {
-      title: 'BMDL 5th %ile Total Genes',
+      title: formatHeader('BMDL 5th %ile Total Genes'),
       dataIndex: 'bmdlFifthPercentileTotalGenes',
       key: 'bmdlFifthPercentileTotalGenes',
       width: 70,
@@ -218,7 +219,7 @@ export function getPercentilesColumns(
       sorter: (a, b) => (a.bmdlFifthPercentileTotalGenes || 0) - (b.bmdlFifthPercentileTotalGenes || 0),
     },
     bmdl10th: {
-      title: 'BMDL 10th %ile Total Genes',
+      title: formatHeader('BMDL 10th %ile Total Genes'),
       dataIndex: 'bmdlTenthPercentileTotalGenes',
       key: 'bmdlTenthPercentileTotalGenes',
       width: 70,
@@ -226,7 +227,7 @@ export function getPercentilesColumns(
       sorter: (a, b) => (a.bmdlTenthPercentileTotalGenes || 0) - (b.bmdlTenthPercentileTotalGenes || 0),
     },
     bmdu5th: {
-      title: 'BMDU 5th %ile Total Genes',
+      title: formatHeader('BMDU 5th %ile Total Genes'),
       dataIndex: 'bmduFifthPercentileTotalGenes',
       key: 'bmduFifthPercentileTotalGenes',
       width: 70,
@@ -234,7 +235,7 @@ export function getPercentilesColumns(
       sorter: (a, b) => (a.bmduFifthPercentileTotalGenes || 0) - (b.bmduFifthPercentileTotalGenes || 0),
     },
     bmdu10th: {
-      title: 'BMDU 10th %ile Total Genes',
+      title: formatHeader('BMDU 10th %ile Total Genes'),
       dataIndex: 'bmduTenthPercentileTotalGenes',
       key: 'bmduTenthPercentileTotalGenes',
       width: 70,
@@ -247,7 +248,7 @@ export function getPercentilesColumns(
   if (!visibleColumns) {
     return [
       {
-        title: 'Percentile Values',
+        title: formatHeader('Percentile Values'),
         children: Object.values(allColumns),
       },
     ];
@@ -265,7 +266,7 @@ export function getPercentilesColumns(
 
   return [
     {
-      title: 'Percentile Values',
+      title: formatHeader('Percentile Values'),
       children: visibleChildren,
     },
   ];
