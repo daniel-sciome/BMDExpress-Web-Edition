@@ -67,6 +67,8 @@ export default function CategoryResultsGrid() {
   const allData = useAppSelector(selectSortedData);
   const selectedCategoryIds = useAppSelector((state) => state.categoryResults.selectedCategoryIds);
   const viewMode = useAppSelector((state) => state.categoryResults.viewMode);
+  const analysisType = useAppSelector((state) => state.categoryResults.analysisType);
+  const analysisParameters = useAppSelector((state) => state.categoryResults.analysisParameters);
 
   // Phase 7: Selection state from Phase 3 selectors
   const isAnythingSelected = useAppSelector(selectIsAnythingSelected);
@@ -192,8 +194,14 @@ export default function CategoryResultsGrid() {
   const columns: ColumnsType<CategoryAnalysisResultWithRank> = useMemo(() => {
     const cols: ColumnsType<CategoryAnalysisResultWithRank> = [];
 
-    // Always show fixed columns
-    cols.push(...getFixedColumns(viewMode));
+    // Prepare analysis info for dynamic column labels
+    const analysisInfo = {
+      analysisType,
+      analysisParameters,
+    };
+
+    // Always show fixed columns with dynamic labels
+    cols.push(...getFixedColumns(viewMode, analysisInfo));
 
     // Conditionally add column groups based on visibility
     if (columnVisibility.geneCounts.all || Object.values(columnVisibility.geneCounts.columns).some(v => v)) {
@@ -297,7 +305,7 @@ export default function CategoryResultsGrid() {
     }
 
     return cols;
-  }, [columnVisibility, viewMode, paddingMap]);
+  }, [columnVisibility, viewMode, paddingMap, analysisType, analysisParameters]);
 
   // Custom row styles based on selection
   const getRowClassName = (record: CategoryAnalysisResultWithRank) => {
