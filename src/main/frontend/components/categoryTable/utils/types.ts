@@ -300,3 +300,17 @@ export const DEFAULT_COLUMN_VISIBILITY: ColumnVisibility = {
  * localStorage key for persisting column visibility preferences
  */
 export const COLUMN_VISIBILITY_STORAGE_KEY = 'categoryTable_visibleColumns';
+
+/**
+ * Column relevance classification
+ *
+ * Different analysis types have different relevant columns. See columnRelevance.ts
+ * for utilities to filter columns based on analysis type (GENE vs GO vs pathway, etc.)
+ */
+export type { AnalysisType } from './columnRelevance';
+export {
+  getRelevantColumns,
+  isColumnRelevant,
+  filterRelevantColumns,
+  getColumnRelevanceExplanation,
+} from './columnRelevance';
