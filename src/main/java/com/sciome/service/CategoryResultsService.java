@@ -15,6 +15,8 @@ import com.sciome.dto.PathwayInfoDto;
 import com.sciome.dto.VennDiagramDataDto;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -28,6 +30,8 @@ import java.util.stream.Collectors;
 @BrowserCallable
 @AnonymousAllowed
 public class CategoryResultsService {
+
+    private static final Logger logger = LoggerFactory.getLogger(CategoryResultsService.class);
 
     private final ProjectService projectService;
     private final AnalysisNameParser analysisNameParser;
@@ -95,9 +99,48 @@ public class CategoryResultsService {
             return List.of();
         }
 
-        // Convert desktop app objects to DTOs for Hilla
+        // Extract experiment description from the relationship chain:
+        // CategoryAnalysisResults → BMDResult → DoseResponseExperiment → ExperimentDescription
+        com.sciome.dto.ExperimentDescriptionDto experimentDescDto = null;
+        if (categoryResults.getBmdResult() != null &&
+            categoryResults.getBmdResult().getDoseResponseExperiment() != null) {
+            com.sciome.bmdexpress2.mvp.model.info.ExperimentDescription expDesc =
+                categoryResults.getBmdResult().getDoseResponseExperiment().getExperimentDescription();
+            experimentDescDto = com.sciome.dto.ExperimentDescriptionDto.fromDesktopObject(expDesc);
+
+            logger.info("==== EXPERIMENT DESCRIPTION DEBUG ====");
+            logger.info("Project: {}, Category Result: {}", projectId, categoryResultName);
+            if (experimentDescDto != null) {
+                logger.info("ExperimentDescription FOUND:");
+                logger.info("  Test Article: {}", experimentDescDto.getTestArticle());
+                logger.info("  Species: {}", experimentDescDto.getSpecies());
+                logger.info("  Strain: {}", experimentDescDto.getStrain());
+                logger.info("  Sex: {}", experimentDescDto.getSex());
+                logger.info("  Organ: {}", experimentDescDto.getOrgan());
+            } else {
+                logger.info("ExperimentDescription is NULL");
+            }
+            logger.info("======================================");
+        } else {
+            logger.info("==== EXPERIMENT DESCRIPTION DEBUG ====");
+            logger.info("Project: {}, Category Result: {}", projectId, categoryResultName);
+            logger.info("Cannot extract ExperimentDescription - BMDResult or DoseResponseExperiment is null");
+            logger.info("  BMDResult: {}", categoryResults.getBmdResult() != null ? "present" : "NULL");
+            if (categoryResults.getBmdResult() != null) {
+                logger.info("  DoseResponseExperiment: {}",
+                    categoryResults.getBmdResult().getDoseResponseExperiment() != null ? "present" : "NULL");
+            }
+            logger.info("======================================");
+        }
+
+        // Convert desktop app objects to DTOs for Hilla and add experiment description to each
+        final com.sciome.dto.ExperimentDescriptionDto finalExpDesc = experimentDescDto;
         return categoryResults.getCategoryAnalsyisResults().stream()
-                .map(CategoryAnalysisResultDto::fromDesktopObject)
+                .map(result -> {
+                    CategoryAnalysisResultDto dto = CategoryAnalysisResultDto.fromDesktopObject(result);
+                    dto.setExperimentDescription(finalExpDesc);
+                    return dto;
+                })
                 .collect(Collectors.toList());
     }
 
