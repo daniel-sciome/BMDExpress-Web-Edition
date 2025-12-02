@@ -181,26 +181,66 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
       </style>
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         {/* Formatted header with annotation metadata */}
-      {annotation && annotation.parseSuccess ? (
-        <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
-          <h2 style={{ marginBottom: '0.5rem' }}>{annotation.chemical || 'Unknown Chemical'}</h2>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
-            {annotation.sex && (
-              <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {annotation.sex}</Tag>
-            )}
-            {annotation.organ && (
-              <Tag color="green" style={{ fontSize: '13px' }}>Organ: {annotation.organ}</Tag>
-            )}
-            {annotation.species && (
-              <Tag color="orange" style={{ fontSize: '13px' }}>Species: {annotation.species}</Tag>
-            )}
-            {annotation.platform && (
-              <Tag color="cyan" style={{ fontSize: '13px' }}>Platform: {annotation.platform}</Tag>
-            )}
-            {annotation.analysisType && (
-              <Tag color="magenta" style={{ fontSize: '13px' }}>Analysis: {annotation.analysisType}</Tag>
-            )}
-          </div>
+      {(() => {
+        // Extract experiment description from first result (all results share same experiment)
+        const experimentDesc = data.length > 0 ? data[0].experimentDescription : null;
+
+        return annotation && annotation.parseSuccess ? (
+          <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
+            <h2 style={{ marginBottom: '0.5rem' }}>{annotation.chemical || 'Unknown Chemical'}</h2>
+
+            {/* Experiment Description from Project Metadata */}
+            {experimentDesc && (experimentDesc.species || experimentDesc.strain || experimentDesc.sex || experimentDesc.organ || experimentDesc.testArticle) ? (
+              <div style={{ marginBottom: '8px' }}>
+                <div style={{ fontSize: '11px', color: '#52c41a', marginBottom: '4px', fontWeight: 500 }}>
+                  ✓ Experiment Metadata (from project):
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {experimentDesc.testArticle && (
+                    <Tag color="blue" style={{ fontSize: '13px' }}>Test Article: {experimentDesc.testArticle}</Tag>
+                  )}
+                  {experimentDesc.species && (
+                    <Tag color="orange" style={{ fontSize: '13px' }}>Species: {experimentDesc.species}</Tag>
+                  )}
+                  {experimentDesc.strain && (
+                    <Tag color="gold" style={{ fontSize: '13px' }}>Strain: {experimentDesc.strain}</Tag>
+                  )}
+                  {experimentDesc.sex && (
+                    <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {experimentDesc.sex}</Tag>
+                  )}
+                  {experimentDesc.organ && (
+                    <Tag color="green" style={{ fontSize: '13px' }}>Organ: {experimentDesc.organ}</Tag>
+                  )}
+                </div>
+              </div>
+            ) : (annotation.sex || annotation.organ || annotation.species) ? (
+              <div style={{ marginBottom: '8px' }}>
+                <div style={{ fontSize: '11px', color: '#faad14', marginBottom: '4px', fontWeight: 500 }}>
+                  ⚠ Metadata parsed from filename (no project metadata set):
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {annotation.sex && (
+                    <Tag color="default" style={{ fontSize: '13px' }}>Sex: {annotation.sex}</Tag>
+                  )}
+                  {annotation.organ && (
+                    <Tag color="default" style={{ fontSize: '13px' }}>Organ: {annotation.organ}</Tag>
+                  )}
+                  {annotation.species && (
+                    <Tag color="default" style={{ fontSize: '13px' }}>Species: {annotation.species}</Tag>
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Additional Analysis Metadata */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+              {annotation.platform && (
+                <Tag color="cyan" style={{ fontSize: '13px' }}>Platform: {annotation.platform}</Tag>
+              )}
+              {annotation.analysisType && (
+                <Tag color="magenta" style={{ fontSize: '13px' }}>Analysis: {annotation.analysisType}</Tag>
+              )}
+            </div>
           {/* Analysis Parameters - Collapsible */}
           {analysisParameters && analysisParameters.length > 0 && (
             <div style={{ marginBottom: '4px' }}>
@@ -224,18 +264,52 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
               />
             </div>
           )}
-          <p style={{ margin: '0 0 0 0', color: '#888', fontSize: '12px' }}>
-            {data.length} categories | Project: {projectId}
-          </p>
-        </div>
-      ) : (
-        <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
-          <h2 style={{ marginBottom: '0.5rem' }}>Category Results: {resultName}</h2>
-          <p style={{ margin: '0 0 0 0', color: '#666' }}>
-            Project: {projectId} | {data.length} categories
-          </p>
-        </div>
-      )}
+            <p style={{ margin: '0 0 0 0', color: '#888', fontSize: '12px' }}>
+              {data.length} categories | Project: {projectId}
+            </p>
+          </div>
+        ) : (
+          <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
+            <h2 style={{ marginBottom: '0.5rem' }}>Category Results: {resultName}</h2>
+
+            {/* Experiment Description even without annotation */}
+            {experimentDesc && (experimentDesc.species || experimentDesc.strain || experimentDesc.sex || experimentDesc.organ || experimentDesc.testArticle) ? (
+              <div style={{ marginBottom: '8px' }}>
+                <div style={{ fontSize: '11px', color: '#52c41a', marginBottom: '4px', fontWeight: 500 }}>
+                  ✓ Experiment Metadata (from project):
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {experimentDesc.testArticle && (
+                    <Tag color="blue" style={{ fontSize: '13px' }}>Test Article: {experimentDesc.testArticle}</Tag>
+                  )}
+                  {experimentDesc.species && (
+                    <Tag color="orange" style={{ fontSize: '13px' }}>Species: {experimentDesc.species}</Tag>
+                  )}
+                  {experimentDesc.strain && (
+                    <Tag color="gold" style={{ fontSize: '13px' }}>Strain: {experimentDesc.strain}</Tag>
+                  )}
+                  {experimentDesc.sex && (
+                    <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {experimentDesc.sex}</Tag>
+                  )}
+                  {experimentDesc.organ && (
+                    <Tag color="green" style={{ fontSize: '13px' }}>Organ: {experimentDesc.organ}</Tag>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginBottom: '8px' }}>
+                <div style={{ fontSize: '11px', color: '#faad14', marginBottom: '4px', fontWeight: 500 }}>
+                  ⚠ No experiment metadata set in project
+                </div>
+              </div>
+            )}
+
+            <p style={{ margin: '0 0 0 0', color: '#666' }}>
+              Project: {projectId} | {data.length} categories
+            </p>
+          </div>
+        );
+      })()}
 
       {/* Primary Filter - Collapsible (skip for GENE analyses) */}
       {annotation && annotation.analysisType !== 'GENE' && (

@@ -200,6 +200,9 @@ public class CategoryAnalysisResultDto {
     private Integer geneAllCountFromExperiment;
     private String chartableDataLabel;
 
+    // Experiment description (biological context metadata)
+    private ExperimentDescriptionDto experimentDescription;
+
     // Default constructor for Hilla
     public CategoryAnalysisResultDto() {
     }
@@ -1556,5 +1559,13 @@ public class CategoryAnalysisResultDto {
 
     public void setChartableDataLabel(String chartableDataLabel) {
         this.chartableDataLabel = chartableDataLabel;
+    }
+
+    public ExperimentDescriptionDto getExperimentDescription() {
+        return experimentDescription;
+    }
+
+    public void setExperimentDescription(ExperimentDescriptionDto experimentDescription) {
+        this.experimentDescription = experimentDescription;
     }
 }
