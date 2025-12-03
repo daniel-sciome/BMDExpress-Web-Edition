@@ -3,6 +3,7 @@ import { Card, Tag, Spin, Collapse } from 'antd';
 import { Icon } from '@vaadin/react-components';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
+import type ExperimentDescriptionDto from 'Frontend/generated/com/sciome/dto/ExperimentDescriptionDto';
 import VennDiagram from '../components/charts/VennDiagram';
 import AccumulationChartsComparison from '../components/charts/AccumulationChartsComparison';
 import GlobalViolinComparison from '../components/charts/GlobalViolinComparison';
@@ -32,6 +33,8 @@ export default function CategoryAnalysisMultisetView({
   const [annotations, setAnnotations] = useState<AnalysisAnnotationDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedResults, setSelectedResults] = useState<string[]>([]);
+  // Map of fullName -> ExperimentDescriptionDto
+  const [experimentDescriptions, setExperimentDescriptions] = useState<Record<string, ExperimentDescriptionDto>>({});
 
   // Get master filters from Redux
   const filters = useAppSelector((state) => state.categoryResults.filters);
@@ -60,6 +63,27 @@ export default function CategoryAnalysisMultisetView({
     return typeMap[type] || type;
   };
 
+  // Generate display name from experiment description: "Sex Organ (Species)"
+  // Throws an error if experiment description is not available
+  const getDisplayNameFromExperimentDesc = (desc: ExperimentDescriptionDto | undefined, fullName: string): string => {
+    if (!desc) {
+      throw new Error(`Missing experiment description for analysis: ${fullName}. Please set experiment metadata in the desktop application before viewing multi-dataset comparisons.`);
+    }
+
+    const parts: string[] = [];
+    if (desc.sex) parts.push(desc.sex);
+    if (desc.organ) parts.push(desc.organ);
+
+    const prefix = parts.join(' ');
+    const suffix = desc.species ? `(${desc.species})` : '';
+
+    if (!prefix || !suffix) {
+      throw new Error(`Incomplete experiment description for analysis: ${fullName}. Required fields: sex, organ, species.`);
+    }
+
+    return `${prefix} ${suffix}`;
+  };
+
   // Load all category results of this type
   useEffect(() => {
     const loadResults = async () => {
@@ -75,6 +99,27 @@ export default function CategoryAnalysisMultisetView({
         );
 
         setAnnotations(filteredAnnotations);
+
+        // Fetch experiment descriptions for all results
+        const descMap: Record<string, ExperimentDescriptionDto> = {};
+        await Promise.all(
+          filteredAnnotations.map(async (annotation) => {
+            if (annotation.fullName) {
+              try {
+                const resultData = await CategoryResultsService.getCategoryResults(
+                  projectId,
+                  annotation.fullName
+                );
+                if (resultData && resultData.length > 0 && resultData[0].experimentDescription) {
+                  descMap[annotation.fullName] = resultData[0].experimentDescription;
+                }
+              } catch (error) {
+                console.error(`Failed to load experiment description for ${annotation.fullName}:`, error);
+              }
+            }
+          })
+        );
+        setExperimentDescriptions(descMap);
       } catch (error) {
         console.error('Failed to load category results:', error);
         setAnnotations([]);
@@ -121,7 +166,9 @@ export default function CategoryAnalysisMultisetView({
   const resultDisplayNames: Record<string, string> = {};
   annotations.forEach((a) => {
     if (a.fullName) {
-      resultDisplayNames[a.fullName] = a.displayName || a.fullName;
+      const experimentDesc = experimentDescriptions[a.fullName];
+      const displayName = getDisplayNameFromExperimentDesc(experimentDesc, a.fullName);
+      resultDisplayNames[a.fullName] = displayName;
     }
   });
 
@@ -171,6 +218,9 @@ export default function CategoryAnalysisMultisetView({
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             {annotations.map((annotation) => {
               const isSelected = selectedResults.includes(annotation.fullName || '');
+              const experimentDesc = annotation.fullName ? experimentDescriptions[annotation.fullName] : undefined;
+              const displayName = getDisplayNameFromExperimentDesc(experimentDesc, annotation.fullName || 'Unknown');
+
               return (
                 <Tag
                   key={annotation.fullName}
@@ -181,7 +231,8 @@ export default function CategoryAnalysisMultisetView({
                     cursor: 'pointer',
                     border: isSelected ? '2px solid #1890ff' : '1px solid #d9d9d9',
                     fontWeight: isSelected ? 600 : 400,
-                    userSelect: 'none'
+                    userSelect: 'none',
+                    position: 'relative'
                   }}
                   onClick={() => {
                     const resultName = annotation.fullName || '';
@@ -192,7 +243,7 @@ export default function CategoryAnalysisMultisetView({
                     }
                   }}
                 >
-                  {annotation.displayName || annotation.fullName}
+                  {displayName}
                 </Tag>
               );
             })}
