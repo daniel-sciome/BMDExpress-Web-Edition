@@ -213,32 +213,29 @@ export default function CategoryAnalysisMultisetView({
             marginBottom: '1.5rem',
             textAlign: 'left'
           }}>
-            <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600 }}>Required fields:</p>
+            <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600 }}>Experiment descriptors are required to use BMD Express Web:</p>
             <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
               <li>Sex (e.g., Male, Female)</li>
               <li>Organ (e.g., Liver, Kidney)</li>
               <li>Species (e.g., Rat, Mouse)</li>
+              <li>Strain (e.g., Fischer 344, Sprague Dawley)</li>
+              <li>Test Article (e.g., Chemical name)</li>
             </ul>
           </div>
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-            <button
-              onClick={() => {
-                // Open desktop application instructions or link
-                alert('Please open your project in BMDExpress Desktop Application and set experiment descriptions for all experiments.\n\nTo set experiment descriptions:\n1. Right-click on an experiment in the tree\n2. Select "Edit Experiment Description"\n3. Fill in Sex, Organ, and Species fields\n4. Save the project\n5. Reload this page');
-              }}
-              style={{
-                padding: '12px 24px',
-                fontSize: '16px',
-                fontWeight: 600,
-                color: '#fff',
-                background: '#1890ff',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer'
-              }}
-            >
-              How to Add Experiment Descriptions
-            </button>
+          <div style={{
+            background: '#e6f7ff',
+            padding: '1rem',
+            borderRadius: '8px',
+            textAlign: 'left',
+            border: '1px solid #91d5ff'
+          }}>
+            <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600 }}>Contact Administrator:</p>
+            <p style={{ margin: 0 }}>
+              Inform the BMD Express Web administrator that required experiment descriptors are missing from the .bm2 file.
+            </p>
+            <p style={{ margin: '0.5rem 0 0 0', fontWeight: 500 }}>
+              email: <a href="mailto:auerbachs@niehs.nih.gov" style={{ color: '#1890ff' }}>auerbachs@niehs.nih.gov</a>
+            </p>
           </div>
         </div>
       </div>
