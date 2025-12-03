@@ -35,6 +35,8 @@ export default function CategoryAnalysisMultisetView({
   const [selectedResults, setSelectedResults] = useState<string[]>([]);
   // Map of fullName -> ExperimentDescriptionDto
   const [experimentDescriptions, setExperimentDescriptions] = useState<Record<string, ExperimentDescriptionDto>>({});
+  // Track results with missing/incomplete experiment descriptions
+  const [missingDescriptions, setMissingDescriptions] = useState<string[]>([]);
 
   // Get master filters from Redux
   const filters = useAppSelector((state) => state.categoryResults.filters);
@@ -64,10 +66,10 @@ export default function CategoryAnalysisMultisetView({
   };
 
   // Generate display name from experiment description: "Sex Organ (Species)"
-  // Throws an error if experiment description is not available
-  const getDisplayNameFromExperimentDesc = (desc: ExperimentDescriptionDto | undefined, fullName: string): string => {
+  // Returns null if experiment description is not available or incomplete
+  const getDisplayNameFromExperimentDesc = (desc: ExperimentDescriptionDto | undefined): string | null => {
     if (!desc) {
-      throw new Error(`Missing experiment description for analysis: ${fullName}. Please set experiment metadata in the desktop application before viewing multi-dataset comparisons.`);
+      return null;
     }
 
     const parts: string[] = [];
@@ -78,10 +80,16 @@ export default function CategoryAnalysisMultisetView({
     const suffix = desc.species ? `(${desc.species})` : '';
 
     if (!prefix || !suffix) {
-      throw new Error(`Incomplete experiment description for analysis: ${fullName}. Required fields: sex, organ, species.`);
+      return null;
     }
 
     return `${prefix} ${suffix}`;
+  };
+
+  // Check if experiment description is complete
+  const isExperimentDescriptionComplete = (desc: ExperimentDescriptionDto | undefined): boolean => {
+    if (!desc) return false;
+    return !!(desc.sex && desc.organ && desc.species);
   };
 
   // Load all category results of this type
@@ -102,6 +110,8 @@ export default function CategoryAnalysisMultisetView({
 
         // Fetch experiment descriptions for all results
         const descMap: Record<string, ExperimentDescriptionDto> = {};
+        const missing: string[] = [];
+
         await Promise.all(
           filteredAnnotations.map(async (annotation) => {
             if (annotation.fullName) {
@@ -111,15 +121,26 @@ export default function CategoryAnalysisMultisetView({
                   annotation.fullName
                 );
                 if (resultData && resultData.length > 0 && resultData[0].experimentDescription) {
-                  descMap[annotation.fullName] = resultData[0].experimentDescription;
+                  const desc = resultData[0].experimentDescription;
+                  descMap[annotation.fullName] = desc;
+
+                  // Check if description is incomplete
+                  if (!desc.sex || !desc.organ || !desc.species) {
+                    missing.push(annotation.fullName);
+                  }
+                } else {
+                  missing.push(annotation.fullName);
                 }
               } catch (error) {
                 console.error(`Failed to load experiment description for ${annotation.fullName}:`, error);
+                missing.push(annotation.fullName);
               }
             }
           })
         );
+
         setExperimentDescriptions(descMap);
+        setMissingDescriptions(missing);
       } catch (error) {
         console.error('Failed to load category results:', error);
         setAnnotations([]);
@@ -159,6 +180,66 @@ export default function CategoryAnalysisMultisetView({
     );
   }
 
+  // Show missing experiment descriptions state
+  if (missingDescriptions.length > 0) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center" style={{ maxWidth: '700px', padding: '2rem' }}>
+          <Icon
+            icon="vaadin:warning"
+            style={{ fontSize: '4rem', color: '#faad14' }}
+            className="mb-m"
+          />
+          <h2 className="text-2xl font-bold mb-m">
+            Experiment Descriptions Required
+          </h2>
+          <p className="text-secondary text-l mb-l">
+            Multi-dataset comparisons require experiment metadata to be set for all analyses.
+            {missingDescriptions.length === annotations.length ? (
+              <> All {annotations.length} analyses are missing experiment descriptions.</>
+            ) : (
+              <> {missingDescriptions.length} of {annotations.length} analyses are missing or have incomplete experiment descriptions.</>
+            )}
+          </p>
+          <div style={{
+            background: '#f0f0f0',
+            padding: '1rem',
+            borderRadius: '8px',
+            marginBottom: '1.5rem',
+            textAlign: 'left'
+          }}>
+            <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600 }}>Required fields:</p>
+            <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
+              <li>Sex (e.g., Male, Female)</li>
+              <li>Organ (e.g., Liver, Kidney)</li>
+              <li>Species (e.g., Rat, Mouse)</li>
+            </ul>
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <button
+              onClick={() => {
+                // Open desktop application instructions or link
+                alert('Please open your project in BMDExpress Desktop Application and set experiment descriptions for all experiments.\n\nTo set experiment descriptions:\n1. Right-click on an experiment in the tree\n2. Select "Edit Experiment Description"\n3. Fill in Sex, Organ, and Species fields\n4. Save the project\n5. Reload this page');
+              }}
+              style={{
+                padding: '12px 24px',
+                fontSize: '16px',
+                fontWeight: 600,
+                color: '#fff',
+                background: '#1890ff',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              How to Add Experiment Descriptions
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Extract result names for Venn diagram
   const availableResults = annotations.map((a) => a.fullName || '').filter(Boolean);
 
@@ -167,8 +248,8 @@ export default function CategoryAnalysisMultisetView({
   annotations.forEach((a) => {
     if (a.fullName) {
       const experimentDesc = experimentDescriptions[a.fullName];
-      const displayName = getDisplayNameFromExperimentDesc(experimentDesc, a.fullName);
-      resultDisplayNames[a.fullName] = displayName;
+      const displayName = getDisplayNameFromExperimentDesc(experimentDesc);
+      resultDisplayNames[a.fullName] = displayName || a.fullName || 'Unknown';
     }
   });
 
@@ -219,7 +300,7 @@ export default function CategoryAnalysisMultisetView({
             {annotations.map((annotation) => {
               const isSelected = selectedResults.includes(annotation.fullName || '');
               const experimentDesc = annotation.fullName ? experimentDescriptions[annotation.fullName] : undefined;
-              const displayName = getDisplayNameFromExperimentDesc(experimentDesc, annotation.fullName || 'Unknown');
+              const displayName = getDisplayNameFromExperimentDesc(experimentDesc) || annotation.fullName || 'Unknown';
 
               return (
                 <Tag
