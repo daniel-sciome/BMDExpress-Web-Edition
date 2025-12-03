@@ -188,7 +188,10 @@ export default function CategoryAnalysisMultisetView({
 
   // Show missing experiment descriptions state
   if (missingDescriptions.length > 0) {
-    return <ExperimentDescriptionRequired />;
+    // Get the first missing experimentDesc to show current status
+    const firstMissing = missingDescriptions[0];
+    const experimentDesc = experimentDescriptions[firstMissing];
+    return <ExperimentDescriptionRequired experimentDesc={experimentDesc} showCurrentStatus={true} />;
   }
 
   // Extract result names for Venn diagram
