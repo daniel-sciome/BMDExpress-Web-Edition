@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card } from 'antd';
 import { FileTextOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Icon } from '@vaadin/react-components';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadCategoryResultsWithRenderState, loadAnalysisParameters, setAnalysisType } from '../store/slices/categoryResultsSlice';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
@@ -148,6 +149,101 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
     );
   }
 
+  // Validate experiment description - required fields: sex, organ, species
+  const experimentDesc = data.length > 0 ? data[0].experimentDescription : null;
+  const isExperimentDescriptionComplete = experimentDesc && experimentDesc.sex && experimentDesc.organ && experimentDesc.species;
+
+  if (!isExperimentDescriptionComplete) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center" style={{ maxWidth: '700px', padding: '2rem' }}>
+          <Icon
+            icon="vaadin:warning"
+            style={{ fontSize: '4rem', color: '#faad14' }}
+            className="mb-m"
+          />
+          <h2 className="text-2xl font-bold mb-m">
+            Experiment Description Required
+          </h2>
+          <p className="text-secondary text-l mb-l">
+            This analysis requires experiment metadata to be set.
+            {!experimentDesc ? (
+              <> No experiment description found.</>
+            ) : (
+              <> The experiment description is missing required fields.</>
+            )}
+          </p>
+          <div style={{
+            background: '#f0f0f0',
+            padding: '1rem',
+            borderRadius: '8px',
+            marginBottom: '1.5rem',
+            textAlign: 'left'
+          }}>
+            <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600 }}>Required fields:</p>
+            <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
+              <li>Sex (e.g., Male, Female)</li>
+              <li>Organ (e.g., Liver, Kidney)</li>
+              <li>Species (e.g., Rat, Mouse)</li>
+            </ul>
+          </div>
+          <div style={{
+            background: '#fff7e6',
+            padding: '1rem',
+            borderRadius: '8px',
+            marginBottom: '1.5rem',
+            textAlign: 'left',
+            border: '1px solid #ffd591'
+          }}>
+            <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600 }}>Current status:</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                {experimentDesc?.sex ? (
+                  <span style={{ color: '#52c41a' }}>✓ Sex: {experimentDesc.sex}</span>
+                ) : (
+                  <span style={{ color: '#faad14' }}>✗ Sex: Not set</span>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                {experimentDesc?.organ ? (
+                  <span style={{ color: '#52c41a' }}>✓ Organ: {experimentDesc.organ}</span>
+                ) : (
+                  <span style={{ color: '#faad14' }}>✗ Organ: Not set</span>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                {experimentDesc?.species ? (
+                  <span style={{ color: '#52c41a' }}>✓ Species: {experimentDesc.species}</span>
+                ) : (
+                  <span style={{ color: '#faad14' }}>✗ Species: Not set</span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <button
+              onClick={() => {
+                alert('Please open your project in BMDExpress Desktop Application and set experiment descriptions.\n\nTo set experiment descriptions:\n1. Right-click on an experiment in the tree\n2. Select "Edit Experiment Description"\n3. Fill in Sex, Organ, and Species fields\n4. Save the project\n5. Reload this page');
+              }}
+              style={{
+                padding: '12px 24px',
+                fontSize: '16px',
+                fontWeight: 600,
+                color: '#fff',
+                background: '#1890ff',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              How to Add Experiment Description
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <style>
@@ -181,56 +277,27 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
       </style>
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         {/* Formatted header with annotation metadata */}
-      {(() => {
-        // Extract experiment description from first result (all results share same experiment)
-        const experimentDesc = data.length > 0 ? data[0].experimentDescription : null;
-
-        return annotation && annotation.parseSuccess ? (
+        {annotation && annotation.parseSuccess ? (
           <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
             <h2 style={{ marginBottom: '0.5rem' }}>{annotation.chemical || 'Unknown Chemical'}</h2>
 
-            {/* Experiment Description from Project Metadata */}
-            {experimentDesc && (experimentDesc.species || experimentDesc.strain || experimentDesc.sex || experimentDesc.organ || experimentDesc.testArticle) ? (
-              <div style={{ marginBottom: '8px' }}>
-                <div style={{ fontSize: '11px', color: '#52c41a', marginBottom: '4px', fontWeight: 500 }}>
-                  ✓ Experiment Metadata (from project):
-                </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {experimentDesc.testArticle && (
-                    <Tag color="blue" style={{ fontSize: '13px' }}>Test Article: {experimentDesc.testArticle}</Tag>
-                  )}
-                  {experimentDesc.species && (
-                    <Tag color="orange" style={{ fontSize: '13px' }}>Species: {experimentDesc.species}</Tag>
-                  )}
-                  {experimentDesc.strain && (
-                    <Tag color="gold" style={{ fontSize: '13px' }}>Strain: {experimentDesc.strain}</Tag>
-                  )}
-                  {experimentDesc.sex && (
-                    <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {experimentDesc.sex}</Tag>
-                  )}
-                  {experimentDesc.organ && (
-                    <Tag color="green" style={{ fontSize: '13px' }}>Organ: {experimentDesc.organ}</Tag>
-                  )}
-                </div>
+            {/* Experiment Description from Project Metadata - Always present at this point */}
+            <div style={{ marginBottom: '8px' }}>
+              <div style={{ fontSize: '11px', color: '#52c41a', marginBottom: '4px', fontWeight: 500 }}>
+                ✓ Experiment Metadata (from project):
               </div>
-            ) : (annotation.sex || annotation.organ || annotation.species) ? (
-              <div style={{ marginBottom: '8px' }}>
-                <div style={{ fontSize: '11px', color: '#faad14', marginBottom: '4px', fontWeight: 500 }}>
-                  ⚠ Metadata parsed from filename (no project metadata set):
-                </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {annotation.sex && (
-                    <Tag color="default" style={{ fontSize: '13px' }}>Sex: {annotation.sex}</Tag>
-                  )}
-                  {annotation.organ && (
-                    <Tag color="default" style={{ fontSize: '13px' }}>Organ: {annotation.organ}</Tag>
-                  )}
-                  {annotation.species && (
-                    <Tag color="default" style={{ fontSize: '13px' }}>Species: {annotation.species}</Tag>
-                  )}
-                </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {experimentDesc.testArticle && (
+                  <Tag color="blue" style={{ fontSize: '13px' }}>Test Article: {experimentDesc.testArticle}</Tag>
+                )}
+                <Tag color="orange" style={{ fontSize: '13px' }}>Species: {experimentDesc.species}</Tag>
+                {experimentDesc.strain && (
+                  <Tag color="gold" style={{ fontSize: '13px' }}>Strain: {experimentDesc.strain}</Tag>
+                )}
+                <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {experimentDesc.sex}</Tag>
+                <Tag color="green" style={{ fontSize: '13px' }}>Organ: {experimentDesc.organ}</Tag>
               </div>
-            ) : null}
+            </div>
 
             {/* Additional Analysis Metadata */}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
@@ -241,29 +308,31 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                 <Tag color="magenta" style={{ fontSize: '13px' }}>Analysis: {annotation.analysisType}</Tag>
               )}
             </div>
-          {/* Analysis Parameters - Collapsible */}
-          {analysisParameters && analysisParameters.length > 0 && (
-            <div style={{ marginBottom: '4px' }}>
-              <Collapse
-                size="small"
-                items={[{
-                  key: 'params',
-                  label: <AnalysisParametersTitle paramCount={analysisParameters.length} />,
-                  children: (
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {analysisParameters.map((param, index) => (
-                        <Tag key={index} color="geekblue" style={{ fontSize: '12px', margin: 0 }}>
-                          {param}
-                        </Tag>
-                      ))}
-                    </div>
-                  ),
-                }]}
-                style={{ background: '#fafafa', border: 'none' }}
-                bordered={false}
-              />
-            </div>
-          )}
+
+            {/* Analysis Parameters - Collapsible */}
+            {analysisParameters && analysisParameters.length > 0 && (
+              <div style={{ marginBottom: '4px' }}>
+                <Collapse
+                  size="small"
+                  items={[{
+                    key: 'params',
+                    label: <AnalysisParametersTitle paramCount={analysisParameters.length} />,
+                    children: (
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {analysisParameters.map((param, index) => (
+                          <Tag key={index} color="geekblue" style={{ fontSize: '12px', margin: 0 }}>
+                            {param}
+                          </Tag>
+                        ))}
+                      </div>
+                    ),
+                  }]}
+                  style={{ background: '#fafafa', border: 'none' }}
+                  bordered={false}
+                />
+              </div>
+            )}
+
             <p style={{ margin: '0 0 0 0', color: '#888', fontSize: '12px' }}>
               {data.length} categories | Project: {projectId}
             </p>
@@ -272,44 +341,29 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
             <h2 style={{ marginBottom: '0.5rem' }}>Category Results: {resultName}</h2>
 
-            {/* Experiment Description even without annotation */}
-            {experimentDesc && (experimentDesc.species || experimentDesc.strain || experimentDesc.sex || experimentDesc.organ || experimentDesc.testArticle) ? (
-              <div style={{ marginBottom: '8px' }}>
-                <div style={{ fontSize: '11px', color: '#52c41a', marginBottom: '4px', fontWeight: 500 }}>
-                  ✓ Experiment Metadata (from project):
-                </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {experimentDesc.testArticle && (
-                    <Tag color="blue" style={{ fontSize: '13px' }}>Test Article: {experimentDesc.testArticle}</Tag>
-                  )}
-                  {experimentDesc.species && (
-                    <Tag color="orange" style={{ fontSize: '13px' }}>Species: {experimentDesc.species}</Tag>
-                  )}
-                  {experimentDesc.strain && (
-                    <Tag color="gold" style={{ fontSize: '13px' }}>Strain: {experimentDesc.strain}</Tag>
-                  )}
-                  {experimentDesc.sex && (
-                    <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {experimentDesc.sex}</Tag>
-                  )}
-                  {experimentDesc.organ && (
-                    <Tag color="green" style={{ fontSize: '13px' }}>Organ: {experimentDesc.organ}</Tag>
-                  )}
-                </div>
+            {/* Experiment Description - Always present at this point */}
+            <div style={{ marginBottom: '8px' }}>
+              <div style={{ fontSize: '11px', color: '#52c41a', marginBottom: '4px', fontWeight: 500 }}>
+                ✓ Experiment Metadata (from project):
               </div>
-            ) : (
-              <div style={{ marginBottom: '8px' }}>
-                <div style={{ fontSize: '11px', color: '#faad14', marginBottom: '4px', fontWeight: 500 }}>
-                  ⚠ No experiment metadata set in project
-                </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {experimentDesc.testArticle && (
+                  <Tag color="blue" style={{ fontSize: '13px' }}>Test Article: {experimentDesc.testArticle}</Tag>
+                )}
+                <Tag color="orange" style={{ fontSize: '13px' }}>Species: {experimentDesc.species}</Tag>
+                {experimentDesc.strain && (
+                  <Tag color="gold" style={{ fontSize: '13px' }}>Strain: {experimentDesc.strain}</Tag>
+                )}
+                <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {experimentDesc.sex}</Tag>
+                <Tag color="green" style={{ fontSize: '13px' }}>Organ: {experimentDesc.organ}</Tag>
               </div>
-            )}
+            </div>
 
             <p style={{ margin: '0 0 0 0', color: '#666' }}>
               Project: {projectId} | {data.length} categories
             </p>
           </div>
-        );
-      })()}
+        )}
 
       {/* Primary Filter - Collapsible (skip for GENE analyses) */}
       {annotation && annotation.analysisType !== 'GENE' && (
