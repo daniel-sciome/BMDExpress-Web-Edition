@@ -65,7 +65,7 @@ export default function CategoryAnalysisMultisetView({
     return typeMap[type] || type;
   };
 
-  // Generate display name from experiment description: "Sex Organ (Species)"
+  // Generate display name from experiment description: "Sex Organ (Species, Strain)"
   // Returns null if experiment description is not available or incomplete
   const getDisplayNameFromExperimentDesc = (desc: ExperimentDescriptionDto | undefined): string | null => {
     if (!desc) {
@@ -77,7 +77,12 @@ export default function CategoryAnalysisMultisetView({
     if (desc.organ) parts.push(desc.organ);
 
     const prefix = parts.join(' ');
-    const suffix = desc.species ? `(${desc.species})` : '';
+
+    // Build suffix with species and optionally strain
+    let suffix = '';
+    if (desc.species) {
+      suffix = desc.strain ? `(${desc.species}, ${desc.strain})` : `(${desc.species})`;
+    }
 
     if (!prefix || !suffix) {
       return null;
