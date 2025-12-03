@@ -680,6 +680,224 @@ jest.mock('Frontend/generated/endpoints', () => ({
 
 ---
 
+## 11. Empty State & Validation Patterns
+
+### Creating a Validation Empty State Component
+
+**Pattern**: Reusable empty state component for validation failures
+
+```typescript
+// src/main/frontend/components/ExperimentDescriptionRequired.tsx
+import { Icon } from '@vaadin/react-components';
+import type ExperimentDescriptionDto from 'Frontend/generated/com/sciome/dto/ExperimentDescriptionDto';
+
+interface ExperimentDescriptionRequiredProps {
+  experimentDesc?: ExperimentDescriptionDto | null;
+  showCurrentStatus?: boolean;
+}
+
+export default function ExperimentDescriptionRequired({
+  experimentDesc,
+  showCurrentStatus = false
+}: ExperimentDescriptionRequiredProps) {
+  return (
+    <div className="flex items-center justify-center h-full">
+      <div className="text-center" style={{ maxWidth: '700px', padding: '2rem' }}>
+        {/* Warning icon */}
+        <Icon
+          icon="vaadin:warning"
+          style={{ fontSize: '4rem', color: '#faad14' }}
+          className="mb-m"
+        />
+
+        {/* Title */}
+        <h2 className="text-2xl font-bold mb-m">
+          Experiment Description Required
+        </h2>
+
+        {/* Message */}
+        <p className="text-secondary text-l mb-l">
+          This analysis requires experiment metadata to be set.
+          {!experimentDesc ? (
+            <> No experiment description found.</>
+          ) : (
+            <> The experiment description is missing required fields.</>
+          )}
+        </p>
+
+        {/* Required fields list */}
+        <div style={{
+          background: '#f0f0f0',
+          padding: '1rem',
+          borderRadius: '8px',
+          marginBottom: '1.5rem',
+          textAlign: 'left'
+        }}>
+          <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600 }}>
+            Experiment descriptors are required to use BMD Express Web:
+          </p>
+          <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
+            <li>Sex (e.g., Male, Female)</li>
+            <li>Organ (e.g., Liver, Kidney)</li>
+            <li>Species (e.g., Rat, Mouse)</li>
+            <li>Strain (e.g., Fischer 344, Sprague Dawley)</li>
+            <li>Test Article (e.g., Chemical name)</li>
+          </ul>
+        </div>
+
+        {/* Current status panel (optional) */}
+        {showCurrentStatus && (
+          <div style={{
+            background: '#fff7e6',
+            padding: '1rem',
+            borderRadius: '8px',
+            marginBottom: '1.5rem',
+            textAlign: 'left',
+            border: '1px solid #ffd591'
+          }}>
+            <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600 }}>Current status:</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              {experimentDesc?.sex ? (
+                <span style={{ color: '#52c41a' }}>✓ Sex: {experimentDesc.sex}</span>
+              ) : (
+                <span style={{ color: '#faad14' }}>✗ Sex: Not set</span>
+              )}
+              {/* Similar for organ, species, strain, testArticle */}
+            </div>
+          </div>
+        )}
+
+        {/* Contact administrator panel */}
+        <div style={{
+          background: '#e6f7ff',
+          padding: '1rem',
+          borderRadius: '8px',
+          textAlign: 'left',
+          border: '1px solid #91d5ff'
+        }}>
+          <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600 }}>Contact Administrator:</p>
+          <p style={{ margin: 0 }}>
+            Inform the BMD Express Web administrator that required experiment descriptors are missing from the .bm2 file.
+          </p>
+          <p style={{ margin: '0.5rem 0 0 0', fontWeight: 500 }}>
+            email: <a href="mailto:admin@example.com" style={{ color: '#1890ff' }}>admin@example.com</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+### Using Validation Empty State in Components
+
+**Pattern 1: Single dataset validation**
+
+```typescript
+export default function CategoryResultsView({ projectId, resultName }: Props) {
+  const data = useAppSelector((state) => state.categoryResults.data);
+
+  // Early validation check
+  const experimentDesc = data.length > 0 ? data[0].experimentDescription : null;
+  const isExperimentDescriptionComplete = experimentDesc &&
+    experimentDesc.sex &&
+    experimentDesc.organ &&
+    experimentDesc.species;
+
+  // Show empty state if validation fails
+  if (!isExperimentDescriptionComplete) {
+    return (
+      <ExperimentDescriptionRequired
+        experimentDesc={experimentDesc}
+        showCurrentStatus={true}
+      />
+    );
+  }
+
+  // Continue with normal rendering
+  return (
+    <div>
+      {/* Main content */}
+    </div>
+  );
+}
+```
+
+**Pattern 2: Multi-dataset validation**
+
+```typescript
+export default function CategoryAnalysisMultisetView({ projectId, analysisType }: Props) {
+  const [experimentDescriptions, setExperimentDescriptions] = useState<Record<string, ExperimentDescriptionDto>>({});
+  const [missingDescriptions, setMissingDescriptions] = useState<string[]>([]);
+
+  // Load and validate experiment descriptions
+  useEffect(() => {
+    const loadResults = async () => {
+      // ... load data
+
+      // Check for missing/incomplete descriptions
+      const missing: string[] = [];
+      annotations.forEach((annotation) => {
+        const desc = resultData[annotation.fullName]?.experimentDescription;
+        if (!desc || !desc.sex || !desc.organ || !desc.species) {
+          missing.push(annotation.fullName);
+        }
+      });
+
+      setMissingDescriptions(missing);
+    };
+
+    loadResults();
+  }, [projectId, analysisType]);
+
+  // Show empty state if any results have missing/incomplete descriptions
+  if (missingDescriptions.length > 0) {
+    const firstMissing = missingDescriptions[0];
+    const experimentDesc = experimentDescriptions[firstMissing];
+
+    return (
+      <ExperimentDescriptionRequired
+        experimentDesc={experimentDesc}
+        showCurrentStatus={true}
+      />
+    );
+  }
+
+  // Continue with normal rendering
+  return <div>{/* Multi-dataset content */}</div>;
+}
+```
+
+### Display Name Formatting from Experiment Description
+
+```typescript
+// Generate display name: "Sex Organ (Species, Strain)" or "Sex Organ (Species)"
+const getDisplayNameFromExperimentDesc = (desc: ExperimentDescriptionDto | undefined): string | null => {
+  if (!desc) return null;
+
+  const parts: string[] = [];
+  if (desc.sex) parts.push(desc.sex);
+  if (desc.organ) parts.push(desc.organ);
+
+  const prefix = parts.join(' ');
+
+  // Build suffix with species and optionally strain
+  let suffix = '';
+  if (desc.species) {
+    suffix = desc.strain ? `(${desc.species}, ${desc.strain})` : `(${desc.species})`;
+  }
+
+  if (!prefix || !suffix) return null;
+
+  return `${prefix} ${suffix}`;
+};
+
+// Usage in component
+const displayName = getDisplayNameFromExperimentDesc(experimentDesc) || resultName;
+```
+
+---
+
 ## Summary
 
 These patterns provide reusable templates for:
@@ -689,6 +907,8 @@ These patterns provide reusable templates for:
 - Loading and transforming data
 - Formatting and filtering data
 - Error handling across the stack
+- Validation and empty state components
+- Experiment description display and formatting
 
 When adding new features, follow these patterns to maintain consistency and leverage the existing architecture.
 

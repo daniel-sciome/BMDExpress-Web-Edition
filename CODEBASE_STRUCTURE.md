@@ -47,6 +47,7 @@ src/main/frontend/
 │   ├── CategoryResultsView.tsx       # Main results visualization container
 │   ├── CategoryResultsGrid.tsx       # Data grid with selection
 │   ├── PathwayCurveViewer.tsx        # Curve overlay visualization
+│   ├── ExperimentDescriptionRequired.tsx  # Empty state for missing metadata
 │   └── charts/
 │       ├── BMDvsPValueScatter.tsx    # Scatter plot (default)
 │       ├── BMDBoxPlot.tsx            # Box plot (default)
@@ -180,6 +181,22 @@ src/main/frontend/
   analysisType: string;
 }
 ```
+
+**ExperimentDescriptionDto** (Project metadata):
+```typescript
+{
+  sex: string;              // e.g., "Male", "Female"
+  organ: string;            // e.g., "Liver", "Kidney"
+  species: string;          // e.g., "Rat", "Mouse"
+  strain: string;           // e.g., "Fischer 344", "Sprague Dawley"
+  testArticle: string;      // e.g., Chemical name
+}
+```
+
+**Validation Requirements**:
+- Required fields: `sex`, `organ`, `species` (minimum for functionality)
+- All 5 fields displayed equally in UI: sex, organ, species, strain, testArticle
+- Display format for multi-dataset view: "Sex Organ (Species, Strain)" or "Sex Organ (Species)"
 
 ### Routing & File-Based Routing
 
@@ -420,6 +437,37 @@ const results = await CategoryResultsService.getCategoryResults(...);
 // Type safety maintained through generated TS types
 ```
 
+### 6. Experiment Description Validation Pattern
+```typescript
+// Validate experiment description early in component lifecycle
+const experimentDesc = data.length > 0 ? data[0].experimentDescription : null;
+const isExperimentDescriptionComplete = experimentDesc &&
+  experimentDesc.sex &&
+  experimentDesc.organ &&
+  experimentDesc.species;
+
+if (!isExperimentDescriptionComplete) {
+  // Return custom empty state component
+  return <ExperimentDescriptionRequired
+    experimentDesc={experimentDesc}
+    showCurrentStatus={true}
+  />;
+}
+
+// Continue with normal rendering
+```
+
+**ExperimentDescriptionRequired Component**:
+- Reusable empty state for missing/incomplete metadata
+- Props:
+  - `experimentDesc?`: Optional ExperimentDescriptionDto to show current status
+  - `showCurrentStatus?`: Boolean to enable/disable status panel (default: false)
+- Displays:
+  - Required fields list (all 5 fields: sex, organ, species, strain, testArticle)
+  - Current status panel (if enabled): Shows ✓/✗ for each field
+  - Administrator contact information with mailto link
+- Used by both CategoryResultsView (single dataset) and CategoryAnalysisMultisetView (multi-dataset)
+
 ---
 
 ## 8. Existing Category-Related Functionality
@@ -463,11 +511,13 @@ const results = await CategoryResultsService.getCategoryResults(...);
 |------|---------|-------|
 | CategoryResultsView.tsx | Main container, chart selector | 227 |
 | CategoryResultsGrid.tsx | Data grid with selection | 189 |
+| ExperimentDescriptionRequired.tsx | Validation empty state | 127 |
 | categoryResultsSlice.ts | Redux state management | 244 |
 | BMDvsPValueScatter.tsx | Default scatter chart | 167 |
 | VennDiagram.tsx | Category overlap analysis | 252 |
 | CategoryResultsService.java | Backend service | 542 |
 | CategoryAnalysisResultDto.java | Main data DTO | 332 |
+| ExperimentDescriptionDto.java | Experiment metadata DTO | ~50 |
 | ProjectTreeSidebar.tsx | Navigation tree | 168 |
 | LibraryView.tsx | Tab-based results view | 155 |
 
