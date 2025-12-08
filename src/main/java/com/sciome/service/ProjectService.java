@@ -1,6 +1,10 @@
 package com.sciome.service;
 
 import com.sciome.bmdexpress2.mvp.model.BMDProject;
+import com.sciome.bmdexpress2.mvp.model.DoseResponseExperiment;
+import com.sciome.bmdexpress2.mvp.model.info.ExperimentDescription;
+import com.sciome.dto.ExperimentDescriptionDto;
+import com.sciome.dto.ProjectMetadataDto;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
 import org.slf4j.Logger;
@@ -177,6 +181,72 @@ public class ProjectService {
         if (holder != null) {
             log.info("Project deleted: {} (ID: {})", holder.getOriginalFilename(), projectId);
         }
+    }
+
+    /**
+     * Get comprehensive metadata for a project
+     *
+     * @param projectId The project ID
+     * @return ProjectMetadataDto with all project metadata
+     */
+    public ProjectMetadataDto getProjectMetadata(String projectId) {
+        ProjectHolder holder = getProjectHolder(projectId);
+        BMDProject project = holder.getProject();
+
+        ProjectMetadataDto metadata = new ProjectMetadataDto();
+        metadata.setProjectId(projectId);
+        metadata.setProjectName(project.getName());
+        metadata.setOriginalFilename(holder.getOriginalFilename());
+        metadata.setUploadedAt(holder.getUploadedAt());
+
+        // Count experiments
+        List<DoseResponseExperiment> experiments = project.getDoseResponseExperiments();
+        metadata.setExperimentCount(experiments != null ? experiments.size() : 0);
+
+        // Extract metadata from first experiment (if available)
+        if (experiments != null && !experiments.isEmpty()) {
+            DoseResponseExperiment firstExp = experiments.get(0);
+            metadata.setExperimentName(firstExp.getName());
+
+            // Extract experimental description (metadata added in BMDExpress-3)
+            ExperimentDescription expDesc = firstExp.getExperimentDescription();
+            if (expDesc != null && expDesc.hasDescription()) {
+                ExperimentDescriptionDto descDto = ExperimentDescriptionDto.fromDesktopObject(expDesc);
+                metadata.setExperimentDescription(descDto);
+            }
+
+            // Extract data counts
+            if (firstExp.getProbeResponses() != null) {
+                metadata.setProbeCount(firstExp.getProbeResponses().size());
+            }
+            if (firstExp.getTreatments() != null) {
+                metadata.setTreatmentCount(firstExp.getTreatments().size());
+            }
+            metadata.setMinDose(firstExp.getMinDose());
+            metadata.setMaxDose(firstExp.getMaxDose());
+        }
+
+        // Count analysis results
+        if (project.getOneWayANOVAResults() != null) {
+            metadata.setAnovaResultsCount(project.getOneWayANOVAResults().size());
+        }
+        if (project.getWilliamsTrendResults() != null) {
+            metadata.setWilliamsTrendResultsCount(project.getWilliamsTrendResults().size());
+        }
+        if (project.getCurveFitPrefilterResults() != null) {
+            metadata.setCurveFitResultsCount(project.getCurveFitPrefilterResults().size());
+        }
+        if (project.getOriogenResults() != null) {
+            metadata.setOriogenResultsCount(project.getOriogenResults().size());
+        }
+        if (project.getbMDResult() != null) {
+            metadata.setBmdResultsCount(project.getbMDResult().size());
+        }
+        if (project.getCategoryAnalysisResults() != null) {
+            metadata.setCategoryResultsCount(project.getCategoryAnalysisResults().size());
+        }
+
+        return metadata;
     }
 
     /**

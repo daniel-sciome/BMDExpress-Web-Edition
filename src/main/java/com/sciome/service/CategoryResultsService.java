@@ -112,11 +112,22 @@ public class CategoryResultsService {
             logger.info("Project: {}, Category Result: {}", projectId, categoryResultName);
             if (experimentDescDto != null) {
                 logger.info("ExperimentDescription FOUND:");
+                logger.info("  Subject Type: {}", experimentDescDto.getSubjectType());
                 logger.info("  Test Article: {}", experimentDescDto.getTestArticle());
+                logger.info("  CASRN: {}", experimentDescDto.getCasrn());
+                logger.info("  DSSTOX: {}", experimentDescDto.getDsstox());
                 logger.info("  Species: {}", experimentDescDto.getSpecies());
                 logger.info("  Strain: {}", experimentDescDto.getStrain());
                 logger.info("  Sex: {}", experimentDescDto.getSex());
                 logger.info("  Organ: {}", experimentDescDto.getOrgan());
+                logger.info("  Cell Line: {}", experimentDescDto.getCellLine());
+                logger.info("  Study Duration: {}", experimentDescDto.getStudyDuration());
+                logger.info("  Article Type: {}", experimentDescDto.getArticleType());
+                logger.info("  Article Route: {}", experimentDescDto.getArticleRoute());
+                logger.info("  Article Vehicle: {}", experimentDescDto.getArticleVehicle());
+                logger.info("  Admin Means: {}", experimentDescDto.getAdministrationMeans());
+                logger.info("  Platform: {}", experimentDescDto.getPlatform());
+                logger.info("  Provider: {}", experimentDescDto.getProvider());
             } else {
                 logger.info("ExperimentDescription is NULL");
             }
