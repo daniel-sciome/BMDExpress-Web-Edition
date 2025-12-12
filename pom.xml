@@ -60,6 +60,13 @@
             <version>3.0.0-SNAPSHOT</version>
         </dependency>
 
+        <!-- BMDExpress Analysis Services (hierarchical clustering, etc.) -->
+        <dependency>
+            <groupId>com.sciome</groupId>
+            <artifactId>bmdexpress-analysis-services</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+
         <!-- Google Guava for EventBus -->
         <dependency>
             <groupId>com.google.guava</groupId>
