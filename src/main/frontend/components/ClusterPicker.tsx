@@ -119,23 +119,6 @@ export default function ClusterPicker() {
     }
   }, [dispatch, highlightedIds]);
 
-  /**
-   * Handle "Select All" - highlight all categories in all clusters.
-   */
-  const handleSelectAll = useCallback(() => {
-    const allCategoryIds = clusterSets.flatMap(set => set.categoryIds);
-    dispatch(highlightCategories({ categoryIds: allCategoryIds, exclusive: true }));
-    dispatch(setSelectedCategoryIds(allCategoryIds)); // Sync to legacy
-  }, [dispatch, clusterSets]);
-
-  /**
-   * Handle "Clear All" - remove all highlights.
-   */
-  const handleClearAll = useCallback(() => {
-    dispatch(clearHighlights());
-    dispatch(clearSelection()); // Sync to legacy
-  }, [dispatch]);
-
   if (clusterSets.length === 0) {
     return null;
   }
@@ -164,37 +147,6 @@ export default function ClusterPicker() {
       ),
       children: (
         <div style={{ fontSize: '13px' }}>
-          {/* Bulk actions */}
-          <div style={{
-            display: 'flex',
-            gap: '8px',
-            marginBottom: '8px',
-            paddingBottom: '8px',
-            borderBottom: '1px solid #f0f0f0'
-          }}>
-            <span
-              onClick={handleSelectAll}
-              style={{
-                color: '#1890ff',
-                cursor: 'pointer',
-                fontSize: '12px',
-              }}
-            >
-              Select All
-            </span>
-            <span style={{ color: '#d9d9d9' }}>|</span>
-            <span
-              onClick={handleClearAll}
-              style={{
-                color: stats.totalHighlighted > 0 ? '#ff4d4f' : '#d9d9d9',
-                cursor: stats.totalHighlighted > 0 ? 'pointer' : 'default',
-                fontSize: '12px',
-              }}
-            >
-              Clear
-            </span>
-          </div>
-
           {/* Cluster list */}
           {clusterSets.map(set => {
             const { state, selectedCount, totalCount } = getClusterSelectionState(
