@@ -12,6 +12,14 @@ import {
   selectIsAnythingSelected,
   selectSelectedCount
 } from '../store/slices/categoryResultsSlice';
+import {
+  selectHighlightedIds,
+  selectVisibilityDefaults,
+  selectDisplayMode,
+  highlightCategories,
+  clearHighlights,
+} from '../store/slices/visibilitySlice';
+import type { VisibilityState } from '../types/visibilityTypes';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 
 // Import utilities, types, and column visibility helpers
@@ -37,6 +45,8 @@ import {
 // Import all column definition functions
 import {
   getFixedColumns,
+  getPrimaryFilterColumns,
+  getPreFilterColumns,
   getGeneCountsColumns,
   getSignificantANOVAColumn,
   getFishersEssentialColumn,
@@ -73,6 +83,12 @@ export default function CategoryResultsGrid() {
   // Phase 7: Selection state from Phase 3 selectors
   const isAnythingSelected = useAppSelector(selectIsAnythingSelected);
   const selectedCount = useAppSelector(selectSelectedCount);
+
+  // Visibility state for row styling
+  const highlightedIds = useAppSelector(selectHighlightedIds);
+  const visibilityDefaults = useAppSelector(selectVisibilityDefaults);
+  const displayMode = useAppSelector(selectDisplayMode);
+  const hasHighlights = highlightedIds.size > 0;
 
   // Debug logging
   useEffect(() => {
@@ -155,27 +171,48 @@ export default function CategoryResultsGrid() {
     return Array.from(selectedCategoryIds);
   }, [selectedCategoryIds]);
 
-  // Handle selection change
+  // Handle selection change - sync to both legacy and visibility state
   const handleSelectionChange = (selectedRowKeys: React.Key[]) => {
     const categoryIds = selectedRowKeys.map(key => String(key));
+
+    // Update legacy selection state (for backwards compatibility)
     dispatch(setSelectedCategoryIds(categoryIds));
+
+    // Update visibility state so ClusterPicker reflects selection
+    if (categoryIds.length > 0) {
+      dispatch(highlightCategories({ categoryIds, exclusive: true }));
+    } else {
+      dispatch(clearHighlights());
+    }
   };
 
   // Phase 7: Bulk selection handlers (operate on filtered data only)
+  // Updated to sync with visibility state
   const handleSelectAll = () => {
     // Get all visible category IDs (after Primary Filter and hideRowsWithoutBMD)
     const visibleIds = data.map(cat => cat.categoryId).filter(Boolean) as string[];
     dispatch(selectAllCategories(visibleIds));
+    dispatch(highlightCategories({ categoryIds: visibleIds, exclusive: true }));
   };
 
   const handleClearSelection = () => {
     dispatch(clearSelection());
+    dispatch(clearHighlights());
   };
 
   const handleInvertSelection = () => {
     // Invert within visible categories only
     const visibleIds = data.map(cat => cat.categoryId).filter(Boolean) as string[];
     dispatch(invertSelection(visibleIds));
+
+    // Calculate inverted selection for visibility
+    const currentHighlighted = Array.from(highlightedIds);
+    const invertedIds = visibleIds.filter(id => !highlightedIds.has(id));
+    if (invertedIds.length > 0) {
+      dispatch(highlightCategories({ categoryIds: invertedIds, exclusive: true }));
+    } else {
+      dispatch(clearHighlights());
+    }
   };
 
   // Row selection configuration
@@ -203,17 +240,22 @@ export default function CategoryResultsGrid() {
     // Always show fixed columns with dynamic labels
     cols.push(...getFixedColumns(viewMode, analysisInfo));
 
-    // Conditionally add column groups based on visibility
-    if (columnVisibility.geneCounts.all || Object.values(columnVisibility.geneCounts.columns).some(v => v)) {
-      cols.push(...getGeneCountsColumns(
-        columnVisibility.geneCounts.all ? undefined : columnVisibility.geneCounts.columns,
+    // Conditionally add primary filter columns based on visibility
+    // Content varies by analysis type: gene counts for multi-gene categories, BMD stats for GENE type
+    if (columnVisibility.primaryFilters.all || Object.values(columnVisibility.primaryFilters.columns).some(v => v)) {
+      cols.push(...getPrimaryFilterColumns(
+        analysisType,
+        columnVisibility.primaryFilters.all ? undefined : columnVisibility.primaryFilters.columns,
         paddingMap
       ));
     }
 
-    // Significant ANOVA statistics column
-    if (columnVisibility.significantANOVA) {
-      cols.push(...getSignificantANOVAColumn(paddingMap));
+    // Pre-filter columns (ANOVA, Williams, Curve Fit, etc.)
+    if (columnVisibility.preFilters.all || Object.values(columnVisibility.preFilters.columns).some(v => v)) {
+      cols.push(...getPreFilterColumns(
+        columnVisibility.preFilters.all ? undefined : columnVisibility.preFilters.columns,
+        paddingMap
+      ));
     }
 
     // Fisher's Test - show full columns when checked
@@ -307,12 +349,38 @@ export default function CategoryResultsGrid() {
     return cols;
   }, [columnVisibility, viewMode, paddingMap, analysisType, analysisParameters]);
 
-  // Custom row styles based on selection
+  // Custom row styles based on visibility state
   const getRowClassName = (record: CategoryAnalysisResultWithRank) => {
-    // If there are selections and this row is not selected, dim it
-    if (selectedCategoryIds.size > 0 && !selectedCategoryIds.has(record.categoryId || '')) {
+    const categoryId = record.categoryId || '';
+
+    // Check if this category is highlighted
+    const isHighlighted = highlightedIds.has(categoryId);
+
+    // If there are highlights and this row is NOT highlighted, apply display mode
+    if (hasHighlights && !isHighlighted) {
+      // Apply the non-selected display mode (dim, isolate, or highlight)
+      switch (displayMode) {
+        case 'dim':
+          return 'dimmed-row';
+        case 'isolate':
+          return 'hidden-row';
+        case 'highlight':
+          return 'normal-row';
+        default:
+          return 'dimmed-row';
+      }
+    }
+
+    // If highlighted, show with emphasis
+    if (isHighlighted) {
+      return 'highlighted-row';
+    }
+
+    // Fallback: also check legacy selection for backwards compatibility
+    if (selectedCategoryIds.size > 0 && !selectedCategoryIds.has(categoryId)) {
       return 'dimmed-row';
     }
+
     return '';
   };
 
@@ -346,65 +414,130 @@ export default function CategoryResultsGrid() {
       <Space direction="vertical" style={{ width: '100%' }}>
         <div style={{ fontWeight: 600, marginBottom: '8px', borderBottom: '1px solid #f0f0f0', paddingBottom: '8px' }}>
           Primary Filter Columns
+          <div style={{ fontSize: '11px', fontWeight: 400, color: '#666', marginTop: '4px' }}>
+            {analysisType === 'GENE'
+              ? 'For GENE analysis: BMD statistics'
+              : 'For multi-gene categories: Gene counts'
+            }
+          </div>
+        </div>
+
+        {/* Multi-gene category columns (GO, pathways, defined) */}
+        {analysisType !== 'GENE' && (
+          <>
+            <Checkbox
+              checked={columnVisibility.primaryFilters.columns.genesPassed}
+              onChange={(e) => {
+                e.stopPropagation();
+                setColumnVisibility({
+                  ...columnVisibility,
+                  primaryFilters: {
+                    ...columnVisibility.primaryFilters,
+                    columns: { ...columnVisibility.primaryFilters.columns, genesPassed: e.target.checked }
+                  }
+                });
+              }}
+            >
+              Genes (Passed)
+            </Checkbox>
+            <Checkbox
+              checked={columnVisibility.primaryFilters.columns.allGenes}
+              onChange={(e) => {
+                e.stopPropagation();
+                setColumnVisibility({
+                  ...columnVisibility,
+                  primaryFilters: {
+                    ...columnVisibility.primaryFilters,
+                    columns: { ...columnVisibility.primaryFilters.columns, allGenes: e.target.checked }
+                  }
+                });
+              }}
+            >
+              All Genes
+            </Checkbox>
+            <Checkbox
+              checked={columnVisibility.primaryFilters.columns.percentage}
+              onChange={(e) => {
+                e.stopPropagation();
+                setColumnVisibility({
+                  ...columnVisibility,
+                  primaryFilters: {
+                    ...columnVisibility.primaryFilters,
+                    columns: { ...columnVisibility.primaryFilters.columns, percentage: e.target.checked }
+                  }
+                });
+              }}
+            >
+              Percentage
+            </Checkbox>
+          </>
+        )}
+
+        {/* Single-gene analysis columns (GENE type) */}
+        {analysisType === 'GENE' && (
+          <>
+            <Checkbox
+              checked={columnVisibility.primaryFilters.columns.bmdMean}
+              onChange={(e) => {
+                e.stopPropagation();
+                setColumnVisibility({
+                  ...columnVisibility,
+                  primaryFilters: {
+                    ...columnVisibility.primaryFilters,
+                    columns: { ...columnVisibility.primaryFilters.columns, bmdMean: e.target.checked }
+                  }
+                });
+              }}
+            >
+              BMD Mean
+            </Checkbox>
+            <Checkbox
+              checked={columnVisibility.primaryFilters.columns.bmdMedian}
+              onChange={(e) => {
+                e.stopPropagation();
+                setColumnVisibility({
+                  ...columnVisibility,
+                  primaryFilters: {
+                    ...columnVisibility.primaryFilters,
+                    columns: { ...columnVisibility.primaryFilters.columns, bmdMedian: e.target.checked }
+                  }
+                });
+              }}
+            >
+              BMD Median
+            </Checkbox>
+          </>
+        )}
+
+        <div style={{ fontWeight: 600, marginTop: '16px', marginBottom: '8px', borderBottom: '1px solid #f0f0f0', paddingBottom: '8px' }}>
+          Pre-Filters
+          <div style={{ fontSize: '11px', fontWeight: 400, color: '#666', marginTop: '4px' }}>
+            Statistical tests applied before BMD analysis
+          </div>
         </div>
         <Checkbox
-          checked={columnVisibility.geneCounts.columns.genesPassed}
+          checked={columnVisibility.preFilters.columns.anova}
           onChange={(e) => {
             e.stopPropagation();
             setColumnVisibility({
               ...columnVisibility,
-              geneCounts: {
-                ...columnVisibility.geneCounts,
-                columns: { ...columnVisibility.geneCounts.columns, genesPassed: e.target.checked }
+              preFilters: {
+                ...columnVisibility.preFilters,
+                columns: { ...columnVisibility.preFilters.columns, anova: e.target.checked }
               }
             });
           }}
         >
-          Genes (Passed)
+          ANOVA
         </Checkbox>
-        <Checkbox
-          checked={columnVisibility.geneCounts.columns.allGenes}
-          onChange={(e) => {
-            e.stopPropagation();
-            setColumnVisibility({
-              ...columnVisibility,
-              geneCounts: {
-                ...columnVisibility.geneCounts,
-                columns: { ...columnVisibility.geneCounts.columns, allGenes: e.target.checked }
-              }
-            });
-          }}
-        >
-          All Genes
-        </Checkbox>
-        <Checkbox
-          checked={columnVisibility.geneCounts.columns.percentage}
-          onChange={(e) => {
-            e.stopPropagation();
-            setColumnVisibility({
-              ...columnVisibility,
-              geneCounts: {
-                ...columnVisibility.geneCounts,
-                columns: { ...columnVisibility.geneCounts.columns, percentage: e.target.checked }
-              }
-            });
-          }}
-        >
-          Percentage
-        </Checkbox>
+        {/* Future pre-filter types will be added here:
+        <Checkbox checked={...} onChange={...}>Williams Trend Test</Checkbox>
+        <Checkbox checked={...} onChange={...}>Curve Fit</Checkbox>
+        */}
 
         <div style={{ fontWeight: 600, marginTop: '16px', marginBottom: '8px', borderBottom: '1px solid #f0f0f0', paddingBottom: '8px' }}>
           Statistics Columns
         </div>
-        <Checkbox
-          checked={columnVisibility.significantANOVA}
-          onChange={(e) => {
-            e.stopPropagation();
-            setColumnVisibility({ ...columnVisibility, significantANOVA: e.target.checked });
-          }}
-        >
-          ANOVA - Significant Count
-        </Checkbox>
         <Checkbox
           checked={columnVisibility.fishersFull}
           onChange={(e) => {
@@ -1132,8 +1265,15 @@ export default function CategoryResultsGrid() {
         >
           <span>Category Results ({data.length} categories{hideRowsWithoutBMD ? ` / ${allData.length} total` : ''})</span>
 
-          {/* Phase 7: Selection Counter */}
-          {isAnythingSelected && (
+          {/* Visibility highlight counter */}
+          {hasHighlights && (
+            <Tag color="cyan">
+              Highlighted: {highlightedIds.size}
+            </Tag>
+          )}
+
+          {/* Phase 7: Selection Counter (legacy) */}
+          {isAnythingSelected && !hasHighlights && (
             <Tag color="blue">
               Selected: {selectedCount} of {data.length}
             </Tag>
@@ -1228,11 +1368,27 @@ export default function CategoryResultsGrid() {
     <>
       <style>
         {`
+          /* Visibility-based row styles */
+          .highlighted-row {
+            background-color: #e6f7ff !important;
+          }
+          .highlighted-row:hover {
+            background-color: #bae7ff !important;
+          }
+
           .dimmed-row {
             opacity: 0.3;
           }
           .dimmed-row:hover {
             opacity: 0.6;
+          }
+
+          .hidden-row {
+            display: none;
+          }
+
+          .normal-row {
+            /* Default styling - no changes */
           }
 
           /* Apply monospace font to all table cells for proper alignment */

@@ -1,0 +1,1701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BMDExpress Web - Reactivity Architecture Design</title>
+
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+
+    <style>
+        :root {
+            --primary: #1890ff;
+            --success: #52c41a;
+            --warning: #faad14;
+            --error: #ff4d4f;
+            --purple: #722ed1;
+            --cyan: #13c2c2;
+            --bg-dark: #1a1a2e;
+            --bg-medium: #16213e;
+            --bg-light: #0f3460;
+            --text-primary: #e8e8e8;
+            --text-secondary: #a0a0a0;
+            --border: #3a3a5c;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 40px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        h3 {
+            font-size: 1.2rem;
+            margin: 1.5rem 0 0.75rem;
+            color: var(--cyan);
+        }
+
+        h4 {
+            font-size: 1rem;
+            margin: 1rem 0 0.5rem;
+            color: var(--text-primary);
+        }
+
+        p {
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .card {
+            background: var(--bg-medium);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        .card-header {
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .architecture-diagram {
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        code {
+            background: var(--bg-light);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9em;
+            color: var(--cyan);
+        }
+
+        pre {
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--bg-light);
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        td {
+            background: var(--bg-medium);
+            color: var(--text-secondary);
+        }
+
+        .highlight {
+            color: var(--primary);
+        }
+
+        .success {
+            color: var(--success);
+        }
+
+        .warning {
+            color: var(--warning);
+        }
+
+        .layer {
+            border-left: 4px solid;
+            padding-left: 1rem;
+            margin: 1rem 0;
+        }
+
+        .layer-hard-filter {
+            border-color: var(--warning);
+        }
+
+        .layer-visibility {
+            border-color: var(--success);
+        }
+
+        .layer-groups {
+            border-color: var(--purple);
+        }
+
+        .layer-render {
+            border-color: var(--primary);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+
+        .badge-new {
+            background: var(--success);
+            color: white;
+        }
+
+        .badge-modified {
+            background: var(--warning);
+            color: black;
+        }
+
+        .badge-existing {
+            background: var(--border);
+            color: var(--text-primary);
+        }
+
+        .file-link {
+            color: var(--cyan);
+            text-decoration: none;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9em;
+        }
+
+        .file-link:hover {
+            text-decoration: underline;
+            color: var(--primary);
+        }
+
+        .file-link::before {
+            content: "📄 ";
+        }
+
+        .file-table {
+            margin: 1rem 0;
+        }
+
+        .file-table td:first-child {
+            white-space: nowrap;
+        }
+
+        .flow-diagram {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .flow-box {
+            background: var(--bg-light);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            text-align: center;
+        }
+
+        .flow-box.primary {
+            border-color: var(--primary);
+        }
+
+        .flow-box.warning {
+            border-color: var(--warning);
+        }
+
+        .flow-box.success {
+            border-color: var(--success);
+        }
+
+        .flow-box.purple {
+            border-color: var(--purple);
+        }
+
+        .flow-arrow {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .two-column {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .state-example {
+            background: #1e1e3f;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .toc {
+            background: var(--bg-medium);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .toc h3 {
+            margin-top: 0;
+        }
+
+        .toc ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .toc li {
+            padding: 0.3rem 0;
+        }
+
+        .toc a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .toc a:hover {
+            text-decoration: underline;
+        }
+
+        .visual-state-demo {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin: 1.5rem 0;
+            flex-wrap: wrap;
+        }
+
+        .visual-state-item {
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .visual-state-item .circle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin: 0 auto 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .circle.highlighted {
+            background: var(--primary);
+            color: white;
+        }
+
+        .circle.normal {
+            background: var(--bg-light);
+            border: 2px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        .circle.dimmed {
+            background: var(--bg-light);
+            border: 2px solid var(--border);
+            color: var(--text-secondary);
+            opacity: 0.3;
+        }
+
+        .circle.hidden {
+            background: var(--bg-dark);
+            border: 2px dashed var(--border);
+            color: var(--text-secondary);
+            opacity: 0.1;
+        }
+
+        .tri-state-demo {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            margin: 1.5rem 0;
+        }
+
+        .tri-state-item {
+            text-align: center;
+        }
+
+        .tri-state-item .indicator {
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            margin: 0 auto 0.5rem;
+            border: 2px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .indicator.none {
+            background: var(--bg-light);
+        }
+
+        .indicator.partial {
+            background: linear-gradient(90deg, var(--primary) 50%, var(--bg-light) 50%);
+        }
+
+        .indicator.full {
+            background: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>BMDExpress Web</h1>
+        <p class="subtitle">Reactivity Architecture Design Document</p>
+
+        <nav class="toc">
+            <h3>Table of Contents</h3>
+            <ul>
+                <li><a href="#overview">1. Architecture Overview</a></li>
+                <li><a href="#tech-decisions">1b. Technology Stack Decisions</a></li>
+                <li><a href="#data-flow">2. Data Flow Diagram</a></li>
+                <li><a href="#hard-filter">3. Hard Filter Layer</a></li>
+                <li><a href="#visibility">4. Visibility Layer</a></li>
+                <li><a href="#category-groups">5. Category Groups</a></li>
+                <li><a href="#state-structure">6. Redux State Structure</a></li>
+                <li><a href="#selectors">7. Selectors</a></li>
+                <li><a href="#component-integration">8. Component Integration</a></li>
+                <li><a href="#interactions">9. User Interactions</a></li>
+                <li><a href="#persistence">10. Persistence</a></li>
+                <li><a href="#implementation">11. Implementation Checklist</a></li>
+            </ul>
+        </nav>
+
+        <!-- Section 1: Overview -->
+        <section id="overview">
+            <h2>1. Architecture Overview</h2>
+
+            <p>The reactivity architecture is built on two distinct but complementary layers:</p>
+
+            <div class="two-column">
+                <div class="card layer layer-hard-filter">
+                    <div class="card-header">Hard Filter Layer</div>
+                    <p>Defines the <strong>Working Set</strong> - categories that CAN be visible.</p>
+                    <ul>
+                        <li>Primary Filter (4 parameters)</li>
+                        <li>Filter Groups (5 preset + custom)</li>
+                        <li>Persisted to localStorage</li>
+                        <li>Changes do NOT reset visibility</li>
+                    </ul>
+                </div>
+
+                <div class="card layer layer-visibility">
+                    <div class="card-header">Visibility Layer</div>
+                    <p>Per-category visual state within the Working Set.</p>
+                    <ul>
+                        <li>Visual states: highlighted, normal, dimmed, hidden</li>
+                        <li>Additional properties: size, color, pinned</li>
+                        <li>Driven by UI selections (table, charts, pickers)</li>
+                        <li>Source-agnostic selection model</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>Key Design Principles</h3>
+            <ul>
+                <li><strong>Separation of concerns:</strong> Filtering (what exists) vs. Visibility (how it's displayed)</li>
+                <li><strong>State independence:</strong> Hard filter changes preserve visibility criteria</li>
+                <li><strong>Per-category flexibility:</strong> Each category can have unique visual properties</li>
+                <li><strong>Efficient storage:</strong> Only store overrides from default state</li>
+                <li><strong>Generic groupings:</strong> Clusters, GO domains, pathways all use same pattern</li>
+            </ul>
+        </section>
+
+        <!-- Section 1b: Technology Decisions -->
+        <section id="tech-decisions">
+            <h2>1b. Technology Stack Decisions</h2>
+
+            <h3>Layer Implementation</h3>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Layer</th>
+                            <th>Implementation</th>
+                            <th>Rationale</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Hard Filter</strong></td>
+                            <td>TypeScript / Redux (client-side)</td>
+                            <td>Already working, instant feedback for filter changes</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Visibility Layer</strong></td>
+                            <td>TypeScript / Redux (client-side)</td>
+                            <td>Purely UI state, needs instant response for clicks</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Category Groups</strong></td>
+                            <td>Java DTOs → Hilla generates TypeScript</td>
+                            <td>Cluster membership computed server-side, type-safe DTOs</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Default Values</strong></td>
+                            <td>application.yml → exposed via @BrowserCallable</td>
+                            <td>Single source of truth, configurable without code changes</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Default Values Configuration</h3>
+
+            <p>Default values for primary filter, visibility, display mode: <span class="badge badge-new">TO CREATE</span></p>
+            <div class="code-file" data-file="src/main/resources/application.yml"></div>
+
+            <p>Spring @ConfigurationProperties class binding to application.yml: <span class="badge badge-new">TO CREATE</span></p>
+            <div class="code-file" data-file="src/main/java/com/sciome/config/DefaultsConfig.java"></div>
+
+            <p>@BrowserCallable service exposing defaults to frontend: <span class="badge badge-new">TO CREATE</span></p>
+            <div class="code-file" data-file="src/main/java/com/sciome/service/DefaultsService.java"></div>
+
+            <p>DTO for primary filter defaults (Hilla generates TypeScript): <span class="badge badge-new">TO CREATE</span></p>
+            <div class="code-file" data-file="src/main/java/com/sciome/dto/PrimaryFilterDefaultsDto.java"></div>
+
+            <p>DTO for visibility defaults (Hilla generates TypeScript): <span class="badge badge-new">TO CREATE</span></p>
+            <div class="code-file" data-file="src/main/java/com/sciome/dto/VisibilityDefaultsDto.java"></div>
+
+            <h4>application.yml Structure</h4>
+            <pre><code>bmdexpress:
+  defaults:
+    primary-filter:
+      percentage-min: 5
+      genes-passed-filters-min: 3
+      all-genes-min: 40
+      all-genes-max: 500
+    visibility:
+      default-state: normal  # normal | dimmed | hidden
+      default-size: medium   # small | medium | large
+    display-mode:
+      non-selected: dimmed   # How to display non-selected items</code></pre>
+
+            <h3>Category Groups (Java → Hilla)</h3>
+
+            <p>DTO for category groups (id, type, name, categoryIds, metadata): <span class="badge badge-new">TO CREATE</span></p>
+            <div class="code-file" data-file="src/main/java/com/sciome/dto/CategoryGroupDto.java"></div>
+
+            <p>@BrowserCallable service returning cluster groups: <span class="badge badge-new">TO CREATE</span></p>
+            <div class="code-file" data-file="src/main/java/com/sciome/service/CategoryGroupService.java"></div>
+        </section>
+
+        <!-- Section 2: Data Flow -->
+        <section id="data-flow">
+            <h2>2. Data Flow Diagram</h2>
+
+            <div class="architecture-diagram">
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         application.yml (defaults)                           │
+│                    Loaded via DefaultsService @BrowserCallable              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              ALL DATA                                        │
+│                    (CategoryAnalysisResultDto[])                            │
+│                         Loaded from backend                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    HARD FILTER LAYER (TypeScript/Redux)                      │
+│  ┌─────────────────────────────┐  ┌─────────────────────────────────────┐   │
+│  │      Primary Filter         │  │         Filter Groups               │   │
+│  │  • percentageMin (5%)       │  │  • Essential: Gene Counts           │   │
+│  │  • genesPassedFiltersMin(3) │  │  • Statistics: Fisher's & BMD       │   │
+│  │  • allGenesMin (40)         │  │  • Advanced: Counts & Percentiles   │   │
+│  │  • allGenesMax (500)        │  │  • Advanced: Directional Analysis   │   │
+│  │                             │  │  • Advanced: Fold Change & Scores   │   │
+│  │  Defaults from application  │  │                                     │   │
+│  │  .yml, persisted to         │  │  Persisted to localStorage          │   │
+│  │  localStorage on change     │  │                                     │   │
+│  └─────────────────────────────┘  └─────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            WORKING SET                                       │
+│                  Categories that passed hard filters                         │
+│                    (Available for visualization)                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+              ┌─────────────────────┴─────────────────────┐
+              │                                           │
+              ▼                                           ▼
+┌─────────────────────────────────┐     ┌─────────────────────────────────────┐
+│  CATEGORY GROUPS (Java/Hilla)  │     │   VISIBILITY LAYER (TypeScript)     │
+│                                 │     │                                     │
+│  CategoryGroupService           │     │  Per-Category Visual State          │
+│  @BrowserCallable               │     │  • visibility: highlighted/         │
+│                                 │     │    normal/dimmed/hidden             │
+│  • UMAP Clusters               │     │  • size: small/medium/large         │
+│  • Gene Clusters               │     │  • color: optional                  │
+│                                 │     │  • pinned: boolean                  │
+│  Returns CategoryGroupDto[]    │     │                                     │
+│  with cluster membership       │     │  Default + Overrides pattern        │
+│                                 │     │  (only store exceptions)            │
+│  Tri-state: none/partial/full  │     │                                     │
+└─────────────────────────────────┘     └─────────────────────────────────────┘
+              │                                           │
+              └─────────────────────┬─────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          RENDERED OUTPUT                                     │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
+│  │    Table     │  │    Charts    │  │   Cluster    │  │    UMAP      │    │
+│  │              │  │              │  │   Pickers    │  │   Scatter    │    │
+│  │ Row styling  │  │ Point/bar    │  │              │  │              │    │
+│  │ based on     │  │ styling      │  │ Tri-state    │  │ Point        │    │
+│  │ visual state │  │ based on     │  │ indicators   │  │ styling      │    │
+│  │              │  │ visual state │  │              │  │              │    │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘</div>
+        </section>
+
+        <!-- Section 3: Hard Filter Layer -->
+        <section id="hard-filter">
+            <h2>3. Hard Filter Layer</h2>
+
+            <p>The Hard Filter Layer determines which categories are included in the Working Set. Categories that don't pass these filters are excluded from all visualizations.</p>
+
+            <h3>3.1 Primary Filter</h3>
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Parameter</th>
+                            <th>Default</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>percentageMin</code></td>
+                            <td>5%</td>
+                            <td>Minimum percentage of genes that passed filters</td>
+                        </tr>
+                        <tr>
+                            <td><code>genesPassedFiltersMin</code></td>
+                            <td>3</td>
+                            <td>Minimum count of genes that passed all filters</td>
+                        </tr>
+                        <tr>
+                            <td><code>allGenesMin</code></td>
+                            <td>40</td>
+                            <td>Minimum total gene count in category</td>
+                        </tr>
+                        <tr>
+                            <td><code>allGenesMax</code></td>
+                            <td>500</td>
+                            <td>Maximum total gene count in category</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p style="margin-top: 1rem;"><strong>Note:</strong> Primary Filter is skipped for GENE analysis type.</p>
+            </div>
+
+            <h3>3.2 Filter Groups</h3>
+            <p>Five preset filter groups, each containing multiple individual filters. Groups are enabled by default, but individual filters within are disabled until configured.</p>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Group</th>
+                            <th>Fields</th>
+                            <th>Color</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Essential: Gene Counts</strong></td>
+                            <td>percentage, geneAllCount, genesThatPassedAllFilters</td>
+                            <td style="color: #1890ff;">Blue</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Statistics: Fisher's & BMD</strong></td>
+                            <td>Fisher's p-values, BMD/BMDL/BMDU statistics (24 fields)</td>
+                            <td style="color: #52c41a;">Green</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Advanced: Counts & Percentiles</strong></td>
+                            <td>12 filter count fields + 6 percentile fields</td>
+                            <td style="color: #722ed1;">Purple</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Advanced: Directional Analysis</strong></td>
+                            <td>UP/DOWN directional stats (21 fields)</td>
+                            <td style="color: #fa8c16;">Orange</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Advanced: Fold Change & Scores</strong></td>
+                            <td>Fold change, z-scores, model fold change (14 fields)</td>
+                            <td style="color: #13c2c2;">Cyan</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>3.3 Persistence Behavior</h3>
+            <ul>
+                <li>Primary Filter values saved to <code>localStorage</code> on change</li>
+                <li>Filter Group configurations saved to <code>localStorage</code> on change</li>
+                <li>Restored automatically on app load</li>
+                <li><strong>Critical:</strong> Changing hard filters does NOT reset visibility state</li>
+            </ul>
+        </section>
+
+        <!-- Section 4: Visibility Layer -->
+        <section id="visibility">
+            <h2>4. Visibility Layer</h2>
+
+            <p>The Visibility Layer controls how each category in the Working Set is displayed. It uses a <strong>default + overrides</strong> pattern for efficient storage.</p>
+
+            <h3>4.1 Visual States</h3>
+
+            <div class="visual-state-demo">
+                <div class="visual-state-item">
+                    <div class="circle highlighted">A</div>
+                    <div><strong>Highlighted</strong></div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">Full opacity, emphasis</div>
+                </div>
+                <div class="visual-state-item">
+                    <div class="circle normal">B</div>
+                    <div><strong>Normal</strong></div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">Standard display</div>
+                </div>
+                <div class="visual-state-item">
+                    <div class="circle dimmed">C</div>
+                    <div><strong>Dimmed</strong></div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">Reduced opacity</div>
+                </div>
+                <div class="visual-state-item">
+                    <div class="circle hidden">D</div>
+                    <div><strong>Hidden</strong></div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">Not rendered</div>
+                </div>
+            </div>
+
+            <h3>4.2 Per-Category Visual State</h3>
+
+            <pre><code>interface CategoryVisualState {
+  visibility: 'highlighted' | 'normal' | 'dimmed' | 'hidden';
+  size?: 'small' | 'medium' | 'large';
+  color?: string;    // Optional custom color
+  pinned?: boolean;  // Always visible regardless of other state
+}</code></pre>
+
+            <h3>4.3 Storage Pattern: Default + Overrides</h3>
+
+            <p>Instead of storing state for every category (potentially thousands), we only store categories that differ from the default:</p>
+
+            <pre><code>interface VisibilityState {
+  // Default state for categories not in overrides
+  defaultState: CategoryVisualState;
+
+  // Only categories with non-default state
+  overrides: Record&lt;string, Partial&lt;CategoryVisualState&gt;&gt;;
+}
+
+// Example: 5 categories highlighted, rest dimmed
+{
+  defaultState: { visibility: 'dimmed' },
+  overrides: {
+    'GO:0001234': { visibility: 'highlighted' },
+    'GO:0005678': { visibility: 'highlighted' },
+    'GO:0009012': { visibility: 'highlighted' },
+    'GO:0003456': { visibility: 'highlighted' },
+    'GO:0007890': { visibility: 'highlighted' },
+  }
+}</code></pre>
+
+            <h3>4.4 Lookup Function</h3>
+
+            <pre><code>function getVisualState(categoryId: string, state: VisibilityState): CategoryVisualState {
+  const override = state.overrides[categoryId];
+  if (override) {
+    return { ...state.defaultState, ...override };
+  }
+  return state.defaultState;
+}</code></pre>
+
+            <h3>4.5 Initial State Behavior</h3>
+
+            <div class="card" style="border-color: var(--primary);">
+                <div class="card-header" style="color: var(--primary);">Design Decision: All Categories Start Selected</div>
+                <p>When a dataset loads, <strong>all categories in the Working Set are initialized as "highlighted" (selected)</strong>.</p>
+
+                <h4>Rationale</h4>
+                <ul>
+                    <li><strong>Visual consistency:</strong> The initial view looks identical to before (all at full opacity)</li>
+                    <li><strong>Checkbox state:</strong> All checkboxes in the table start checked</li>
+                    <li><strong>Cluster picker:</strong> All clusters show "full" selection state (fully filled indicator)</li>
+                    <li><strong>User mental model:</strong> "Everything is selected" is easier to understand than "nothing is selected but everything is visible"</li>
+                    <li><strong>Deselection workflow:</strong> Users can click clusters or rows to narrow down (deselect) rather than build up (select)</li>
+                </ul>
+
+                <h4>Implementation</h4>
+                <pre><code>// When data loads, dispatch highlightCategories with all category IDs
+const allCategoryIds = data.map(cat => cat.categoryId).filter(Boolean);
+dispatch(highlightCategories({ categoryIds: allCategoryIds, exclusive: true }));
+dispatch(setSelectedCategoryIds(allCategoryIds)); // Sync legacy selection</code></pre>
+
+                <h4>Behavior Comparison</h4>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Aspect</th>
+                            <th>Previous (None Selected)</th>
+                            <th>New (All Selected)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Visual appearance</td>
+                            <td>All rows full opacity</td>
+                            <td>All rows full opacity (same)</td>
+                        </tr>
+                        <tr>
+                            <td>Table checkboxes</td>
+                            <td>All unchecked</td>
+                            <td><strong>All checked</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Cluster picker</td>
+                            <td>All show "none" state</td>
+                            <td><strong>All show "full" state</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Header tag</td>
+                            <td>No "Highlighted" tag</td>
+                            <td><strong>Shows "Highlighted: N"</strong></td>
+                        </tr>
+                        <tr>
+                            <td>First click on cluster</td>
+                            <td>Highlights that cluster</td>
+                            <td><strong>Deselects that cluster</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Section 5: Category Groups -->
+        <section id="category-groups">
+            <h2>5. Category Groups</h2>
+
+            <p>Category Groups provide a way to organize categories into collections. Each group displays a <strong>tri-state selection indicator</strong> based on how many of its members are currently highlighted.</p>
+
+            <h3>5.1 Tri-State Selection</h3>
+
+            <div class="tri-state-demo">
+                <div class="tri-state-item">
+                    <div class="indicator none"></div>
+                    <div><strong>None</strong></div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">0 of N selected</div>
+                </div>
+                <div class="tri-state-item">
+                    <div class="indicator partial"></div>
+                    <div><strong>Partial</strong></div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">1 to N-1 selected</div>
+                </div>
+                <div class="tri-state-item">
+                    <div class="indicator full"></div>
+                    <div><strong>Full</strong></div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">N of N selected</div>
+                </div>
+            </div>
+
+            <h3>5.2 Group Types</h3>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Source</th>
+                            <th>Example</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>umap_cluster</code></td>
+                            <td>UMAP dimensionality reduction</td>
+                            <td>Cluster 1, Cluster 2, ...</td>
+                        </tr>
+                        <tr>
+                            <td><code>gene_cluster</code></td>
+                            <td>Active genes clustering</td>
+                            <td>Gene Cluster A, Gene Cluster B, ...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>5.3 Data Structure</h3>
+
+            <pre><code>interface CategoryGroup {
+  id: string;
+  type: 'umap_cluster' | 'gene_cluster';  // Extensible for future types
+  name: string;
+  categoryIds: string[];  // Categories belonging to this group
+  metadata?: Record&lt;string, any&gt;;  // Type-specific data
+}
+
+// Computed from visibility state
+interface GroupSelectionState {
+  groupId: string;
+  totalCount: number;
+  selectedCount: number;  // Categories with visibility: 'highlighted'
+  state: 'none' | 'partial' | 'full';
+}</code></pre>
+        </section>
+
+        <!-- Section 6: Redux State Structure -->
+        <section id="state-structure">
+            <h2>6. Redux State Structure</h2>
+
+            <h3>6.1 Frontend Files</h3>
+
+            <p>Per-category visual state (highlighted/normal/dimmed/hidden, size, color, pinned): <span class="badge badge-new">TO CREATE</span></p>
+            <div class="code-file" data-file="src/main/frontend/store/slices/visibilitySlice.ts"></div>
+
+            <p>Category groups loaded from backend (UMAP clusters, gene clusters): <span class="badge badge-new">TO CREATE</span></p>
+            <div class="code-file" data-file="src/main/frontend/store/slices/categoryGroupsSlice.ts"></div>
+
+            <p>Existing slice - remove deprecated selection state: <span class="badge badge-modified">MODIFY</span></p>
+            <div class="code-file" data-file="src/main/frontend/store/slices/categoryResultsSlice.ts"></div>
+
+            <p>Existing filter groups slice - no changes needed: <span class="badge badge-existing">EXISTING</span></p>
+            <div class="code-file" data-file="src/main/frontend/store/slices/filterSlice.ts"></div>
+
+            <p>Add new slices to store configuration: <span class="badge badge-modified">MODIFY</span></p>
+            <div class="code-file" data-file="src/main/frontend/store/store.ts"></div>
+
+            <p>TypeScript interfaces for visibility state: <span class="badge badge-new">TO CREATE</span></p>
+            <div class="code-file" data-file="src/main/frontend/types/visibilityTypes.ts"></div>
+
+            <h3>6.2 State Shape Overview</h3>
+
+            <pre><code>interface RootState {
+  categoryResults: { ... };        // Existing - remove deprecated selection fields
+  filters: { ... };                // Existing - no changes
+  visibility: VisibilityState;     // NEW
+  categoryGroups: CategoryGroupsState;  // NEW
+}</code></pre>
+
+            <h3>6.2b Current categoryResultsSlice (for reference)</h3>
+            <p>The existing slice showing state structure and selection-related code to be refactored:</p>
+            <div class="code-file" data-file="src/main/frontend/store/slices/categoryResultsSlice.ts"></div>
+
+            <h3>6.3 Visibility Slice Actions</h3>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Parameters</th>
+                            <th>Effect</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>highlightCategories</code></td>
+                            <td>categoryIds[], dimOthers?</td>
+                            <td>Set categories as highlighted, optionally dim others</td>
+                        </tr>
+                        <tr>
+                            <td><code>addHighlights</code></td>
+                            <td>categoryIds[]</td>
+                            <td>Add to current highlights (additive)</td>
+                        </tr>
+                        <tr>
+                            <td><code>toggleHighlight</code></td>
+                            <td>categoryId</td>
+                            <td>Toggle single category highlight</td>
+                        </tr>
+                        <tr>
+                            <td><code>clearVisibility</code></td>
+                            <td>-</td>
+                            <td>Reset all to normal</td>
+                        </tr>
+                        <tr>
+                            <td><code>setDefaultVisibility</code></td>
+                            <td>'normal' | 'dimmed' | 'hidden'</td>
+                            <td>Change display mode for non-highlighted</td>
+                        </tr>
+                        <tr>
+                            <td><code>setPinned</code></td>
+                            <td>categoryIds[], pinned</td>
+                            <td>Pin/unpin categories</td>
+                        </tr>
+                        <tr>
+                            <td><code>setVisibility</code></td>
+                            <td>categoryIds[], visualState</td>
+                            <td>Set arbitrary visual properties</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>6.4 Category Groups Slice Actions</h3>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Parameters</th>
+                            <th>Effect</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>setGroups</code></td>
+                            <td>CategoryGroup[]</td>
+                            <td>Initialize all groups from backend</td>
+                        </tr>
+                        <tr>
+                            <td><code>addGroup</code></td>
+                            <td>CategoryGroup</td>
+                            <td>Add single group</td>
+                        </tr>
+                        <tr>
+                            <td><code>updateGroupCategories</code></td>
+                            <td>groupId, categoryIds[]</td>
+                            <td>Update membership of a group</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Section 7: Selectors -->
+        <section id="selectors">
+            <h2>7. Selectors</h2>
+
+            <h3>7.1 Selector Files</h3>
+
+            <p>selectCategoryVisualState, selectHighlightedCategoryIds, selectCategoriesWithVisualState: <span class="badge badge-new">TO CREATE</span></p>
+            <div class="code-file" data-file="src/main/frontend/store/selectors/visibilitySelectors.ts"></div>
+
+            <p>selectGroupSelectionStates, selectGroupsByType: <span class="badge badge-new">TO CREATE</span></p>
+            <div class="code-file" data-file="src/main/frontend/store/selectors/groupSelectors.ts"></div>
+
+            <p>Rename selectFilteredData → selectWorkingSet: <span class="badge badge-modified">MODIFY</span></p>
+            <div class="code-file" data-file="src/main/frontend/store/slices/categoryResultsSlice.ts"></div>
+
+            <h3>7.2 Key Selectors</h3>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Selector</th>
+                            <th>Returns</th>
+                            <th>Used By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>selectWorkingSet</code></td>
+                            <td>Categories passing hard filters</td>
+                            <td>All components</td>
+                        </tr>
+                        <tr>
+                            <td><code>selectCategoryVisualState(id)</code></td>
+                            <td>Visual state for single category</td>
+                            <td>Row/point rendering</td>
+                        </tr>
+                        <tr>
+                            <td><code>selectCategoriesWithVisualState</code></td>
+                            <td>Working set + visual state merged</td>
+                            <td>Table, Charts</td>
+                        </tr>
+                        <tr>
+                            <td><code>selectHighlightedCategoryIds</code></td>
+                            <td>Array of highlighted category IDs</td>
+                            <td>Group selection state</td>
+                        </tr>
+                        <tr>
+                            <td><code>selectGroupSelectionStates(type)</code></td>
+                            <td>Tri-state for each group</td>
+                            <td>ClusterPicker</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Section 8: Component Integration -->
+        <section id="component-integration">
+            <h2>8. Component Integration</h2>
+
+            <h3>8.1 Components to Modify</h3>
+
+            <p>Use selectCategoriesWithVisualState, dispatch visibility actions on row click: <span class="badge badge-modified">MODIFY</span></p>
+            <div class="code-file" data-file="src/main/frontend/components/CategoryResultsGrid.tsx"></div>
+
+            <p>Use selectGroupSelectionStates, show tri-state indicators: <span class="badge badge-modified">MODIFY</span></p>
+            <div class="code-file" data-file="src/main/frontend/components/ClusterPicker.tsx"></div>
+
+            <p>Style points by visual state, dispatch on click: <span class="badge badge-modified">MODIFY</span></p>
+            <div class="code-file" data-file="src/main/frontend/components/charts/UmapScatter.tsx"></div>
+
+            <p>Style bars/points by visual state: <span class="badge badge-modified">MODIFY</span></p>
+            <div class="code-file" data-file="src/main/frontend/components/charts/BMDDistributionChart.tsx"></div>
+
+            <p>Add display mode toggle UI: <span class="badge badge-modified">MODIFY</span></p>
+            <div class="code-file" data-file="src/main/frontend/components/CategoryResultsView.tsx"></div>
+
+            <h3>8.2 Component Behavior Pattern</h3>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>Selector Used</th>
+                            <th>Click Action</th>
+                            <th>Visual Mapping</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Table</strong></td>
+                            <td>selectCategoriesWithVisualState</td>
+                            <td>Click → replace, Shift+Click → add</td>
+                            <td>Row class: highlighted/dimmed/hidden</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Charts</strong></td>
+                            <td>selectCategoriesWithVisualState</td>
+                            <td>Click → toggle highlight</td>
+                            <td>Opacity: 1/0.3/0, stroke highlight</td>
+                        </tr>
+                        <tr>
+                            <td><strong>ClusterPicker</strong></td>
+                            <td>selectGroupSelectionStates</td>
+                            <td>Click → select all in cluster</td>
+                            <td>Tri-state indicator: none/partial/full</td>
+                        </tr>
+                        <tr>
+                            <td><strong>UMAP Scatter</strong></td>
+                            <td>selectCategoriesWithVisualState</td>
+                            <td>Click → toggle, Lasso → add</td>
+                            <td>Point opacity + size</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>8.3 CSS Classes</h3>
+
+            <p>.row-highlighted, .row-dimmed, .row-hidden, .cluster-none, .cluster-partial, .cluster-full: <span class="badge badge-new">TO CREATE</span></p>
+            <div class="code-file" data-file="src/main/frontend/styles/visibility.css"></div>
+
+            <h3>8.4 Existing ClusterPicker (for reference)</h3>
+            <p>Current ClusterPicker implementation to be updated with tri-state indicators:</p>
+            <div class="code-file" data-file="src/main/frontend/components/ClusterPicker.tsx"></div>
+
+            <h3>8.5 Existing Store Configuration</h3>
+            <p>Current store.ts - new slices will be added here:</p>
+            <div class="code-file" data-file="src/main/frontend/store/store.ts"></div>
+        </section>
+
+        <!-- Section 9: User Interactions -->
+        <section id="interactions">
+            <h2>9. User Interactions</h2>
+
+            <h3>9.1 Selection Behavior</h3>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Behavior</th>
+                            <th>Redux Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Click row/point</td>
+                            <td>Replace selection with this item</td>
+                            <td><code>highlightCategories({ ids: [id], dimOthers: true })</code></td>
+                        </tr>
+                        <tr>
+                            <td>Shift+Click</td>
+                            <td>Add to selection</td>
+                            <td><code>addHighlights([id])</code></td>
+                        </tr>
+                        <tr>
+                            <td>Click highlighted item</td>
+                            <td>Remove from selection</td>
+                            <td><code>toggleHighlight(id)</code></td>
+                        </tr>
+                        <tr>
+                            <td>Click cluster</td>
+                            <td>Select all in cluster</td>
+                            <td><code>highlightCategories({ ids: clusterIds, dimOthers: true })</code></td>
+                        </tr>
+                        <tr>
+                            <td>Clear button</td>
+                            <td>Clear all selection</td>
+                            <td><code>clearVisibility()</code></td>
+                        </tr>
+                        <tr>
+                            <td>Lasso select (charts)</td>
+                            <td>Add all in lasso</td>
+                            <td><code>addHighlights(lassoIds)</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>9.2 Display Mode Toggle</h3>
+
+            <p>A UI control to switch how non-highlighted items are displayed:</p>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Mode</th>
+                            <th>Non-Highlighted Items</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Highlight</strong> (default)</td>
+                            <td>Dimmed (30% opacity)</td>
+                            <td><code>setDefaultVisibility('dimmed')</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Focus</strong></td>
+                            <td>Hidden</td>
+                            <td><code>setDefaultVisibility('hidden')</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Show All</strong></td>
+                            <td>Normal (when nothing selected)</td>
+                            <td><code>clearVisibility()</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Section 10: Persistence -->
+        <section id="persistence">
+            <h2>10. Persistence</h2>
+
+            <h3>10.1 What Gets Persisted</h3>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Storage</th>
+                            <th>When</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Primary Filter values</td>
+                            <td>localStorage</td>
+                            <td>On change</td>
+                        </tr>
+                        <tr>
+                            <td>Filter Group configurations</td>
+                            <td>localStorage</td>
+                            <td>On change (if "Remember" enabled)</td>
+                        </tr>
+                        <tr>
+                            <td>View mode (simple/power)</td>
+                            <td>localStorage</td>
+                            <td>On change</td>
+                        </tr>
+                        <tr>
+                            <td>Visibility state</td>
+                            <td><em>Not persisted</em></td>
+                            <td>Session only</td>
+                        </tr>
+                        <tr>
+                            <td>Category Groups</td>
+                            <td><em>Not persisted</em></td>
+                            <td>Recomputed from data</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>10.2 localStorage Keys</h3>
+
+            <pre><code>// Existing keys
+'bmdexpress_master_filters_global'  // Primary Filter
+'bmdexpress_filter_groups'          // Filter Groups
+'bmdexpress_view_mode'              // View mode
+
+// Note: Visibility state is intentionally NOT persisted
+// It represents transient selection state during analysis</code></pre>
+
+            <h3>10.3 Critical Behavior</h3>
+
+            <div class="card" style="border-color: var(--warning);">
+                <div class="card-header" style="color: var(--warning);">Important: Filter Independence</div>
+                <p>When hard filter criteria change (Primary Filter or Filter Groups), the visibility state is <strong>preserved</strong>:</p>
+                <ul>
+                    <li>Selected category IDs remain in <code>overrides</code></li>
+                    <li>If a selected category is filtered out, it simply won't appear in Working Set</li>
+                    <li>If filter is relaxed and category returns, it will still be highlighted</li>
+                    <li>User doesn't lose their selection work when adjusting filters</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Section 11: Implementation Checklist -->
+        <section id="implementation">
+            <h2>11. Implementation Checklist</h2>
+
+            <h3>11.1 Java Backend (New Files)</h3>
+
+            <p>Add bmdexpress.defaults section: <span class="badge badge-modified">MODIFY</span></p>
+            <div class="code-file" data-file="src/main/resources/application.yml"></div>
+
+            <p>@ConfigurationProperties for defaults: <span class="badge badge-new">CREATE</span></p>
+            <div class="code-file" data-file="src/main/java/com/sciome/config/DefaultsConfig.java"></div>
+
+            <p>DTO for primary filter defaults: <span class="badge badge-new">CREATE</span></p>
+            <div class="code-file" data-file="src/main/java/com/sciome/dto/PrimaryFilterDefaultsDto.java"></div>
+
+            <p>DTO for visibility defaults: <span class="badge badge-new">CREATE</span></p>
+            <div class="code-file" data-file="src/main/java/com/sciome/dto/VisibilityDefaultsDto.java"></div>
+
+            <p>DTO for category groups: <span class="badge badge-new">CREATE</span></p>
+            <div class="code-file" data-file="src/main/java/com/sciome/dto/CategoryGroupDto.java"></div>
+
+            <p>@BrowserCallable for defaults: <span class="badge badge-new">CREATE</span></p>
+            <div class="code-file" data-file="src/main/java/com/sciome/service/DefaultsService.java"></div>
+
+            <p>@BrowserCallable for category groups: <span class="badge badge-new">CREATE</span></p>
+            <div class="code-file" data-file="src/main/java/com/sciome/service/CategoryGroupService.java"></div>
+
+            <h3>11.2 Frontend Redux (New Files)</h3>
+
+            <p>TypeScript interfaces for visibility: <span class="badge badge-new">CREATE</span></p>
+            <div class="code-file" data-file="src/main/frontend/types/visibilityTypes.ts"></div>
+
+            <p>Redux slice for per-category visibility: <span class="badge badge-new">CREATE</span></p>
+            <div class="code-file" data-file="src/main/frontend/store/slices/visibilitySlice.ts"></div>
+
+            <p>Redux slice for category groups: <span class="badge badge-new">CREATE</span></p>
+            <div class="code-file" data-file="src/main/frontend/store/slices/categoryGroupsSlice.ts"></div>
+
+            <p>Memoized selectors for visibility: <span class="badge badge-new">CREATE</span></p>
+            <div class="code-file" data-file="src/main/frontend/store/selectors/visibilitySelectors.ts"></div>
+
+            <p>Selectors for group selection state: <span class="badge badge-new">CREATE</span></p>
+            <div class="code-file" data-file="src/main/frontend/store/selectors/groupSelectors.ts"></div>
+
+            <h3>11.3 Frontend Redux (Modify)</h3>
+
+            <p>Add visibility and categoryGroups reducers: <span class="badge badge-modified">MODIFY</span></p>
+            <div class="code-file" data-file="src/main/frontend/store/store.ts"></div>
+
+            <p>Remove deprecated selection state, rename selectFilteredData: <span class="badge badge-modified">MODIFY</span></p>
+            <div class="code-file" data-file="src/main/frontend/store/slices/categoryResultsSlice.ts"></div>
+
+            <h3>11.4 Frontend Components (Modify)</h3>
+
+            <p>Use visibility selectors, dispatch visibility actions: <span class="badge badge-modified">MODIFY</span></p>
+            <div class="code-file" data-file="src/main/frontend/components/CategoryResultsGrid.tsx"></div>
+
+            <p>Add display mode toggle, load defaults: <span class="badge badge-modified">MODIFY</span></p>
+            <div class="code-file" data-file="src/main/frontend/components/CategoryResultsView.tsx"></div>
+
+            <p>Use group selectors, tri-state indicators: <span class="badge badge-modified">MODIFY</span></p>
+            <div class="code-file" data-file="src/main/frontend/components/ClusterPicker.tsx"></div>
+
+            <p>Style by visibility, dispatch on interaction: <span class="badge badge-modified">MODIFY</span></p>
+            <div class="code-file" data-file="src/main/frontend/components/charts/UmapScatter.tsx"></div>
+
+            <p>Load defaults from backend: <span class="badge badge-modified">MODIFY</span></p>
+            <div class="code-file" data-file="src/main/frontend/components/PrimaryFilter.tsx"></div>
+
+            <h3>11.5 Styles (New)</h3>
+
+            <p>CSS for highlighted/dimmed/hidden states: <span class="badge badge-new">CREATE</span></p>
+            <div class="code-file" data-file="src/main/frontend/styles/visibility.css"></div>
+
+            <h3>11.6 Implementation Order</h3>
+
+            <div class="card">
+                <ol style="color: var(--text-primary); padding-left: 1.5rem;">
+                    <li><strong>Phase 1: Backend Defaults</strong>
+                        <ul style="color: var(--text-secondary);">
+                            <li>application.yml defaults section</li>
+                            <li>DefaultsConfig.java</li>
+                            <li>DTOs for defaults</li>
+                            <li>DefaultsService.java</li>
+                        </ul>
+                    </li>
+                    <li><strong>Phase 2: Backend Category Groups</strong>
+                        <ul style="color: var(--text-secondary);">
+                            <li>CategoryGroupDto.java</li>
+                            <li>CategoryGroupService.java</li>
+                        </ul>
+                    </li>
+                    <li><strong>Phase 3: Frontend State</strong>
+                        <ul style="color: var(--text-secondary);">
+                            <li>visibilityTypes.ts</li>
+                            <li>visibilitySlice.ts</li>
+                            <li>categoryGroupsSlice.ts</li>
+                            <li>Update store.ts</li>
+                        </ul>
+                    </li>
+                    <li><strong>Phase 4: Selectors</strong>
+                        <ul style="color: var(--text-secondary);">
+                            <li>visibilitySelectors.ts</li>
+                            <li>groupSelectors.ts</li>
+                            <li>Update categoryResultsSlice.ts</li>
+                        </ul>
+                    </li>
+                    <li><strong>Phase 5: Components</strong>
+                        <ul style="color: var(--text-secondary);">
+                            <li>visibility.css</li>
+                            <li>CategoryResultsGrid.tsx</li>
+                            <li>ClusterPicker.tsx</li>
+                            <li>Chart components</li>
+                            <li>CategoryResultsView.tsx (display mode toggle)</li>
+                        </ul>
+                    </li>
+                    <li><strong>Phase 6: Cleanup</strong>
+                        <ul style="color: var(--text-secondary);">
+                            <li>Remove deprecated selection state from categoryResultsSlice</li>
+                            <li>Remove legacy selection actions and selectors</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--border); text-align: center; color: var(--text-secondary);">
+            <p>BMDExpress Web - Reactivity Architecture Design</p>
+            <p>Generated: <script>document.write(new Date().toLocaleDateString())</script></p>
+        </footer>
+    </div>
+
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+
+    <script>
+    /**
+     * Code File Loader
+     * Fetches source files and displays them with syntax highlighting
+     */
+    class CodeFileLoader {
+        constructor() {
+            this.cache = new Map();
+        }
+
+        // Detect language from file extension
+        getLanguage(filePath) {
+            const ext = filePath.split('.').pop().toLowerCase();
+            const langMap = {
+                'ts': 'typescript',
+                'tsx': 'tsx',
+                'js': 'javascript',
+                'jsx': 'jsx',
+                'java': 'java',
+                'yml': 'yaml',
+                'yaml': 'yaml',
+                'json': 'json',
+                'css': 'css',
+                'html': 'html',
+                'xml': 'xml',
+                'properties': 'properties',
+            };
+            return langMap[ext] || 'plaintext';
+        }
+
+        // Fetch and display code
+        async loadCode(element) {
+            const filePath = element.dataset.file;
+            const lines = element.dataset.lines; // e.g., "10-50" for specific lines
+
+            if (!filePath) return;
+
+            // Show loading state
+            element.innerHTML = `<div class="code-loading">Loading ${filePath}...</div>`;
+
+            try {
+                // Check cache first
+                let content = this.cache.get(filePath);
+
+                if (!content) {
+                    // Fetch from our API endpoint
+                    const response = await fetch(`/api/source?path=${encodeURIComponent(filePath)}`);
+                    if (!response.ok) {
+                        throw new Error(`File not found: ${filePath}`);
+                    }
+                    content = await response.text();
+                    this.cache.set(filePath, content);
+                }
+
+                // Extract specific lines if requested
+                if (lines) {
+                    const [start, end] = lines.split('-').map(n => parseInt(n, 10));
+                    const allLines = content.split('\n');
+                    content = allLines.slice(start - 1, end).join('\n');
+                }
+
+                const language = this.getLanguage(filePath);
+                const fileName = filePath.split('/').pop();
+                const lineCount = content.split('\n').length;
+
+                element.innerHTML = `
+                    <div class="code-header code-collapsed" onclick="this.classList.toggle('code-collapsed'); this.nextElementSibling.classList.toggle('code-body-hidden');">
+                        <span class="code-toggle">▶</span>
+                        <span class="code-filename">${fileName}</span>
+                        <span class="code-line-count">${lineCount} lines</span>
+                        <span class="code-path-display">${filePath}</span>
+                    </div>
+                    <div class="code-body code-body-hidden">
+                        <pre class="line-numbers"><code class="language-${language}">${this.escapeHtml(content)}</code></pre>
+                    </div>
+                `;
+
+                // Apply Prism highlighting
+                Prism.highlightAllUnder(element);
+
+            } catch (error) {
+                element.innerHTML = `
+                    <div class="code-header code-not-found">
+                        <span class="code-filename">${filePath.split('/').pop()}</span>
+                        <span class="code-status">TO BE CREATED</span>
+                    </div>
+                    <div class="code-placeholder">
+                        <p>📄 This file will be created during implementation.</p>
+                        <p class="code-path">${filePath}</p>
+                    </div>
+                `;
+            }
+        }
+
+        escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize all code-file elements on page
+        async init() {
+            const elements = document.querySelectorAll('.code-file');
+            for (const el of elements) {
+                await this.loadCode(el);
+            }
+
+        }
+    }
+
+    // Initialize when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+        const loader = new CodeFileLoader();
+        loader.init();
+    });
+    </script>
+
+    <style>
+    /* Code file loader styles */
+    .code-file {
+        margin: 1rem 0;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+    }
+
+    .code-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 1rem;
+        background: var(--bg-light);
+        border-bottom: 1px solid var(--border);
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .code-header:hover {
+        background: var(--bg-medium);
+    }
+
+    .code-toggle {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        transition: transform 0.2s ease;
+    }
+
+    .code-header:not(.code-collapsed) .code-toggle {
+        transform: rotate(90deg);
+    }
+
+    .code-body-hidden {
+        display: none;
+    }
+
+    .code-line-count {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        padding: 0.1rem 0.4rem;
+        background: var(--bg-dark);
+        border-radius: 3px;
+    }
+
+    .code-header.code-not-found {
+        background: #2d1f1f;
+        border-bottom-color: #4a3030;
+        cursor: default;
+    }
+
+    .code-filename {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        color: var(--cyan);
+    }
+
+    .code-path-display {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        opacity: 0.7;
+        margin-left: auto;
+    }
+
+    .code-status {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+        background: var(--warning);
+        color: black;
+        border-radius: 4px;
+        font-weight: 600;
+    }
+
+    .code-placeholder {
+        padding: 2rem;
+        text-align: center;
+        background: #1a1a1a;
+        color: var(--text-secondary);
+    }
+
+    .code-placeholder p {
+        margin: 0.5rem 0;
+    }
+
+    .code-path {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        opacity: 0.7;
+    }
+
+    .code-loading {
+        padding: 2rem;
+        text-align: center;
+        color: var(--text-secondary);
+        font-style: italic;
+    }
+
+    /* Override Prism styles to match theme */
+    .code-file pre[class*="language-"] {
+        margin: 0;
+        border-radius: 0;
+        background: #1e1e2e;
+    }
+
+    .code-file code[class*="language-"] {
+        font-size: 0.85rem;
+    }
+    </style>
+</body>
+</html>
