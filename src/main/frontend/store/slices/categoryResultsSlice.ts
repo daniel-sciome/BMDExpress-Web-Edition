@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, createSelector, PayloadAction } from '@reduxjs/toolkit';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
+import type ExperimentDescriptionDto from 'Frontend/generated/com/sciome/dto/ExperimentDescriptionDto';
 import type { RootState, AppDispatch } from '../store';
 import type { ReactiveSelectionMap, SelectionSource } from 'Frontend/types/reactiveTypes';
 import { initializeCategories, upsertCategorySet } from './renderStateSlice';
@@ -53,6 +54,7 @@ interface Filters {
 interface CategoryResultsState {
   // Data
   data: CategoryAnalysisResultDto[];
+  experimentDescription: ExperimentDescriptionDto | null;
   loading: boolean;
   error: string | null;
 
@@ -99,6 +101,7 @@ interface CategoryResultsState {
 // Initial state
 const initialState: CategoryResultsState = {
   data: [],
+  experimentDescription: null,
   loading: false,
   error: null,
   projectId: null,
@@ -136,12 +139,15 @@ export const loadCategoryResults = createAsyncThunk(
   async ({ projectId, resultName }: { projectId: string; resultName: string }) => {
     console.log('[Redux] Loading category results:', { projectId, resultName });
     try {
-      const data = await CategoryResultsService.getCategoryResults(projectId, resultName);
-      console.log('[Redux] Received data:', data);
+      const containerData = await CategoryResultsService.getCategoryResults(projectId, resultName);
+      console.log('[Redux] Received container data:', containerData);
+      // Extract results array and experiment description from container DTO
+      const results = containerData?.results || [];
+      const experimentDescription = containerData?.experimentDescription || null;
       // Filter out any undefined values that might come from the backend
-      const filtered = (data || []).filter((item): item is CategoryAnalysisResultDto => item !== undefined);
+      const filtered = results.filter((item): item is CategoryAnalysisResultDto => item !== undefined);
       console.log('[Redux] Filtered data:', filtered.length, 'items');
-      return filtered;
+      return { results: filtered, experimentDescription };
     } catch (error) {
       console.error('[Redux] Error loading category results:', error);
       throw error;
@@ -163,7 +169,7 @@ export const loadCategoryResultsWithRenderState = createAsyncThunk<
     const resultAction = await dispatch(loadCategoryResults({ projectId, resultName }));
 
     if (loadCategoryResults.fulfilled.match(resultAction)) {
-      const categories = resultAction.payload;
+      const categories = resultAction.payload.results;
 
       // Initialize CategoryRenderState for all categories
       console.log('[Redux] Initializing render state for', categories.length, 'categories');
@@ -479,7 +485,8 @@ const categoryResultsSlice = createSlice({
       })
       .addCase(loadCategoryResults.fulfilled, (state, action) => {
         state.loading = false;
-        state.data = action.payload;
+        state.data = action.payload.results;
+        state.experimentDescription = action.payload.experimentDescription;
         state.projectId = action.meta.arg.projectId;
         state.resultName = action.meta.arg.resultName;
         // Clear legacy selection state
@@ -546,6 +553,7 @@ export default categoryResultsSlice.reducer;
 // Selectors - Base selectors
 const selectCategoryResultsState = (state: RootState) => state.categoryResults;
 const selectData = (state: RootState) => state.categoryResults.data;
+export const selectExperimentDescription = (state: RootState) => state.categoryResults.experimentDescription;
 const selectFilters = (state: RootState) => state.categoryResults.filters;
 const selectSortColumn = (state: RootState) => state.categoryResults.sortColumn;
 const selectSortDirection = (state: RootState) => state.categoryResults.sortDirection;
@@ -553,6 +561,16 @@ const selectCurrentPage = (state: RootState) => state.categoryResults.currentPag
 const selectPageSize = (state: RootState) => state.categoryResults.pageSize;
 
 // Memoized selectors
+/**
+ * selectFilteredData (alias: selectWorkingSet)
+ *
+ * This is the "Hard Filter" in the two-layer filtering architecture:
+ * 1. Hard Filter (this selector) → defines the Working Set (what data is available)
+ * 2. Visibility (visibilitySlice) → per-category visual state (how data is displayed)
+ *
+ * Categories excluded by the hard filter are completely removed from the data pipeline.
+ * Categories in the working set can have different visibility states (highlighted, normal, dimmed, hidden).
+ */
 export const selectFilteredData = createSelector(
   [selectData, selectFilters, (state: RootState) => state.categoryResults.analysisType, selectEnabledFilterGroups],
   (data, filters, analysisType, filterGroups) => {
@@ -678,3 +696,10 @@ export const selectUnselectedCount = createSelector(
     return allData.length - selectedCount;
   }
 );
+
+/**
+ * Alias for selectFilteredData.
+ * Use this name when you want to emphasize the two-layer architecture:
+ * Working Set (hard filter) vs Visibility (visual state).
+ */
+export const selectWorkingSet = selectFilteredData;

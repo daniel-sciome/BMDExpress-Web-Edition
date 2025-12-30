@@ -4,6 +4,9 @@ import categoryResultsReducer from './slices/categoryResultsSlice';
 import navigationReducer from './slices/navigationSlice';
 import renderStateReducer from './slices/renderStateSlice';
 import filterReducer from './slices/filterSlice';
+import prefilterReducer from './slices/prefilterSlice';
+import visibilityReducer from './slices/visibilitySlice';
+import categoryGroupsReducer from './slices/categoryGroupsSlice';
 import { saveFilterGroups } from '../utils/filterGroupPersistence';
 
 // Enable Immer support for Map and Set
@@ -28,6 +31,9 @@ export const store = configureStore({
     navigation: navigationReducer,
     renderState: renderStateReducer,
     filters: filterReducer,
+    prefilter: prefilterReducer,
+    visibility: visibilityReducer,
+    categoryGroups: categoryGroupsReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -38,6 +44,7 @@ export const store = configureStore({
           'categoryResults.selectedUmapGoIds',
           'categoryResults.reactiveSelection.category.selectedIds',
           'categoryResults.reactiveSelection.cluster.selectedIds',
+          'visibility.highlightedIds',
         ],
         ignoredActions: [
           // Legacy selection actions
@@ -67,6 +74,14 @@ export const store = configureStore({
           'categoryResults/setFilters',
           'navigation/setSelectedProject',
           'navigation/setSelectedCategoryResult',
+          // Visibility actions (highlightedIds is a Set)
+          'visibility/setVisibility',
+          'visibility/setVisibilityBatch',
+          'visibility/highlightCategories',
+          'visibility/clearHighlights',
+          'visibility/clearOverride',
+          'visibility/clearAllOverrides',
+          'visibility/loadDefaults/fulfilled',
         ],
       },
     }).concat(filterGroupPersistenceMiddleware),
