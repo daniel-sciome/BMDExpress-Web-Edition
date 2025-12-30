@@ -1,78 +1,140 @@
 // ClusterPicker.tsx
 // Cluster picker component for the sidebar
-// Shows all cluster colors with labels
-// Behaves exactly like UMAP legend - selects/deselects categories
+// Shows all cluster colors with tri-state checkboxes
+// Integrates with visibilitySlice for highlighting categories
 
-import React, { useState, useCallback } from 'react';
-import { Collapse, Tag, Typography } from 'antd';
-import { useAppSelector } from '../store/hooks';
+import React, { useCallback, useMemo } from 'react';
+import { Collapse, Checkbox, Tag, Typography, Tooltip } from 'antd';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { selectCategorySetsByType } from '../store/slices/renderStateSlice';
 import { CategorySetType } from '../types/renderState';
-import { useReactiveState } from './charts/hooks/useReactiveState';
+import {
+  highlightCategories,
+  clearHighlights,
+  selectHighlightedIds,
+} from '../store/slices/visibilitySlice';
+import {
+  setSelectedCategoryIds,
+  clearSelection,
+} from '../store/slices/categoryResultsSlice';
+import type { GroupSelectionState } from '../types/visibilityTypes';
 
 const { Text } = Typography;
 
-export default function ClusterPicker() {
-  const categoryState = useReactiveState('categoryId');
-  const [nonSelectedDisplayMode, setNonSelectedDisplayMode] = useState<'full' | 'outline' | 'hidden'>('full');
+/**
+ * Calculate selection state for a cluster based on highlighted IDs.
+ */
+function getClusterSelectionState(
+  categoryIds: string[],
+  highlightedIds: Set<string>
+): { state: GroupSelectionState; selectedCount: number; totalCount: number } {
+  const totalCount = categoryIds.length;
+  if (totalCount === 0) {
+    return { state: 'none', selectedCount: 0, totalCount: 0 };
+  }
 
-  // Get all cluster sets
+  const selectedCount = categoryIds.filter(id => highlightedIds.has(id)).length;
+
+  let state: GroupSelectionState;
+  if (selectedCount === 0) {
+    state = 'none';
+  } else if (selectedCount === totalCount) {
+    state = 'full';
+  } else {
+    state = 'partial';
+  }
+
+  return { state, selectedCount, totalCount };
+}
+
+export default function ClusterPicker() {
+  const dispatch = useAppDispatch();
+  const highlightedIds = useAppSelector(selectHighlightedIds);
+
+  // Get all cluster sets from renderStateSlice
   const clusterSets = useAppSelector(state => selectCategorySetsByType(CategorySetType.CLUSTER)(state));
 
-  const handleClusterClick = useCallback((categoryIds: string[], event: React.MouseEvent) => {
-    // Check if Cmd (Mac) or Ctrl (Windows/Linux) key is pressed for multi-select
-    const isMultiSelect = event.ctrlKey || event.metaKey;
+  // Calculate overall stats
+  const stats = useMemo(() => {
+    let totalHighlighted = 0;
+    let totalCategories = 0;
+    let clustersWithSelection = 0;
 
-    // Check if this cluster is currently selected
-    const isClusterSelected = categoryIds.some(catId => categoryState.selectedIds.has(catId));
+    clusterSets.forEach(set => {
+      const { selectedCount, totalCount } = getClusterSelectionState(set.categoryIds, highlightedIds);
+      totalHighlighted += selectedCount;
+      totalCategories += totalCount;
+      if (selectedCount > 0) clustersWithSelection++;
+    });
 
-    if (!isClusterSelected) {
-      // Cluster not selected - first click selects it AND makes non-selected markers outline
-      console.log('[ClusterPicker] Selecting cluster, non-selected -> outline');
-      console.log('[ClusterPicker] Calling handleMultiSelect with:', {
-        categoryIds: categoryIds.slice(0, 5),
-        totalCount: categoryIds.length,
-        source: 'cluster-picker'
-      });
-      setNonSelectedDisplayMode('outline');
+    return { totalHighlighted, totalCategories, clustersWithSelection };
+  }, [clusterSets, highlightedIds]);
 
-      if (isMultiSelect) {
-        // Multi-select: add to existing selection
-        const currentSelection = Array.from(categoryState.selectedIds);
-        const mergedSelection = [...new Set([...currentSelection, ...categoryIds])];
-        categoryState.handleMultiSelect(mergedSelection, 'cluster-picker');
+  /**
+   * Handle cluster checkbox click.
+   * - Unchecked -> Checked: Highlight all categories in cluster
+   * - Checked/Partial -> Unchecked: Remove highlight from cluster's categories
+   * Supports Cmd/Ctrl for additive selection.
+   * Syncs to both visibility state and legacy selection for table checkbox consistency.
+   */
+  const handleClusterClick = useCallback((
+    categoryIds: string[],
+    currentState: GroupSelectionState,
+    event: React.MouseEvent
+  ) => {
+    const isAdditive = event.ctrlKey || event.metaKey;
+
+    if (currentState === 'none') {
+      // Select this cluster
+      if (isAdditive) {
+        // Add to existing highlights
+        const currentHighlights = Array.from(highlightedIds);
+        const merged = [...new Set([...currentHighlights, ...categoryIds])];
+        dispatch(highlightCategories({ categoryIds: merged, exclusive: true }));
+        dispatch(setSelectedCategoryIds(merged)); // Sync to legacy
       } else {
-        // Single select: replace selection
-        categoryState.handleMultiSelect(categoryIds, 'cluster-picker');
+        // Replace selection with this cluster
+        dispatch(highlightCategories({ categoryIds, exclusive: true }));
+        dispatch(setSelectedCategoryIds(categoryIds)); // Sync to legacy
       }
     } else {
-      // Cluster is selected - cycle through: outline -> hidden -> deselect
-      if (nonSelectedDisplayMode === 'outline') {
-        console.log('[ClusterPicker] Switching to hidden mode');
-        setNonSelectedDisplayMode('hidden');
-      } else if (nonSelectedDisplayMode === 'hidden') {
-        // hidden -> deselect
-        console.log('[ClusterPicker] Deselecting cluster');
-        setNonSelectedDisplayMode('full'); // Reset for next selection
-
-        if (isMultiSelect) {
-          // Multi-select: remove from selection
-          const currentSelection = Array.from(categoryState.selectedIds);
-          const categoryIdsSet = new Set(categoryIds);
-          const newSelection = currentSelection.filter(id => !categoryIdsSet.has(String(id)));
-
-          if (newSelection.length > 0) {
-            categoryState.handleMultiSelect(newSelection, 'cluster-picker');
-          } else {
-            categoryState.handleClear();
-          }
+      // Deselect this cluster
+      if (isAdditive && highlightedIds.size > categoryIds.length) {
+        // Remove only this cluster's categories from highlights
+        const remaining = Array.from(highlightedIds).filter(
+          id => !categoryIds.includes(id)
+        );
+        if (remaining.length > 0) {
+          dispatch(highlightCategories({ categoryIds: remaining, exclusive: true }));
+          dispatch(setSelectedCategoryIds(remaining)); // Sync to legacy
         } else {
-          // Single-select: clear all
-          categoryState.handleClear();
+          dispatch(clearHighlights());
+          dispatch(clearSelection()); // Sync to legacy
         }
+      } else {
+        // Clear all highlights
+        dispatch(clearHighlights());
+        dispatch(clearSelection()); // Sync to legacy
       }
     }
-  }, [categoryState, nonSelectedDisplayMode]);
+  }, [dispatch, highlightedIds]);
+
+  /**
+   * Handle "Select All" - highlight all categories in all clusters.
+   */
+  const handleSelectAll = useCallback(() => {
+    const allCategoryIds = clusterSets.flatMap(set => set.categoryIds);
+    dispatch(highlightCategories({ categoryIds: allCategoryIds, exclusive: true }));
+    dispatch(setSelectedCategoryIds(allCategoryIds)); // Sync to legacy
+  }, [dispatch, clusterSets]);
+
+  /**
+   * Handle "Clear All" - remove all highlights.
+   */
+  const handleClearAll = useCallback(() => {
+    dispatch(clearHighlights());
+    dispatch(clearSelection()); // Sync to legacy
+  }, [dispatch]);
 
   if (clusterSets.length === 0) {
     return null;
@@ -90,44 +152,93 @@ export default function ClusterPicker() {
           <Text strong style={{ fontSize: '13px', color: '#262626' }}>
             Clusters
           </Text>
-          {clusterSets.length > 0 && (
-            <Tag color="default" style={{ fontSize: '11px' }}>
-              {clusterSets.length} {clusterSets.length === 1 ? 'cluster' : 'clusters'}
+          <Tag color="default" style={{ fontSize: '11px' }}>
+            {clusterSets.length}
+          </Tag>
+          {stats.totalHighlighted > 0 && (
+            <Tag color="blue" style={{ fontSize: '11px' }}>
+              {stats.totalHighlighted} selected
             </Tag>
           )}
         </div>
       ),
       children: (
         <div style={{ fontSize: '13px' }}>
+          {/* Bulk actions */}
+          <div style={{
+            display: 'flex',
+            gap: '8px',
+            marginBottom: '8px',
+            paddingBottom: '8px',
+            borderBottom: '1px solid #f0f0f0'
+          }}>
+            <span
+              onClick={handleSelectAll}
+              style={{
+                color: '#1890ff',
+                cursor: 'pointer',
+                fontSize: '12px',
+              }}
+            >
+              Select All
+            </span>
+            <span style={{ color: '#d9d9d9' }}>|</span>
+            <span
+              onClick={handleClearAll}
+              style={{
+                color: stats.totalHighlighted > 0 ? '#ff4d4f' : '#d9d9d9',
+                cursor: stats.totalHighlighted > 0 ? 'pointer' : 'default',
+                fontSize: '12px',
+              }}
+            >
+              Clear
+            </span>
+          </div>
+
+          {/* Cluster list */}
           {clusterSets.map(set => {
-            // Check if this cluster is selected (any category in the cluster is selected)
-            const isSelected = set.categoryIds.some(catId => categoryState.selectedIds.has(catId));
+            const { state, selectedCount, totalCount } = getClusterSelectionState(
+              set.categoryIds,
+              highlightedIds
+            );
 
             return (
               <div
                 key={set.setId}
-                onClick={(e) => handleClusterClick(set.categoryIds, e)}
+                onClick={(e) => handleClusterClick(set.categoryIds, state, e)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
-                  marginBottom: 6,
+                  marginBottom: 4,
                   cursor: 'pointer',
-                  padding: '2px 4px',
-                  borderRadius: 2,
+                  padding: '4px 6px',
+                  borderRadius: 4,
                   transition: 'background-color 0.2s',
-                  backgroundColor: isSelected ? '#e6f7ff' : 'transparent',
-                  border: isSelected ? '1px solid #1890ff' : '1px solid transparent',
+                  backgroundColor: state !== 'none' ? '#e6f7ff' : 'transparent',
+                  border: state !== 'none' ? '1px solid #91d5ff' : '1px solid transparent',
                 }}
                 onMouseEnter={(e) => {
-                  if (!isSelected) {
+                  if (state === 'none') {
                     e.currentTarget.style.backgroundColor = '#f5f5f5';
                   }
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = isSelected ? '#e6f7ff' : 'transparent';
+                  e.currentTarget.style.backgroundColor = state !== 'none' ? '#e6f7ff' : 'transparent';
                 }}
               >
+                {/* Tri-state checkbox */}
+                <Checkbox
+                  checked={state === 'full'}
+                  indeterminate={state === 'partial'}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={() => {
+                    // Handled by parent div click
+                  }}
+                  style={{ marginRight: 0 }}
+                />
+
+                {/* Color swatch */}
                 <div
                   style={{
                     width: 12,
@@ -138,10 +249,39 @@ export default function ClusterPicker() {
                     flexShrink: 0,
                   }}
                 />
-                <span style={{ color: '#595959', fontWeight: isSelected ? 600 : 400 }}>{set.label}</span>
+
+                {/* Label */}
+                <span style={{
+                  color: '#595959',
+                  fontWeight: state !== 'none' ? 600 : 400,
+                  flex: 1,
+                }}>
+                  {set.label}
+                </span>
+
+                {/* Selection count */}
+                <Tooltip title={`${selectedCount} of ${totalCount} categories selected`}>
+                  <span style={{
+                    color: state !== 'none' ? '#1890ff' : '#bfbfbf',
+                    fontSize: '11px',
+                    fontFamily: 'monospace',
+                  }}>
+                    {selectedCount}/{totalCount}
+                  </span>
+                </Tooltip>
               </div>
             );
           })}
+
+          {/* Hint text */}
+          <div style={{
+            marginTop: '8px',
+            fontSize: '11px',
+            color: '#8c8c8c',
+            fontStyle: 'italic',
+          }}>
+            Cmd/Ctrl+click to add to selection
+          </div>
         </div>
       ),
     },

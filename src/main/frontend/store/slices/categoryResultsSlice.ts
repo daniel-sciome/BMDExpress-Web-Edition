@@ -6,6 +6,7 @@ import type { RootState, AppDispatch } from '../store';
 import type { ReactiveSelectionMap, SelectionSource } from 'Frontend/types/reactiveTypes';
 import { initializeCategories, upsertCategorySet } from './renderStateSlice';
 import { createClusterSets, createPrimaryFilterSet } from '../utils/initializeRenderState';
+import { highlightCategories } from './visibilitySlice';
 import { applyFilterGroups } from '../../utils/filterEvaluation';
 import { selectEnabledFilterGroups } from './filterSlice';
 
@@ -193,6 +194,21 @@ export const loadCategoryResultsWithRenderState = createAsyncThunk<
         maxPValue: filters.pValueMax,
       });
       dispatch(upsertCategorySet(primaryFilterSet));
+
+      // Initialize all categories as "selected" - all checkboxes start checked
+      // This happens synchronously during data load so UI renders with selection already set
+      const allCategoryIds = categories
+        .map(cat => cat.categoryId)
+        .filter((id): id is string => id !== undefined && id !== null);
+
+      console.log('[Redux] Initializing all categories as selected:', allCategoryIds.length);
+
+      // Dispatch to visibilitySlice (for row highlighting)
+      dispatch(highlightCategories({ categoryIds: allCategoryIds, exclusive: true }));
+
+      // Also set legacy selectedCategoryIds (for table checkboxes)
+      // This is done via the slice's own action, dispatched below after the thunk
+      dispatch({ type: 'categoryResults/setSelectedCategoryIds', payload: allCategoryIds });
 
       console.log('[Redux] Render state initialization complete');
     }

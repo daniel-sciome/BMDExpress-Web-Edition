@@ -4,6 +4,7 @@ import { FileTextOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { Icon } from '@vaadin/react-components';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadCategoryResultsWithRenderState, loadAnalysisParameters, setAnalysisType } from '../store/slices/categoryResultsSlice';
+import { loadVisibilityDefaults, selectVisibilityInitialized } from '../store/slices/visibilitySlice';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
 import CategoryResultsGrid from './CategoryResultsGrid';
@@ -22,6 +23,8 @@ import GlobalViolinComparison from './charts/GlobalViolinComparison';
 import MeanHistograms from './charts/MeanHistograms';
 import MedianHistograms from './charts/MedianHistograms';
 import BMDvsBMDLScatter from './charts/BMDvsBMDLScatter';
+import ClusterHeatmap from './charts/ClusterHeatmap';
+import ClusterScatterPlot from './charts/ClusterScatterPlot';
 import ExperimentDescriptionRequired from './ExperimentDescriptionRequired';
 
 interface CategoryResultsViewProps {
@@ -50,10 +53,22 @@ function AnalysisParametersTitle({ paramCount }: { paramCount: number }) {
 
 export default function CategoryResultsView({ projectId, resultName }: CategoryResultsViewProps) {
   const dispatch = useAppDispatch();
-  const { loading, error, data, analysisParameters, filters, viewMode } = useAppSelector((state) => state.categoryResults);
+  const { loading, error, data, experimentDescription, analysisParameters, filters, viewMode } = useAppSelector((state) => state.categoryResults);
+  const visibilityInitialized = useAppSelector(selectVisibilityInitialized);
   const [annotation, setAnnotation] = useState<AnalysisAnnotationDto | null>(null);
   const [visibleCharts, setVisibleCharts] = useState<string[]>([]);
   const [availableResults, setAvailableResults] = useState<string[]>([]);
+
+  // Load visibility defaults from backend on first render (if not already loaded)
+  useEffect(() => {
+    if (!visibilityInitialized) {
+      console.log('[CategoryResultsView] Loading visibility defaults from backend');
+      dispatch(loadVisibilityDefaults());
+    }
+  }, [dispatch, visibilityInitialized]);
+
+  // Note: Initial "all selected" state is now set in loadCategoryResultsWithRenderState thunk
+  // This ensures selection is set BEFORE the component renders, avoiding flash of unchecked state
 
   // Calculate active filter count for Primary Filter title
   const activeFilterCount = Object.entries(filters).filter(
@@ -151,11 +166,10 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   }
 
   // Validate experiment description - required fields: sex, organ, species
-  const experimentDesc = data.length > 0 ? data[0].experimentDescription : null;
-  const isExperimentDescriptionComplete = experimentDesc && experimentDesc.sex && experimentDesc.organ && experimentDesc.species;
+  const isExperimentDescriptionComplete = experimentDescription && experimentDescription.sex && experimentDescription.organ && experimentDescription.species;
 
   if (!isExperimentDescriptionComplete) {
-    return <ExperimentDescriptionRequired experimentDesc={experimentDesc} showCurrentStatus={true} />;
+    return <ExperimentDescriptionRequired experimentDesc={experimentDescription} showCurrentStatus={true} />;
   }
 
   return (
@@ -201,15 +215,45 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                 ✓ Experiment Metadata (from project):
               </div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {experimentDesc.testArticle && (
-                  <Tag color="blue" style={{ fontSize: '13px' }}>Test Article: {experimentDesc.testArticle}</Tag>
+                {experimentDescription.subjectType && (
+                  <Tag color="default" style={{ fontSize: '13px' }}>Type: {experimentDescription.subjectType}</Tag>
                 )}
-                <Tag color="orange" style={{ fontSize: '13px' }}>Species: {experimentDesc.species}</Tag>
-                {experimentDesc.strain && (
-                  <Tag color="gold" style={{ fontSize: '13px' }}>Strain: {experimentDesc.strain}</Tag>
+                {experimentDescription.testArticle && (
+                  <Tag color="blue" style={{ fontSize: '13px' }}>Test Article: {experimentDescription.testArticle}</Tag>
                 )}
-                <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {experimentDesc.sex}</Tag>
-                <Tag color="green" style={{ fontSize: '13px' }}>Organ: {experimentDesc.organ}</Tag>
+                {experimentDescription.casrn && (
+                  <Tag color="geekblue" style={{ fontSize: '13px' }}>CASRN: {experimentDescription.casrn}</Tag>
+                )}
+                {experimentDescription.dsstox && (
+                  <Tag color="geekblue" style={{ fontSize: '13px' }}>DSSTOX: {experimentDescription.dsstox}</Tag>
+                )}
+                <Tag color="orange" style={{ fontSize: '13px' }}>Species: {experimentDescription.species}</Tag>
+                {experimentDescription.strain && (
+                  <Tag color="gold" style={{ fontSize: '13px' }}>Strain: {experimentDescription.strain}</Tag>
+                )}
+                <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {experimentDescription.sex}</Tag>
+                <Tag color="green" style={{ fontSize: '13px' }}>Organ: {experimentDescription.organ}</Tag>
+                {experimentDescription.cellLine && (
+                  <Tag color="lime" style={{ fontSize: '13px' }}>Cell Line: {experimentDescription.cellLine}</Tag>
+                )}
+                {experimentDescription.studyDuration && (
+                  <Tag color="volcano" style={{ fontSize: '13px' }}>Duration: {experimentDescription.studyDuration}</Tag>
+                )}
+                {experimentDescription.articleRoute && (
+                  <Tag color="red" style={{ fontSize: '13px' }}>Route: {experimentDescription.articleRoute}</Tag>
+                )}
+                {experimentDescription.articleVehicle && (
+                  <Tag color="magenta" style={{ fontSize: '13px' }}>Vehicle: {experimentDescription.articleVehicle}</Tag>
+                )}
+                {experimentDescription.administrationMeans && (
+                  <Tag color="pink" style={{ fontSize: '13px' }}>Means: {experimentDescription.administrationMeans}</Tag>
+                )}
+                {experimentDescription.platform && (
+                  <Tag color="cyan" style={{ fontSize: '13px' }}>Platform: {experimentDescription.platform}</Tag>
+                )}
+                {experimentDescription.provider && (
+                  <Tag color="processing" style={{ fontSize: '13px' }}>Provider: {experimentDescription.provider}</Tag>
+                )}
               </div>
             </div>
 
@@ -261,15 +305,45 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                 ✓ Experiment Metadata (from project):
               </div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {experimentDesc.testArticle && (
-                  <Tag color="blue" style={{ fontSize: '13px' }}>Test Article: {experimentDesc.testArticle}</Tag>
+                {experimentDescription.subjectType && (
+                  <Tag color="default" style={{ fontSize: '13px' }}>Type: {experimentDescription.subjectType}</Tag>
                 )}
-                <Tag color="orange" style={{ fontSize: '13px' }}>Species: {experimentDesc.species}</Tag>
-                {experimentDesc.strain && (
-                  <Tag color="gold" style={{ fontSize: '13px' }}>Strain: {experimentDesc.strain}</Tag>
+                {experimentDescription.testArticle && (
+                  <Tag color="blue" style={{ fontSize: '13px' }}>Test Article: {experimentDescription.testArticle}</Tag>
                 )}
-                <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {experimentDesc.sex}</Tag>
-                <Tag color="green" style={{ fontSize: '13px' }}>Organ: {experimentDesc.organ}</Tag>
+                {experimentDescription.casrn && (
+                  <Tag color="geekblue" style={{ fontSize: '13px' }}>CASRN: {experimentDescription.casrn}</Tag>
+                )}
+                {experimentDescription.dsstox && (
+                  <Tag color="geekblue" style={{ fontSize: '13px' }}>DSSTOX: {experimentDescription.dsstox}</Tag>
+                )}
+                <Tag color="orange" style={{ fontSize: '13px' }}>Species: {experimentDescription.species}</Tag>
+                {experimentDescription.strain && (
+                  <Tag color="gold" style={{ fontSize: '13px' }}>Strain: {experimentDescription.strain}</Tag>
+                )}
+                <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {experimentDescription.sex}</Tag>
+                <Tag color="green" style={{ fontSize: '13px' }}>Organ: {experimentDescription.organ}</Tag>
+                {experimentDescription.cellLine && (
+                  <Tag color="lime" style={{ fontSize: '13px' }}>Cell Line: {experimentDescription.cellLine}</Tag>
+                )}
+                {experimentDescription.studyDuration && (
+                  <Tag color="volcano" style={{ fontSize: '13px' }}>Duration: {experimentDescription.studyDuration}</Tag>
+                )}
+                {experimentDescription.articleRoute && (
+                  <Tag color="red" style={{ fontSize: '13px' }}>Route: {experimentDescription.articleRoute}</Tag>
+                )}
+                {experimentDescription.articleVehicle && (
+                  <Tag color="magenta" style={{ fontSize: '13px' }}>Vehicle: {experimentDescription.articleVehicle}</Tag>
+                )}
+                {experimentDescription.administrationMeans && (
+                  <Tag color="pink" style={{ fontSize: '13px' }}>Means: {experimentDescription.administrationMeans}</Tag>
+                )}
+                {experimentDescription.platform && (
+                  <Tag color="cyan" style={{ fontSize: '13px' }}>Platform: {experimentDescription.platform}</Tag>
+                )}
+                {experimentDescription.provider && (
+                  <Tag color="processing" style={{ fontSize: '13px' }}>Provider: {experimentDescription.provider}</Tag>
+                )}
               </div>
             </div>
 
@@ -324,6 +398,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                 <Checkbox value="11">BMD vs BMDL Scatter</Checkbox>
                 <Checkbox value="12">Violin Per Category</Checkbox>
                 <Checkbox value="13">Global Violin Plot</Checkbox>
+                <Checkbox value="14">Gene Cluster Heatmap</Checkbox>
+                <Checkbox value="15">Gene Cluster Scatter</Checkbox>
               </div>
             </Checkbox.Group>
           </div>
@@ -417,6 +493,18 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
               availableResults={availableResults}
               selectedResults={[resultName]}
             />
+          </Card>
+        )}
+
+        {viewMode === 'power' && visibleCharts.includes('14') && (
+          <Card size="small" style={{ marginBottom: '1rem' }}>
+            <ClusterHeatmap key={`${projectId}-${resultName}-cluster-heatmap`} />
+          </Card>
+        )}
+
+        {viewMode === 'power' && visibleCharts.includes('15') && (
+          <Card size="small" style={{ marginBottom: '1rem' }}>
+            <ClusterScatterPlot key={`${projectId}-${resultName}-cluster-scatter`} />
           </Card>
         )}
 
