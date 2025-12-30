@@ -221,6 +221,8 @@ export default function CategoryResultsGrid() {
     selectedRowKeys: selectedKeys,
     onChange: handleSelectionChange,
     preserveSelectedRowKeys: true,
+    // Hide the "master checkbox" in column header - we have bulk actions instead
+    columnTitle: <></>,
     // Allow selection from the start - no restrictions
     getCheckboxProps: () => ({
       disabled: false,
@@ -1411,7 +1413,6 @@ export default function CategoryResultsGrid() {
       <Collapse
         defaultActiveKey={['1']}
         items={collapseItems}
-        style={{ height: '100%' }}
       />
     </>
   );

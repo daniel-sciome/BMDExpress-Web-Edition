@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card } from 'antd';
-import { FileTextOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { FileTextOutlined, InfoCircleOutlined, LineChartOutlined } from '@ant-design/icons';
 import { Icon } from '@vaadin/react-components';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadCategoryResultsWithRenderState, loadAnalysisParameters, setAnalysisType } from '../store/slices/categoryResultsSlice';
@@ -45,6 +45,25 @@ function AnalysisParametersTitle({ paramCount }: { paramCount: number }) {
         <Badge count={paramCount} style={{ backgroundColor: '#1890ff' }} />
       )}
       <Tooltip title="Configuration parameters used for this BMD analysis. These settings define the statistical methods, thresholds, and options applied during the benchmark dose modeling process.">
+        <InfoCircleOutlined style={{ color: '#1890ff', cursor: 'help' }} />
+      </Tooltip>
+    </Space>
+  );
+}
+
+/**
+ * Chart Selection Title Component
+ * Styled header for Chart Selection collapse section
+ */
+function ChartSelectionTitle({ selectedCount }: { selectedCount: number }) {
+  return (
+    <Space>
+      <LineChartOutlined />
+      <span>Chart Selection</span>
+      {selectedCount > 0 && (
+        <Badge count={selectedCount} style={{ backgroundColor: '#52c41a' }} />
+      )}
+      <Tooltip title="Select which charts to display. Charts will render below the table based on your selection.">
         <InfoCircleOutlined style={{ color: '#1890ff', cursor: 'help' }} />
       </Tooltip>
     </Space>
@@ -369,6 +388,45 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         </div>
       )}
 
+      {/* Chart Selection - Collapsible (Power User mode only) */}
+      {viewMode === 'power' && (
+        <div style={{ padding: '0 1rem', flexShrink: 0 }}>
+          <Collapse
+            size="small"
+            items={[{
+              key: 'chartselection',
+              label: <ChartSelectionTitle selectedCount={visibleCharts.length} />,
+              children: (
+                <Checkbox.Group
+                  value={visibleCharts}
+                  onChange={setVisibleCharts}
+                >
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <Checkbox value="1">Default Charts</Checkbox>
+                    <Checkbox value="2">UMAP Semantic Space</Checkbox>
+                    <Checkbox value="3">Curve Overlay</Checkbox>
+                    <Checkbox value="4">Range Plot</Checkbox>
+                    <Checkbox value="5">Bubble Chart</Checkbox>
+                    <Checkbox value="6">Best Models Pie</Checkbox>
+                    <Checkbox value="7">Bar Charts</Checkbox>
+                    <Checkbox value="8">Accumulation Charts</Checkbox>
+                    <Checkbox value="9">Mean Histograms</Checkbox>
+                    <Checkbox value="10">Median Histograms</Checkbox>
+                    <Checkbox value="11">BMD vs BMDL Scatter</Checkbox>
+                    <Checkbox value="12">Violin Per Category</Checkbox>
+                    <Checkbox value="13">Global Violin Plot</Checkbox>
+                    <Checkbox value="14">Gene Cluster Heatmap</Checkbox>
+                    <Checkbox value="15">Gene Cluster Scatter</Checkbox>
+                  </div>
+                </Checkbox.Group>
+              ),
+            }]}
+            style={{ marginBottom: '4px', border: 'none' }}
+            bordered={false}
+          />
+        </div>
+      )}
+
       {/* Single scrollable container for both charts and table */}
       <div style={{
         flex: 1,
@@ -377,34 +435,6 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         minHeight: 0,
         padding: '1rem'
       }}>
-        {/* Chart Selection Controls - Only in Power User mode */}
-        {viewMode === 'power' && (
-          <div style={{ marginBottom: '1rem' }}>
-            <Checkbox.Group
-              value={visibleCharts}
-              onChange={setVisibleCharts}
-            >
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                <Checkbox value="1">Default Charts</Checkbox>
-                <Checkbox value="2">UMAP Semantic Space</Checkbox>
-                <Checkbox value="3">Curve Overlay</Checkbox>
-                <Checkbox value="4">Range Plot</Checkbox>
-                <Checkbox value="5">Bubble Chart</Checkbox>
-                <Checkbox value="6">Best Models Pie</Checkbox>
-                <Checkbox value="7">Bar Charts</Checkbox>
-                <Checkbox value="8">Accumulation Charts</Checkbox>
-                <Checkbox value="9">Mean Histograms</Checkbox>
-                <Checkbox value="10">Median Histograms</Checkbox>
-                <Checkbox value="11">BMD vs BMDL Scatter</Checkbox>
-                <Checkbox value="12">Violin Per Category</Checkbox>
-                <Checkbox value="13">Global Violin Plot</Checkbox>
-                <Checkbox value="14">Gene Cluster Heatmap</Checkbox>
-                <Checkbox value="15">Gene Cluster Scatter</Checkbox>
-              </div>
-            </Checkbox.Group>
-          </div>
-        )}
-
         {/* Charts - Direct rendering based on checkbox selection (Power User mode only) */}
         {viewMode === 'power' && visibleCharts.includes('1') && (
           <Card size="small" style={{ marginBottom: '1rem' }}>
