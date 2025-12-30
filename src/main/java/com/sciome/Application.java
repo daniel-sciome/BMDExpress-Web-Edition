@@ -1,14 +1,18 @@
 package com.sciome;
 
+import com.sciome.config.DefaultsConfig;
+import com.sciome.config.VocabularyProperties;
 import com.vaadin.flow.component.page.AppShellConfigurator;
 import com.vaadin.flow.server.PWA;
 import com.vaadin.flow.theme.Theme;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 @SpringBootApplication
 @EnableAsync
+@EnableConfigurationProperties({VocabularyProperties.class, DefaultsConfig.class})
 @Theme("default")
 @PWA(name = "BMDExpress Web", shortName = "BMDExpress")
 public class Application implements AppShellConfigurator {
