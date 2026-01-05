@@ -156,6 +156,53 @@ export const loadCategoryResults = createAsyncThunk(
   }
 );
 
+// Primary filter localStorage key and defaults (shared with PrimaryFilter component)
+const PRIMARY_FILTER_STORAGE_KEY = 'bmdexpress_master_filters_global';
+const DEFAULT_PRIMARY_FILTERS: Filters = {
+  percentageMin: 5,
+  genesPassedFiltersMin: 3,
+  allGenesMin: 40,
+  allGenesMax: 500,
+};
+
+/**
+ * Load primary filter values from localStorage, falling back to defaults.
+ * This is called during data load to ensure filters are applied immediately.
+ */
+function loadPrimaryFiltersFromStorage(): Filters {
+  try {
+    const stored = localStorage.getItem(PRIMARY_FILTER_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return { ...DEFAULT_PRIMARY_FILTERS, ...parsed };
+    }
+  } catch (error) {
+    console.error('[Redux] Failed to load primary filters from localStorage:', error);
+  }
+  return DEFAULT_PRIMARY_FILTERS;
+}
+
+/**
+ * Apply primary filters to a list of categories.
+ * Returns only categories that pass all filter criteria.
+ */
+function applyPrimaryFilters(
+  categories: CategoryAnalysisResultDto[],
+  filters: Filters,
+  analysisType: string | null
+): CategoryAnalysisResultDto[] {
+  return categories.filter(row => {
+    // Skip primary filter for GENE analyses
+    if (analysisType === 'GENE') return true;
+
+    if (filters.percentageMin !== undefined && row.percentage !== undefined && row.percentage < filters.percentageMin) return false;
+    if (filters.genesPassedFiltersMin !== undefined && row.genesThatPassedAllFilters !== undefined && row.genesThatPassedAllFilters < filters.genesPassedFiltersMin) return false;
+    if (filters.allGenesMin !== undefined && row.geneAllCount !== undefined && row.geneAllCount < filters.allGenesMin) return false;
+    if (filters.allGenesMax !== undefined && row.geneAllCount !== undefined && row.geneAllCount > filters.allGenesMax) return false;
+    return true;
+  });
+}
+
 // Wrapper thunk to load category results AND initialize render state
 export const loadCategoryResultsWithRenderState = createAsyncThunk<
   void,
@@ -166,19 +213,37 @@ export const loadCategoryResultsWithRenderState = createAsyncThunk<
   async ({ projectId, resultName }, { dispatch, getState }) => {
     console.log('[Redux] Loading category results with render state initialization');
 
+    // Step 1: Load and apply primary filters FIRST (before data load completes)
+    const primaryFilters = loadPrimaryFiltersFromStorage();
+    console.log('[Redux] Loaded primary filters from storage:', primaryFilters);
+    dispatch(categoryResultsSlice.actions.setFilters(primaryFilters));
+
+    // Step 1b: Fetch annotation to get analysisType (needed for filter logic)
+    let analysisType: string | null = null;
+    try {
+      const annotation = await CategoryResultsService.getCategoryResultAnnotation(projectId, resultName);
+      analysisType = annotation?.analysisType ?? null;
+      console.log('[Redux] Fetched analysisType:', analysisType);
+      if (analysisType) {
+        dispatch(categoryResultsSlice.actions.setAnalysisType(analysisType));
+      }
+    } catch (error) {
+      console.warn('[Redux] Failed to fetch annotation for analysisType:', error);
+    }
+
     // Load the category data
     const resultAction = await dispatch(loadCategoryResults({ projectId, resultName }));
 
     if (loadCategoryResults.fulfilled.match(resultAction)) {
-      const categories = resultAction.payload.results;
+      const allCategories = resultAction.payload.results;
 
       // Initialize CategoryRenderState for all categories
-      console.log('[Redux] Initializing render state for', categories.length, 'categories');
-      dispatch(initializeCategories(categories));
+      console.log('[Redux] Initializing render state for', allCategories.length, 'categories');
+      dispatch(initializeCategories(allCategories));
 
       // Create cluster CategorySets from UMAP data
       console.log('[Redux] Creating cluster CategorySets');
-      const clusterSets = createClusterSets(categories);
+      const clusterSets = createClusterSets(allCategories);
       clusterSets.forEach(set => {
         dispatch(upsertCategorySet(set));
       });
@@ -187,7 +252,7 @@ export const loadCategoryResultsWithRenderState = createAsyncThunk<
       const state = getState();
       const filters = state.categoryResults.filters;
       console.log('[Redux] Creating master filter CategorySet with criteria:', filters);
-      const primaryFilterSet = createPrimaryFilterSet(categories, {
+      const primaryFilterSet = createPrimaryFilterSet(allCategories, {
         minBmd: filters.bmdMin,
         maxBmd: filters.bmdMax,
         minPValue: undefined, // Not currently a filter
@@ -195,20 +260,23 @@ export const loadCategoryResultsWithRenderState = createAsyncThunk<
       });
       dispatch(upsertCategorySet(primaryFilterSet));
 
-      // Initialize all categories as "selected" - all checkboxes start checked
-      // This happens synchronously during data load so UI renders with selection already set
-      const allCategoryIds = categories
+      // Step 2: Apply primary filters to get the Working Set
+      const filteredCategories = applyPrimaryFilters(allCategories, filters, analysisType);
+      console.log('[Redux] Applied primary filters:', allCategories.length, '→', filteredCategories.length, 'categories');
+
+      // Initialize only FILTERED categories as "selected" - all checkboxes start checked
+      // This ensures users see only filtered data with all checkboxes checked
+      const filteredCategoryIds = filteredCategories
         .map(cat => cat.categoryId)
         .filter((id): id is string => id !== undefined && id !== null);
 
-      console.log('[Redux] Initializing all categories as selected:', allCategoryIds.length);
+      console.log('[Redux] Initializing filtered categories as selected:', filteredCategoryIds.length);
 
       // Dispatch to visibilitySlice (for row highlighting)
-      dispatch(highlightCategories({ categoryIds: allCategoryIds, exclusive: true }));
+      dispatch(highlightCategories({ categoryIds: filteredCategoryIds, exclusive: true }));
 
       // Also set legacy selectedCategoryIds (for table checkboxes)
-      // This is done via the slice's own action, dispatched below after the thunk
-      dispatch({ type: 'categoryResults/setSelectedCategoryIds', payload: allCategoryIds });
+      dispatch({ type: 'categoryResults/setSelectedCategoryIds', payload: filteredCategoryIds });
 
       console.log('[Redux] Render state initialization complete');
     }
