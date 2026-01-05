@@ -9,6 +9,19 @@ import { createClusterSets, createPrimaryFilterSet } from '../utils/initializeRe
 import { highlightCategories } from './visibilitySlice';
 import { applyFilterGroups } from '../../utils/filterEvaluation';
 import { selectEnabledFilterGroups } from './filterSlice';
+import { umapDataService } from '../../data/umapDataService';
+
+// Cluster ID constants
+export const CLUSTER_OUTLIER = -1;      // In UMAP reference but semantically dissimilar
+export const CLUSTER_NOT_IN_REF = -2;   // Not in UMAP reference data
+
+/**
+ * Extended category type with cluster information enriched at load time.
+ * This avoids repeated umapDataService lookups in selectors.
+ */
+export interface CategoryAnalysisResultWithCluster extends CategoryAnalysisResultDto {
+  clusterId: number;  // -2 = not in reference, -1 = outlier, 0+ = cluster
+}
 
 // View mode localStorage key
 const VIEW_MODE_STORAGE_KEY = 'bmdexpress_view_mode';
@@ -49,12 +62,14 @@ interface Filters {
   genesPassedFiltersMin?: number;
   allGenesMin?: number;
   allGenesMax?: number;
+  // Cluster filter
+  excludeClusterOutliers?: boolean;  // Filter out cluster_id === -1 (semantic outliers)
 }
 
 // State interface
 interface CategoryResultsState {
-  // Data
-  data: CategoryAnalysisResultDto[];
+  // Data (enriched with cluster info at load time)
+  data: CategoryAnalysisResultWithCluster[];
   experimentDescription: ExperimentDescriptionDto | null;
   loading: boolean;
   error: string | null;
