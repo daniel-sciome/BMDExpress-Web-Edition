@@ -22,7 +22,7 @@ function createStandardFilterGroups(): FilterGroup[] {
       id: 'standard-essential',
       name: 'Essential: Gene Counts',
       description: 'Filters for all Essential columns (Gene Counts)',
-      enabled: true,
+      enabled: false,
       filters: [
         {
           id: nanoid(),
@@ -56,7 +56,7 @@ function createStandardFilterGroups(): FilterGroup[] {
       id: 'standard-statistics',
       name: 'Statistics: Fisher\'s & BMD/BMDL/BMDU',
       description: 'Filters for all Statistics columns (Fisher\'s Full + BMD/BMDL/BMDU Extended + Confidence Intervals)',
-      enabled: true,
+      enabled: false,
       filters: [
         // Fisher's Full (6 fields)
         {
@@ -244,7 +244,7 @@ function createStandardFilterGroups(): FilterGroup[] {
       id: 'standard-advanced-counts',
       name: 'Advanced: Filter Counts & Percentiles',
       description: 'Filters for Filter Counts (12) and Percentile Values (6)',
-      enabled: true,
+      enabled: false,
       filters: [
         // Filter Counts (12 fields)
         {
@@ -385,7 +385,7 @@ function createStandardFilterGroups(): FilterGroup[] {
       id: 'standard-advanced-directional',
       name: 'Advanced: Directional Analysis',
       description: 'Filters for Directional UP (9), DOWN (9), and Analysis (3)',
-      enabled: true,
+      enabled: false,
       filters: [
         // Directional UP (9 fields)
         {
@@ -548,7 +548,7 @@ function createStandardFilterGroups(): FilterGroup[] {
       id: 'standard-advanced-foldchange',
       name: 'Advanced: Fold Change & Scores',
       description: 'Filters for Fold Change (6), Z-Scores (4), and Model Fold Change (4)',
-      enabled: true,
+      enabled: false,
       filters: [
         // Fold Change (6 fields)
         {
