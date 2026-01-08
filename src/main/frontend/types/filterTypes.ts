@@ -9,6 +9,47 @@
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 
 /**
+ * Analysis types supported by the system
+ *
+ * This is the single source of truth for analysis types.
+ * Used by both filter relevance and column relevance logic.
+ */
+export type AnalysisType =
+  | 'GENE'        // Gene-level analysis
+  | 'GO_BP'       // Gene Ontology - Biological Process
+  | 'GO_CC'       // Gene Ontology - Cellular Component
+  | 'GO_MF'       // Gene Ontology - Molecular Function
+  | 'REACTOME'    // Reactome pathway database
+  | 'KEGG'        // KEGG pathway database
+  | 'BIOPLANET'   // BioPlanet pathway database
+  | 'DEFINED';    // User-defined gene sets
+
+/**
+ * Check if the analysis type is for multi-gene categories
+ * (categories that contain multiple genes, as opposed to single-gene analysis)
+ */
+export function isMultiGeneAnalysisType(analysisType: string | null): boolean {
+  if (!analysisType) return true; // Default to multi-gene for safety
+
+  const type = analysisType.toUpperCase();
+
+  // GENE analysis is single-gene
+  if (type === 'GENE') return false;
+
+  // All other types (GO, pathways, defined sets) are multi-gene
+  return (
+    type === 'GO_BP' ||
+    type === 'GO_CC' ||
+    type === 'GO_MF' ||
+    type === 'REACTOME' ||
+    type === 'KEGG' ||
+    type === 'BIOPLANET' ||
+    type === 'DEFINED' ||
+    type.startsWith('GO_')
+  );
+}
+
+/**
  * Field types for filtering
  */
 export type NumericFieldName =
@@ -184,7 +225,6 @@ export interface OperatorMetadata {
  * for utilities to determine which filters are meaningful for different category types
  * (GENE vs GO vs pathway, etc.)
  */
-export type { AnalysisType } from '../utils/filterRelevance';
 export {
   getRelevantFilters,
   isFilterRelevant,

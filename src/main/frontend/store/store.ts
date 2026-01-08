@@ -40,28 +40,15 @@ export const store = configureStore({
       serializableCheck: {
         // Ignore Set objects - Sets are not serializable but Immer supports them
         ignoredPaths: [
-          'categoryResults.selectedCategoryIds',
-          'categoryResults.selectedUmapGoIds',
           'categoryResults.reactiveSelection.category.selectedIds',
           'categoryResults.reactiveSelection.cluster.selectedIds',
           'visibility.highlightedIds',
         ],
         ignoredActions: [
-          // Legacy selection actions
-          'categoryResults/setSelectedCategoryIds',
-          'categoryResults/toggleCategorySelection',
-          'categoryResults/clearSelection',
-          'categoryResults/toggleMultipleCategoryIds',
-          'categoryResults/selectAllCategories',
-          'categoryResults/invertSelection',
           // Reactive selection actions
           'categoryResults/setReactiveSelection',
           'categoryResults/toggleReactiveSelection',
           'categoryResults/clearReactiveSelection',
-          // UMAP selection actions
-          'categoryResults/setSelectedUmapGoIds',
-          'categoryResults/toggleUmapGoIdSelection',
-          'categoryResults/clearUmapSelection',
           // Async actions that clear Sets
           'categoryResults/load/pending',
           'categoryResults/load/fulfilled',

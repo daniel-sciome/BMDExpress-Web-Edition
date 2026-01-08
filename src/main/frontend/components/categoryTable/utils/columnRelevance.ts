@@ -7,25 +7,18 @@
  */
 
 import type { ColumnVisibility } from './types';
+import { isMultiGeneAnalysisType } from '../../../types/filterTypes';
 
-/**
- * Analysis types supported by the system
- */
-export type AnalysisType =
-  | 'GENE'        // Gene-level analysis
-  | 'GO_BP'       // Gene Ontology - Biological Process
-  | 'GO_CC'       // Gene Ontology - Cellular Component
-  | 'GO_MF'       // Gene Ontology - Molecular Function
-  | 'REACTOME'    // Reactome pathway database
-  | 'KEGG'        // KEGG pathway database
-  | 'DEFINED';    // User-defined gene sets
+// Re-export AnalysisType for backward compatibility
+export type { AnalysisType } from '../../../types/filterTypes';
 
 /**
  * Column groups that apply to multi-gene categories (GO, pathways, defined sets)
  * These groups represent aggregations across multiple genes in a category.
  */
 const MULTI_GENE_CATEGORY_COLUMNS: (keyof ColumnVisibility)[] = [
-  'geneCounts',           // How many genes in this category
+  'primaryFilters',       // Primary filter columns (gene counts for multi-gene categories)
+  'preFilters',           // Pre-filter statistics (ANOVA, Williams, Curve Fit, etc.)
   'filterCounts',         // How many genes pass various filters
   'percentiles',          // Percentile thresholds across genes
   'directionalUp',        // Statistics for up-regulated genes
@@ -42,7 +35,8 @@ const MULTI_GENE_CATEGORY_COLUMNS: (keyof ColumnVisibility)[] = [
  * These are primarily BMD/BMDL/BMDU statistics for individual genes.
  */
 const SINGLE_GENE_COLUMNS: (keyof ColumnVisibility)[] = [
-  'significantANOVA',
+  'primaryFilters',       // Primary filter columns (BMD Mean, Median for single-gene)
+  'preFilters',           // Pre-filter statistics (ANOVA, Williams, Curve Fit, etc.)
   'fishersFull',
   'bmdExtended',
   'bmdConfidence',
@@ -60,7 +54,8 @@ const SINGLE_GENE_COLUMNS: (keyof ColumnVisibility)[] = [
  * These represent core BMD statistics that apply regardless of category type.
  */
 const UNIVERSAL_COLUMNS: (keyof ColumnVisibility)[] = [
-  'significantANOVA',
+  'primaryFilters',       // Primary filter columns (content varies by analysis type)
+  'preFilters',           // Pre-filter statistics (ANOVA, Williams, Curve Fit, etc.)
   'bmdExtended',
   'bmdConfidence',
   'bmdlStats',
@@ -79,35 +74,14 @@ const UNIVERSAL_COLUMNS: (keyof ColumnVisibility)[] = [
  * @returns Array of column group keys that are relevant for this analysis type
  */
 export function getRelevantColumns(analysisType: string | null): (keyof ColumnVisibility)[] {
-  if (!analysisType) {
-    // If unknown, show all columns (safest default)
+  // Multi-gene analysis types get all columns
+  if (isMultiGeneAnalysisType(analysisType)) {
     return [...UNIVERSAL_COLUMNS, ...MULTI_GENE_CATEGORY_COLUMNS];
   }
 
-  const type = analysisType.toUpperCase();
-
-  // GENE analysis - only single-gene columns are relevant
+  // Single-gene analysis (GENE type) - only single-gene columns are relevant
   // Gene counts, aggregations, and gene lists don't make sense when each row IS a gene
-  if (type === 'GENE') {
-    return SINGLE_GENE_COLUMNS;
-  }
-
-  // All other types (GO, pathways, defined sets) - include both universal and multi-gene columns
-  // These represent categories with multiple genes, so aggregations are meaningful
-  if (
-    type === 'GO_BP' ||
-    type === 'GO_CC' ||
-    type === 'GO_MF' ||
-    type === 'REACTOME' ||
-    type === 'KEGG' ||
-    type === 'DEFINED' ||
-    type.startsWith('GO_')
-  ) {
-    return [...UNIVERSAL_COLUMNS, ...MULTI_GENE_CATEGORY_COLUMNS];
-  }
-
-  // Unknown type - show all columns (safest default)
-  return [...UNIVERSAL_COLUMNS, ...MULTI_GENE_CATEGORY_COLUMNS];
+  return SINGLE_GENE_COLUMNS;
 }
 
 /**
@@ -169,15 +143,9 @@ export function filterRelevantColumns(
  * @returns Explanation text for the user
  */
 export function getColumnRelevanceExplanation(analysisType: string | null): string {
-  if (!analysisType) {
-    return 'All columns are available.';
+  if (isMultiGeneAnalysisType(analysisType)) {
+    return 'All applicable columns are available for this category type.';
   }
 
-  const type = analysisType.toUpperCase();
-
-  if (type === 'GENE') {
-    return 'Gene-level analysis: Category aggregation columns (gene counts, gene lists, etc.) are hidden because each row represents a single gene.';
-  }
-
-  return 'All applicable columns are available for this category type.';
+  return 'Gene-level analysis: Category aggregation columns (gene counts, gene lists, etc.) are hidden because each row represents a single gene.';
 }
