@@ -5,27 +5,14 @@
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import { CategorySet, CategorySetType } from '../../types/renderState';
 import { umapDataService } from '../../data/umapDataService';
+import { getClusterColor, CLUSTER_COLOR_PALETTE } from '../../components/charts/utils/clusterColors';
 
-/**
- * Generate a color palette for N clusters using HSL
- * This ensures good color separation regardless of cluster count
- */
-function generateClusterColors(clusterCount: number): Record<number | string, string> {
-  const colors: Record<number | string, string> = {};
+// Cluster ID constants (must match categoryResultsSlice)
+const CLUSTER_UNCLASSIFIED = -1;  // In UMAP reference but not assigned to a cluster
+const CLUSTER_NOT_IN_REF = -2;    // Not in UMAP reference data
 
-  // Outliers always get gray
-  colors[-1] = '#999999';
-
-  // Generate colors with evenly spaced hue values
-  for (let i = 0; i < clusterCount; i++) {
-    const hue = (i * 360) / clusterCount;
-    const saturation = 70 + (i % 3) * 10; // Vary saturation slightly for distinction
-    const lightness = 45 + (i % 2) * 10;   // Vary lightness slightly
-    colors[i] = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-  }
-
-  return colors;
-}
+// Color for categories not in the UMAP reference data
+const NOT_IN_REF_COLOR = '#fa8c16'; // Orange/warning color
 
 /**
  * Create CategorySets for all clusters found in the category data
@@ -41,7 +28,18 @@ export function createClusterSets(categories: CategoryAnalysisResultDto[]): Cate
     if (!cat.categoryId) return;
 
     const umapData = umapDataService.getByGoId(cat.categoryId);
-    const clusterId = umapData?.cluster_id ?? -1;
+
+    let clusterId: number;
+    if (!umapData) {
+      // Not in UMAP reference data
+      clusterId = CLUSTER_NOT_IN_REF;
+    } else {
+      // In reference - use cluster_id or mark as unclassified
+      const rawClusterId = umapData.cluster_id;
+      clusterId = typeof rawClusterId === 'number'
+        ? rawClusterId
+        : (rawClusterId !== undefined ? parseInt(String(rawClusterId), 10) : CLUSTER_UNCLASSIFIED);
+    }
 
     if (!clusterMap.has(clusterId)) {
       clusterMap.set(clusterId, []);
@@ -49,26 +47,31 @@ export function createClusterSets(categories: CategoryAnalysisResultDto[]): Cate
     clusterMap.get(clusterId)!.push(cat.categoryId);
   });
 
-  // Count non-outlier clusters
-  const nonOutlierClusters = Array.from(clusterMap.keys()).filter(id => id !== -1);
-  const clusterCount = nonOutlierClusters.length;
-
-  // Generate dynamic color palette
-  const colorPalette = generateClusterColors(clusterCount);
-
   // Create CategorySet for each cluster
   const sets: CategorySet[] = [];
 
   clusterMap.forEach((categoryIds, clusterId) => {
-    const label = clusterId === -1 ? 'Cluster Outliers' : `Cluster ${clusterId}`;
+    let label: string;
+    let color: string;
+
+    if (clusterId === CLUSTER_NOT_IN_REF) {
+      label = 'Not in Semantic Space';
+      color = NOT_IN_REF_COLOR;
+    } else if (clusterId === CLUSTER_UNCLASSIFIED) {
+      label = 'Unclassified';
+      color = getClusterColor(clusterId); // Uses OUTLIER_COLOR from clusterColors.ts
+    } else {
+      label = `Cluster ${clusterId}`;
+      // Use getClusterColor() for consistent colors with charts
+      color = getClusterColor(clusterId);
+    }
 
     const set: CategorySet = {
       setId: `cluster-${clusterId}`,
       type: CategorySetType.CLUSTER,
       label,
       categoryIds,
-      color: colorPalette[clusterId] || '#cccccc',
-      highlighted: false,
+      color,
       visible: true,
       metadata: {
         clusterId: typeof clusterId === 'number' ? clusterId : parseInt(String(clusterId), 10),
@@ -78,16 +81,22 @@ export function createClusterSets(categories: CategoryAnalysisResultDto[]): Cate
     sets.push(set);
   });
 
-  // Sort by cluster ID (outliers last)
+  // Sort by cluster ID: normal clusters first (0+), then unclassified (-1), then not-in-ref (-2)
   sets.sort((a, b) => {
-    const aId = a.metadata.clusterId ?? -1;
-    const bId = b.metadata.clusterId ?? -1;
-    if (aId === -1) return 1;
-    if (bId === -1) return -1;
-    return aId - bId;
+    const aId = a.metadata.clusterId ?? CLUSTER_UNCLASSIFIED;
+    const bId = b.metadata.clusterId ?? CLUSTER_UNCLASSIFIED;
+    // Put negative IDs last, with -2 after -1
+    if (aId >= 0 && bId >= 0) return aId - bId;
+    if (aId >= 0) return -1;  // a is normal, goes first
+    if (bId >= 0) return 1;   // b is normal, goes first
+    // Both negative: -1 before -2
+    return bId - aId;
   });
 
-  console.log(`[initializeRenderState] Created ${sets.length} cluster sets (${clusterCount} clusters + ${clusterMap.has(-1) ? 1 : 0} outliers)`);
+  const actualClusterCount = sets.filter(s => s.metadata.clusterId >= 0).length;
+  const notInRefCount = clusterMap.has(CLUSTER_NOT_IN_REF) ? clusterMap.get(CLUSTER_NOT_IN_REF)!.length : 0;
+  const unclassifiedCount = clusterMap.has(CLUSTER_UNCLASSIFIED) ? clusterMap.get(CLUSTER_UNCLASSIFIED)!.length : 0;
+  console.log(`[initializeRenderState] Created ${sets.length} cluster sets (${actualClusterCount} clusters, ${unclassifiedCount} unclassified, ${notInRefCount} not in reference)`);
 
   return sets;
 }
@@ -141,7 +150,6 @@ export function createPrimaryFilterSet(
     label: 'Filtered Categories',
     categoryIds: filteredCategoryIds,
     color: undefined, // Master filter doesn't have a specific color
-    highlighted: false,
     visible: true,
     metadata: {
       filterCriteria,
@@ -183,11 +191,7 @@ export function createCustomCategorySets(
     groupMap.get(groupId)!.push(cat.categoryId);
   });
 
-  // Generate colors dynamically
-  const groupCount = groupMap.size;
-  const colorPalette = generateClusterColors(groupCount);
-
-  // Create CategorySet for each group
+  // Create CategorySet for each group using shared color palette
   const sets: CategorySet[] = [];
   let colorIndex = 0;
 
@@ -197,13 +201,13 @@ export function createCustomCategorySets(
       type,
       label: labelFn(groupId),
       categoryIds,
-      color: colorPalette[colorIndex++] || '#cccccc',
-      highlighted: false,
+      color: CLUSTER_COLOR_PALETTE[colorIndex % CLUSTER_COLOR_PALETTE.length],
       visible: true,
       metadata: {},
     };
 
     sets.push(set);
+    colorIndex++;
   });
 
   return sets;

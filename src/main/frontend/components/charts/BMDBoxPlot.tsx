@@ -3,14 +3,14 @@ import Plot from 'react-plotly.js';
 import { useSelector } from 'react-redux';
 import { Button } from 'antd';
 import { selectChartData } from '../../store/slices/categoryResultsSlice';
+import { selectHighlightedIds } from '../../store/slices/visibilitySlice';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
-import type { RootState } from '../../store/store';
 import { useClusterColors, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 export default function BMDBoxPlot() {
   const data = useSelector(selectChartData);
-  const selectedCategoryIds = useSelector((state: RootState) => state.categoryResults.selectedCategoryIds);
+  const highlightedIds = useSelector(selectHighlightedIds);
   const [useFixedScale, setUseFixedScale] = useState(true);
 
   // Get cluster colors using shared utility
@@ -33,16 +33,16 @@ export default function BMDBoxPlot() {
   };
 
   // Filter for selected categories only (for rescaling)
-  const hasSelection = selectedCategoryIds.size > 0;
+  const hasSelection = highlightedIds.size > 0;
   const selectedValuesWithCategories = useMemo(() => {
     if (!hasSelection) return allValuesWithCategories;
 
     return {
-      bmd: allValuesWithCategories.bmd.filter(item => selectedCategoryIds.has(item.categoryId || '')),
-      bmdl: allValuesWithCategories.bmdl.filter(item => selectedCategoryIds.has(item.categoryId || '')),
-      bmdu: allValuesWithCategories.bmdu.filter(item => selectedCategoryIds.has(item.categoryId || '')),
+      bmd: allValuesWithCategories.bmd.filter(item => highlightedIds.has(item.categoryId || '')),
+      bmdl: allValuesWithCategories.bmdl.filter(item => highlightedIds.has(item.categoryId || '')),
+      bmdu: allValuesWithCategories.bmdu.filter(item => highlightedIds.has(item.categoryId || '')),
     };
-  }, [allValuesWithCategories, selectedCategoryIds, hasSelection]);
+  }, [allValuesWithCategories, highlightedIds, hasSelection]);
 
   const selectedValues = {
     bmd: selectedValuesWithCategories.bmd.map(item => item.value!),

@@ -7,18 +7,10 @@
  */
 
 import type { FilterableFieldName } from '../types/filterTypes';
+import { isMultiGeneAnalysisType } from '../types/filterTypes';
 
-/**
- * Analysis types supported by the system
- */
-export type AnalysisType =
-  | 'GENE'        // Gene-level analysis
-  | 'GO_BP'       // Gene Ontology - Biological Process
-  | 'GO_CC'       // Gene Ontology - Cellular Component
-  | 'GO_MF'       // Gene Ontology - Molecular Function
-  | 'REACTOME'    // Reactome pathway database
-  | 'KEGG'        // KEGG pathway database
-  | 'DEFINED';    // User-defined gene sets
+// Re-export AnalysisType for backward compatibility
+export type { AnalysisType } from '../types/filterTypes';
 
 /**
  * Filter fields that apply to single-gene analysis (GENE type)
@@ -141,35 +133,14 @@ const MULTI_GENE_CATEGORY_FILTERS: FilterableFieldName[] = [
  * @returns Array of filter field names that are relevant for this analysis type
  */
 export function getRelevantFilters(analysisType: string | null): FilterableFieldName[] {
-  if (!analysisType) {
-    // If unknown, show all filters (safest default)
+  // Multi-gene analysis types get all filters
+  if (isMultiGeneAnalysisType(analysisType)) {
     return [...SINGLE_GENE_FILTERS, ...MULTI_GENE_CATEGORY_FILTERS];
   }
 
-  const type = analysisType.toUpperCase();
-
-  // GENE analysis - only single-gene filters are relevant
+  // Single-gene analysis (GENE type) - only single-gene filters are relevant
   // Gene counts, aggregations, and multi-gene statistics don't make sense when each row IS a gene
-  if (type === 'GENE') {
-    return SINGLE_GENE_FILTERS;
-  }
-
-  // All other types (GO, pathways, defined sets) - include both single-gene and multi-gene filters
-  // These represent categories with multiple genes, so all aggregations are meaningful
-  if (
-    type === 'GO_BP' ||
-    type === 'GO_CC' ||
-    type === 'GO_MF' ||
-    type === 'REACTOME' ||
-    type === 'KEGG' ||
-    type === 'DEFINED' ||
-    type.startsWith('GO_')
-  ) {
-    return [...SINGLE_GENE_FILTERS, ...MULTI_GENE_CATEGORY_FILTERS];
-  }
-
-  // Unknown type - show all filters (safest default)
-  return [...SINGLE_GENE_FILTERS, ...MULTI_GENE_CATEGORY_FILTERS];
+  return SINGLE_GENE_FILTERS;
 }
 
 /**
@@ -194,17 +165,11 @@ export function isFilterRelevant(
  * @returns Explanation text for the user
  */
 export function getFilterRelevanceExplanation(analysisType: string | null): string {
-  if (!analysisType) {
-    return 'All filters are available.';
+  if (isMultiGeneAnalysisType(analysisType)) {
+    return 'All applicable filters are available for this category type.';
   }
 
-  const type = analysisType.toUpperCase();
-
-  if (type === 'GENE') {
-    return 'Gene-level analysis: Multi-gene aggregation filters (gene counts, directional statistics, etc.) are hidden because each row represents a single gene.';
-  }
-
-  return 'All applicable filters are available for this category type.';
+  return 'Gene-level analysis: Multi-gene aggregation filters (gene counts, directional statistics, etc.) are hidden because each row represents a single gene.';
 }
 
 /**

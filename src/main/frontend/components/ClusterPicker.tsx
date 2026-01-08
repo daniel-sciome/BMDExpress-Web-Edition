@@ -13,10 +13,6 @@ import {
   clearHighlights,
   selectHighlightedIds,
 } from '../store/slices/visibilitySlice';
-import {
-  setSelectedCategoryIds,
-  clearSelection,
-} from '../store/slices/categoryResultsSlice';
 import type { GroupSelectionState } from '../types/visibilityTypes';
 
 const { Text } = Typography;
@@ -75,7 +71,6 @@ export default function ClusterPicker() {
    * - Unchecked -> Checked: Highlight all categories in cluster
    * - Checked/Partial -> Unchecked: Remove highlight from cluster's categories
    * Supports Cmd/Ctrl for additive selection.
-   * Syncs to both visibility state and legacy selection for table checkbox consistency.
    */
   const handleClusterClick = useCallback((
     categoryIds: string[],
@@ -91,11 +86,9 @@ export default function ClusterPicker() {
         const currentHighlights = Array.from(highlightedIds);
         const merged = [...new Set([...currentHighlights, ...categoryIds])];
         dispatch(highlightCategories({ categoryIds: merged, exclusive: true }));
-        dispatch(setSelectedCategoryIds(merged)); // Sync to legacy
       } else {
         // Replace selection with this cluster
         dispatch(highlightCategories({ categoryIds, exclusive: true }));
-        dispatch(setSelectedCategoryIds(categoryIds)); // Sync to legacy
       }
     } else {
       // Deselect this cluster
@@ -106,15 +99,12 @@ export default function ClusterPicker() {
         );
         if (remaining.length > 0) {
           dispatch(highlightCategories({ categoryIds: remaining, exclusive: true }));
-          dispatch(setSelectedCategoryIds(remaining)); // Sync to legacy
         } else {
           dispatch(clearHighlights());
-          dispatch(clearSelection()); // Sync to legacy
         }
       } else {
         // Clear all highlights
         dispatch(clearHighlights());
-        dispatch(clearSelection()); // Sync to legacy
       }
     }
   }, [dispatch, highlightedIds]);

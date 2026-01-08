@@ -6,14 +6,14 @@ import type { RootState, AppDispatch } from '../store';
 import type { ReactiveSelectionMap, SelectionSource } from 'Frontend/types/reactiveTypes';
 import { initializeCategories, upsertCategorySet } from './renderStateSlice';
 import { createClusterSets, createPrimaryFilterSet } from '../utils/initializeRenderState';
-import { highlightCategories } from './visibilitySlice';
+import { highlightCategories, selectHighlightedIds } from './visibilitySlice';
 import { applyFilterGroups } from '../../utils/filterEvaluation';
 import { selectEnabledFilterGroups } from './filterSlice';
 import { umapDataService } from '../../data/umapDataService';
 
 // Cluster ID constants
-export const CLUSTER_OUTLIER = -1;      // In UMAP reference but semantically dissimilar
-export const CLUSTER_NOT_IN_REF = -2;   // Not in UMAP reference data
+export const CLUSTER_UNCLASSIFIED = -1;   // In UMAP reference but not assigned to a cluster
+export const CLUSTER_NOT_IN_REF = -2;     // Not in UMAP reference data
 
 /**
  * Extended category type with cluster information enriched at load time.
@@ -63,7 +63,7 @@ interface Filters {
   allGenesMin?: number;
   allGenesMax?: number;
   // Cluster filter
-  excludeClusterOutliers?: boolean;  // Filter out cluster_id === -1 (semantic outliers)
+  excludeUnclassified?: boolean;  // Filter out cluster_id === -1 (unclassified categories)
 }
 
 // State interface
@@ -96,11 +96,6 @@ interface CategoryResultsState {
 
   // Phase 4: Generic reactive selection state
   reactiveSelection: ReactiveSelectionMap;
-
-  // Legacy selection state (kept for backward compatibility during migration)
-  // TODO: Phase 9 - remove these after full migration
-  selectedCategoryIds: Set<string>;
-  selectedUmapGoIds: Set<string>;
 
   // Highlighting (for hover states)
   highlightedRow: number | null;
@@ -139,9 +134,6 @@ const initialState: CategoryResultsState = {
       source: null,
     },
   },
-  // Legacy selection state (backward compatibility)
-  selectedCategoryIds: new Set<string>(),
-  selectedUmapGoIds: new Set<string>(),
   highlightedRow: null,
   sortColumn: null,
   sortDirection: 'asc',
@@ -178,6 +170,7 @@ const DEFAULT_PRIMARY_FILTERS: Filters = {
   genesPassedFiltersMin: 3,
   allGenesMin: 40,
   allGenesMax: 500,
+  excludeUnclassified: true,  // Exclude cluster_id === -1 (unclassified) by default
 };
 
 /**
@@ -214,6 +207,12 @@ function applyPrimaryFilters(
     if (filters.genesPassedFiltersMin !== undefined && row.genesThatPassedAllFilters !== undefined && row.genesThatPassedAllFilters < filters.genesPassedFiltersMin) return false;
     if (filters.allGenesMin !== undefined && row.geneAllCount !== undefined && row.geneAllCount < filters.allGenesMin) return false;
     if (filters.allGenesMax !== undefined && row.geneAllCount !== undefined && row.geneAllCount > filters.allGenesMax) return false;
+
+    // Cluster filter: exclude unclassified categories if enabled
+    // Note: This uses the enriched clusterId from CategoryAnalysisResultWithCluster
+    const rowWithCluster = row as CategoryAnalysisResultWithCluster;
+    if (filters.excludeUnclassified && rowWithCluster.clusterId === CLUSTER_UNCLASSIFIED) return false;
+
     return true;
   });
 }
@@ -285,13 +284,10 @@ export const loadCategoryResultsWithRenderState = createAsyncThunk<
         .map(cat => cat.categoryId)
         .filter((id): id is string => id !== undefined && id !== null);
 
-      console.log('[Redux] Initializing filtered categories as selected:', filteredCategoryIds.length);
+      console.log('[Redux] Initializing filtered categories as highlighted:', filteredCategoryIds.length);
 
-      // Dispatch to visibilitySlice (for row highlighting)
+      // Dispatch to visibilitySlice (for row highlighting and table checkbox state)
       dispatch(highlightCategories({ categoryIds: filteredCategoryIds, exclusive: true }));
-
-      // Also set legacy selectedCategoryIds (for table checkboxes)
-      dispatch({ type: 'categoryResults/setSelectedCategoryIds', payload: filteredCategoryIds });
 
       console.log('[Redux] Render state initialization complete');
     }
@@ -381,89 +377,8 @@ const categoryResultsSlice = createSlice({
       state.analysisType = action.payload;
     },
 
-    // Selection actions (using category IDs)
-    // Phase 4: Legacy actions now sync to reactive state for backward compatibility
-    setSelectedCategoryIds: (state, action: PayloadAction<string[]>) => {
-      state.selectedCategoryIds = new Set(action.payload);
-      // Sync to reactive state - REPLACE entire parent object to trigger React updates
-      state.reactiveSelection.category = {
-        selectedIds: new Set(action.payload),
-        source: 'table',
-      };
-    },
-
-    toggleCategorySelection: (state, action: PayloadAction<string>) => {
-      const categoryId = action.payload;
-      if (state.selectedCategoryIds.has(categoryId)) {
-        state.selectedCategoryIds.delete(categoryId);
-      } else {
-        state.selectedCategoryIds.add(categoryId);
-      }
-      // Sync to reactive state - REPLACE entire parent object to trigger React updates
-      state.reactiveSelection.category = {
-        selectedIds: new Set(state.selectedCategoryIds),
-        source: 'table',
-      };
-    },
-
-    clearSelection: (state) => {
-      state.selectedCategoryIds.clear();
-      // Sync to reactive state - REPLACE entire parent object to trigger React updates
-      state.reactiveSelection.category = {
-        selectedIds: new Set(),
-        source: null,
-      };
-    },
-
-    // Phase 3: Selection helper actions
-    // Phase 4: Now sync to reactive state
-    toggleMultipleCategoryIds: (state, action: PayloadAction<string[]>) => {
-      const categoryIds = action.payload;
-      categoryIds.forEach(id => {
-        if (state.selectedCategoryIds.has(id)) {
-          state.selectedCategoryIds.delete(id);
-        } else {
-          state.selectedCategoryIds.add(id);
-        }
-      });
-      // Sync to reactive state - REPLACE entire parent object to trigger React updates
-      state.reactiveSelection.category = {
-        selectedIds: new Set(state.selectedCategoryIds),
-        source: 'table',
-      };
-    },
-
-    selectAllCategories: (state, action: PayloadAction<string[] | undefined>) => {
-      // Select all categories (optionally provide specific IDs, otherwise uses all data)
-      const idsToSelect = action.payload || state.data.map(cat => cat.categoryId).filter(Boolean) as string[];
-      state.selectedCategoryIds = new Set(idsToSelect);
-      // Sync to reactive state - REPLACE entire parent object to trigger React updates
-      state.reactiveSelection.category = {
-        selectedIds: new Set(idsToSelect),
-        source: 'table',
-      };
-    },
-
-    invertSelection: (state, action: PayloadAction<string[] | undefined>) => {
-      // Invert selection within a given set of IDs (or all data if not provided)
-      const allIds = action.payload || state.data.map(cat => cat.categoryId).filter(Boolean) as string[];
-      const newSelection = new Set<string>();
-
-      allIds.forEach(id => {
-        if (!state.selectedCategoryIds.has(id)) {
-          newSelection.add(id);
-        }
-      });
-
-      state.selectedCategoryIds = newSelection;
-      // Sync to reactive state - REPLACE entire parent object to trigger React updates
-      state.reactiveSelection.category = {
-        selectedIds: new Set(newSelection),
-        source: 'table',
-      };
-    },
-
-    // Phase 4: Generic reactive selection actions
+    // Reactive selection actions (used by charts via useReactiveState hook)
+    // Note: Table/ClusterPicker use visibilitySlice.highlightCategories instead
     setReactiveSelection: (
       state,
       action: PayloadAction<{ type: 'category' | 'cluster'; ids: any[]; source: SelectionSource }>
@@ -484,11 +399,6 @@ const categoryResultsSlice = createSlice({
         selectedIds: new Set(ids),
         source: source,
       };
-
-      // Backward compatibility: sync category selection to legacy state
-      if (type === 'category') {
-        state.selectedCategoryIds = new Set(ids as string[]);
-      }
       console.log('[Redux] setReactiveSelection after update:', {
         newSelectedCount: state.reactiveSelection[type].selectedIds.size,
         newSource: state.reactiveSelection[type].source
@@ -514,11 +424,6 @@ const categoryResultsSlice = createSlice({
         selectedIds: newSelectedIds as any,
         source: state.reactiveSelection[type].source,
       };
-
-      // Backward compatibility: sync category selection to legacy state
-      if (type === 'category') {
-        state.selectedCategoryIds = new Set(newSelectedIds as Set<string>);
-      }
     },
 
     clearReactiveSelection: (state, action: PayloadAction<'category' | 'cluster'>) => {
@@ -529,29 +434,6 @@ const categoryResultsSlice = createSlice({
         selectedIds: new Set() as any,
         source: null,
       };
-
-      // Backward compatibility: sync category selection to legacy state
-      if (type === 'category') {
-        state.selectedCategoryIds = new Set();
-      }
-    },
-
-    // UMAP selection actions (GO IDs selected from UMAP scatter plot)
-    setSelectedUmapGoIds: (state, action: PayloadAction<string[]>) => {
-      state.selectedUmapGoIds = new Set(action.payload);
-    },
-
-    toggleUmapGoIdSelection: (state, action: PayloadAction<string>) => {
-      const goId = action.payload;
-      if (state.selectedUmapGoIds.has(goId)) {
-        state.selectedUmapGoIds.delete(goId);
-      } else {
-        state.selectedUmapGoIds.add(goId);
-      }
-    },
-
-    clearUmapSelection: (state) => {
-      state.selectedUmapGoIds.clear();
     },
 
     // Highlighting action
@@ -584,13 +466,24 @@ const categoryResultsSlice = createSlice({
       })
       .addCase(loadCategoryResults.fulfilled, (state, action) => {
         state.loading = false;
-        state.data = action.payload.results;
+        // Enrich categories with cluster info at load time
+        state.data = action.payload.results.map(cat => {
+          const umapData = cat.categoryId ? umapDataService.getByGoId(cat.categoryId) : undefined;
+          let clusterId: number;
+          if (!umapData) {
+            clusterId = CLUSTER_NOT_IN_REF;  // -2: Not in UMAP reference
+          } else {
+            // Coerce cluster_id to number (may be string in reference data)
+            const rawClusterId = umapData.cluster_id;
+            clusterId = typeof rawClusterId === 'number'
+              ? rawClusterId
+              : (rawClusterId !== undefined ? parseInt(String(rawClusterId), 10) : CLUSTER_UNCLASSIFIED);
+          }
+          return { ...cat, clusterId };
+        });
         state.experimentDescription = action.payload.experimentDescription;
         state.projectId = action.meta.arg.projectId;
         state.resultName = action.meta.arg.resultName;
-        // Clear legacy selection state
-        state.selectedCategoryIds.clear();
-        state.selectedUmapGoIds.clear();
         // Clear reactive selection state - REPLACE entire parent objects to trigger React updates
         state.reactiveSelection.category = {
           selectedIds: new Set(),
@@ -627,19 +520,10 @@ export const {
   setComparisonMode,
   setViewMode,
   setAnalysisType,
-  setSelectedCategoryIds,
-  toggleCategorySelection,
-  clearSelection,
-  toggleMultipleCategoryIds,
-  selectAllCategories,
-  invertSelection,
-  // Phase 4: Reactive selection actions
+  // Reactive selection actions (used by charts via useReactiveState hook)
   setReactiveSelection,
   toggleReactiveSelection,
   clearReactiveSelection,
-  setSelectedUmapGoIds,
-  toggleUmapGoIdSelection,
-  clearUmapSelection,
   setHighlightedRow,
   setSortColumn,
   setPage,
@@ -692,6 +576,9 @@ export const selectFilteredData = createSelector(
         if (filters.allGenesMax !== undefined && row.geneAllCount !== undefined && row.geneAllCount > filters.allGenesMax) return false;
       }
 
+      // Cluster filter: exclude unclassified categories if enabled
+      if (filters.excludeUnclassified && row.clusterId === CLUSTER_UNCLASSIFIED) return false;
+
       return true;
     });
 
@@ -740,23 +627,13 @@ export const selectPaginatedData = createSelector(
   }
 );
 
-// Selector for chart data - returns selected categories based on UMAP or table selection
-// Priority: UMAP selection > Table selection > All data
+// Selector for chart data - returns highlighted categories for visualization
 export const selectChartData = createSelector(
-  [
-    selectSortedData,
-    (state: RootState) => state.categoryResults.selectedUmapGoIds,
-    (state: RootState) => state.categoryResults.selectedCategoryIds
-  ],
-  (allData, umapGoIds, categoryIds) => {
-    // Priority 1: UMAP selection (if any GO IDs are selected in UMAP scatter plot)
-    if (umapGoIds.size > 0) {
-      return allData.filter(row => umapGoIds.has(row.categoryId || ''));
-    }
-
-    // Priority 2: Table selection (if any categories are selected in table)
-    if (categoryIds.size > 0) {
-      return allData.filter(row => categoryIds.has(row.categoryId || ''));
+  [selectSortedData, selectHighlightedIds],
+  (allData, highlightedIds) => {
+    // If categories are highlighted (from ClusterPicker or table selection), filter to those
+    if (highlightedIds.size > 0) {
+      return allData.filter(row => highlightedIds.has(row.categoryId || ''));
     }
 
     // Default: return all data (no filtering)
@@ -766,27 +643,13 @@ export const selectChartData = createSelector(
 
 // Phase 3: Derived selection selectors
 export const selectIsAnythingSelected = createSelector(
-  [
-    (state: RootState) => state.categoryResults.selectedCategoryIds,
-    (state: RootState) => state.categoryResults.selectedUmapGoIds
-  ],
-  (categoryIds, umapGoIds) => {
-    return categoryIds.size > 0 || umapGoIds.size > 0;
-  }
+  [selectHighlightedIds],
+  (highlightedIds) => highlightedIds.size > 0
 );
 
 export const selectSelectedCount = createSelector(
-  [
-    (state: RootState) => state.categoryResults.selectedCategoryIds,
-    (state: RootState) => state.categoryResults.selectedUmapGoIds
-  ],
-  (categoryIds, umapGoIds) => {
-    // UMAP selection takes precedence (as per selectChartData logic)
-    if (umapGoIds.size > 0) {
-      return umapGoIds.size;
-    }
-    return categoryIds.size;
-  }
+  [selectHighlightedIds],
+  (highlightedIds) => highlightedIds.size
 );
 
 export const selectUnselectedCount = createSelector(

@@ -38,9 +38,6 @@ export interface CategorySet {
   /** Optional color for visualization (hex format) */
   color?: string;
 
-  /** Is this set currently highlighted/selected? */
-  highlighted: boolean;
-
   /** Should this set be visible in visualizations? */
   visible: boolean;
 
@@ -81,9 +78,6 @@ export interface CategoryRenderState {
 
   /** IDs of CategorySets this category belongs to */
   setIds: string[];
-
-  /** Is this category highlighted/selected? */
-  highlighted: boolean;
 
   /** Does this category pass all active filters? */
   filtered: boolean;
