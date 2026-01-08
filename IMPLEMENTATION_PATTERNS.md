@@ -116,16 +116,17 @@ import React from 'react';
 import Plot from 'react-plotly.js';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState, AppDispatch } from '../../store/store';
-import { 
-  selectChartData, 
-  setSelectedCategoryIds,
-  toggleCategorySelection 
-} from '../../store/slices/categoryResultsSlice';
+import { selectChartData } from '../../store/slices/categoryResultsSlice';
+import {
+  selectHighlightedIds,
+  setHighlightedIds,
+  toggleHighlight
+} from '../../store/slices/visibilitySlice';
 
 export default function MyScatterChart() {
   const dispatch = useDispatch<AppDispatch>();
   const data = useSelector(selectChartData);
-  const selectedCategoryIds = useSelector((state: RootState) => state.categoryResults.selectedCategoryIds);
+  const highlightedIds = useSelector(selectHighlightedIds);
 
   // Prepare data
   const xData = data.map(row => row.someField || 0);
@@ -133,12 +134,12 @@ export default function MyScatterChart() {
   const categoryIds = data.map(row => row.categoryId || '');
 
   // Split into selected/unselected for visual distinction
-  const hasSelection = selectedCategoryIds.size > 0;
+  const hasSelection = highlightedIds.size > 0;
   const selectedIndices: number[] = [];
   const unselectedIndices: number[] = [];
 
   data.forEach((row, idx) => {
-    if (selectedCategoryIds.has(row.categoryId || '')) {
+    if (highlightedIds.has(row.categoryId || '')) {
       selectedIndices.push(idx);
     } else {
       unselectedIndices.push(idx);
@@ -202,9 +203,9 @@ export default function MyScatterChart() {
       const categoryId = event.points[0].customdata;
       if (categoryId) {
         if (event.event?.ctrlKey || event.event?.metaKey) {
-          dispatch(toggleCategorySelection(categoryId));
+          dispatch(toggleHighlight(categoryId));
         } else {
-          dispatch(setSelectedCategoryIds([categoryId]));
+          dispatch(setHighlightedIds([categoryId]));
         }
       }
     }
@@ -553,13 +554,13 @@ const projects = (rawData || []).filter((p): p is string => p !== undefined);
 ### Array to Set Conversion (for Redux)
 ```typescript
 const selectedKeys = useMemo(() => {
-  return Array.from(selectedCategoryIds);
-}, [selectedCategoryIds]);
+  return Array.from(highlightedIds);
+}, [highlightedIds]);
 
 // Or vice versa
 const handleSelectionChange = (selectedRowKeys: React.Key[]) => {
   const categoryIds = selectedRowKeys.map(key => String(key));
-  dispatch(setSelectedCategoryIds(categoryIds));
+  dispatch(setHighlightedIds(categoryIds));
 };
 ```
 

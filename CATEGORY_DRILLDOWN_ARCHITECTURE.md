@@ -1,7 +1,7 @@
 CATEGORY_DRILLDOWN_ARCHITECTURE.md
 # Category Drill-Down: Auxiliary Visualizations Architecture                                                                                                                                                  ## Overview
 Design and implementation plan for category-level auxiliary visualizations that provide gene-level details when users select a category from the results table.                                               ## Current State Analysis### Existing Infrastructure
-- ✅ **Redux State**: `selectedCategoryIds` (Set<string>) in categoryResultsSlice
+- ✅ **Redux State**: `highlightedIds` (Set<string>) in visibilitySlice (single source of truth for selection)
 - ✅ **Selection UI**: CategoryResultsGrid supports multi-row selection
 - ✅ **DTOs**: BMDMarkersDto, CurveDataDto, DosePointDto, CategoryAnalysisResultDto
 - ✅ **Pathway Curves**: PathwayCurveViewer component (separate chart type)
@@ -22,7 +22,7 @@ Design and implementation plan for category-level auxiliary visualizations that 
 // categoryResultsSlice.ts additions
 interface CategoryResultsState
 {// ... existing state ...
-selectedCategoryIds: Set<string>;
+// Note: Selection now managed in visibilitySlice.highlightedIds
 // NEW: Focused category for drill-down (single selection)
 focusedCategoryId: string | null;
 // NEW: Gene-level data for focused category
@@ -35,7 +35,7 @@ error: string | null;
 };
 }
 ```
-**Design Decision**: Use `focusedCategoryId` (single) separate from `selectedCategoryIds` (multi)
+**Design Decision**: Use `focusedCategoryId` (single) separate from `highlightedIds` in visibilitySlice (multi)
 - **Rationale**:
 - Multi-select is for operations like Venn diagrams
 - Drill-down shows details for ONE category at a time

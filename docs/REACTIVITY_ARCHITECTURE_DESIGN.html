@@ -812,7 +812,8 @@
                 <pre><code>// When data loads, dispatch highlightCategories with all category IDs
 const allCategoryIds = data.map(cat => cat.categoryId).filter(Boolean);
 dispatch(highlightCategories({ categoryIds: allCategoryIds, exclusive: true }));
-dispatch(setSelectedCategoryIds(allCategoryIds)); // Sync legacy selection</code></pre>
+// Note: Legacy selectedCategoryIds has been removed - visibilitySlice.highlightedIds
+// is now the single source of truth for selection state</code></pre>
 
                 <h4>Behavior Comparison</h4>
                 <table>
@@ -937,7 +938,7 @@ interface GroupSelectionState {
             <p>Category groups loaded from backend (UMAP clusters, gene clusters): <span class="badge badge-new">TO CREATE</span></p>
             <div class="code-file" data-file="src/main/frontend/store/slices/categoryGroupsSlice.ts"></div>
 
-            <p>Existing slice - remove deprecated selection state: <span class="badge badge-modified">MODIFY</span></p>
+            <p>Existing slice - deprecated selection state removed, now uses visibilitySlice: <span class="badge badge-existing">DONE</span></p>
             <div class="code-file" data-file="src/main/frontend/store/slices/categoryResultsSlice.ts"></div>
 
             <p>Existing filter groups slice - no changes needed: <span class="badge badge-existing">EXISTING</span></p>
@@ -958,8 +959,8 @@ interface GroupSelectionState {
   categoryGroups: CategoryGroupsState;  // NEW
 }</code></pre>
 
-            <h3>6.2b Current categoryResultsSlice (for reference)</h3>
-            <p>The existing slice showing state structure and selection-related code to be refactored:</p>
+            <h3>6.2b categoryResultsSlice (refactored)</h3>
+            <p>The slice has been refactored - legacy selection state removed. Selectors now use <code>visibilitySlice.highlightedIds</code>:</p>
             <div class="code-file" data-file="src/main/frontend/store/slices/categoryResultsSlice.ts"></div>
 
             <h3>6.3 Visibility Slice Actions</h3>
@@ -1380,7 +1381,7 @@ interface GroupSelectionState {
             <p>Add visibility and categoryGroups reducers: <span class="badge badge-modified">MODIFY</span></p>
             <div class="code-file" data-file="src/main/frontend/store/store.ts"></div>
 
-            <p>Remove deprecated selection state, rename selectFilteredData: <span class="badge badge-modified">MODIFY</span></p>
+            <p>Deprecated selection state removed, selectWorkingSet alias added: <span class="badge badge-existing">DONE</span></p>
             <div class="code-file" data-file="src/main/frontend/store/slices/categoryResultsSlice.ts"></div>
 
             <h3>11.4 Frontend Components (Modify)</h3>
@@ -1447,10 +1448,13 @@ interface GroupSelectionState {
                             <li>CategoryResultsView.tsx (display mode toggle)</li>
                         </ul>
                     </li>
-                    <li><strong>Phase 6: Cleanup</strong>
+                    <li><strong>Phase 6: Cleanup</strong> <span class="badge badge-existing" style="margin-left: 0.5rem;">DONE</span>
                         <ul style="color: var(--text-secondary);">
-                            <li>Remove deprecated selection state from categoryResultsSlice</li>
-                            <li>Remove legacy selection actions and selectors</li>
+                            <li>✓ Remove deprecated selection state from categoryResultsSlice</li>
+                            <li>✓ Remove legacy selection actions and selectors</li>
+                            <li>✓ Remove redundant highlighted property from renderStateSlice</li>
+                            <li>✓ Remove unused UMAP selection actions</li>
+                            <li>✓ Consolidate duplicate AnalysisType definitions</li>
                         </ul>
                     </li>
                 </ol>
