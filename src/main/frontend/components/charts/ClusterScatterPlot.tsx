@@ -1,16 +1,15 @@
 /**
  * ClusterScatterPlot Component
  *
- * Scatter plot showing BMD vs Fisher P-value, with points colored by
- * gene-based cluster assignment. This visualization shows:
+ * Scatter plot showing BMD distribution by gene cluster assignment:
  * - X-axis: BMD Median (log scale)
- * - Y-axis: -log10(Fisher P-value)
+ * - Y-axis: Gene Cluster ID (with jitter to avoid overlap)
  * - Color: Cluster membership based on gene overlap
  * - Size: Number of genes that passed filters
  *
  * Uses inFocus-based display mode styling (highlight/dim/isolate).
  *
- * Helps identify whether gene-similar categories also cluster by BMD response.
+ * Helps visualize BMD distribution within each gene-similarity cluster.
  */
 
 import React, { useMemo, useState } from 'react';
@@ -100,11 +99,11 @@ export default function ClusterScatterPlot({
         if (shouldHidePoint(inFocus)) return;
 
         const bmd = cat.bmdMedian ?? cat.bmdMean;
-        const pValue = cat.fishersExactTwoTailPValue;
 
-        if (bmd != null && bmd > 0 && pValue != null && pValue > 0) {
+        if (bmd != null && bmd > 0) {
           xValues.push(bmd);
-          yValues.push(-Math.log10(pValue));
+          // Y-axis is cluster ID with jitter to avoid overlap
+          yValues.push(clusterId + (Math.random() - 0.5) * 0.6);
 
           // Size based on gene count (clamped)
           const geneCount = cat.genesThatPassedAllFilters || 1;
@@ -117,10 +116,15 @@ export default function ClusterScatterPlot({
           markerLineWidths.push(style.lineWidth);
           markerLineColors.push(style.lineColor);
 
+          const pValue = cat.fishersExactTwoTailPValue;
+          const pValueStr = pValue != null && pValue > 0
+            ? `Fisher p: ${pValue.toExponential(2)}<br>`
+            : '';
+
           texts.push(
             `<b>${cat.categoryDescription || categoryId}</b><br>` +
             `BMD Median: ${bmd.toFixed(4)}<br>` +
-            `-log10(p): ${(-Math.log10(pValue)).toFixed(2)}<br>` +
+            pValueStr +
             `Cluster: ${clusterId}<br>` +
             `Genes: ${geneCount}`
           );
@@ -152,6 +156,15 @@ export default function ClusterScatterPlot({
 
     return traces;
   }, [clusterAssignments, categoryData, uniqueClusterIds, hiddenClusters, focusMap, displayMode, getPointStyle, shouldHidePoint]);
+
+  // Calculate Y-axis range to show all clusters with padding
+  // Must be before early returns to comply with React hooks rules
+  const yAxisRange = useMemo(() => {
+    if (uniqueClusterIds.length === 0) return undefined;
+    const minCluster = Math.min(...uniqueClusterIds);
+    const maxCluster = Math.max(...uniqueClusterIds);
+    return [minCluster - 0.8, maxCluster + 0.8];
+  }, [uniqueClusterIds]);
 
   // Toggle cluster visibility
   const toggleCluster = (clusterId: number) => {
@@ -193,7 +206,7 @@ export default function ClusterScatterPlot({
 
   const layout: any = {
     title: {
-      text: `Gene Clusters: BMD vs Fisher P-Value (${categoryCount} categories, ${uniqueClusterIds.length} clusters)`,
+      text: `Gene Clusters: BMD by Cluster (${categoryCount} categories, ${uniqueClusterIds.length} clusters)`,
       font: { size: 16 },
     },
     xaxis: {
@@ -203,11 +216,14 @@ export default function ClusterScatterPlot({
       gridcolor: DEFAULT_GRID_COLOR,
     },
     yaxis: {
-      title: { text: '-log10(Fisher Two-Tail P-Value)' },
-      autorange: true,
+      title: { text: 'Gene Cluster ID' },
+      tickmode: 'array',
+      tickvals: uniqueClusterIds,
+      ticktext: uniqueClusterIds.map(id => `Cluster ${id}`),
+      range: yAxisRange,
       gridcolor: DEFAULT_GRID_COLOR,
     },
-    height: 600,
+    height: Math.max(400, uniqueClusterIds.length * 80 + 150),
     hovermode: 'closest',
     ...DEFAULT_LAYOUT_STYLES,
     showlegend: true,
