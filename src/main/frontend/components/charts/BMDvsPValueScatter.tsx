@@ -1,214 +1,172 @@
+/**
+ * BMD vs P-Value Scatter Plot Component
+ *
+ * Displays a scatter plot comparing BMD Mean vs Fisher's Exact P-Value.
+ * Each point represents one category, colored by UMAP cluster assignment.
+ *
+ * Uses inFocus-based display mode styling (highlight/dim/isolate).
+ */
+
 import React, { useMemo, useCallback, useState } from 'react';
 import Plot from 'react-plotly.js';
-import { useSelector } from 'react-redux';
-import { selectChartData } from '../../store/slices/categoryResultsSlice';
-import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveState';
-import { useClusterLegendInteraction, getClusterMarkerStyle } from './hooks/useClusterLegendInteraction';
+import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
+import { useReactiveState } from './hooks/useReactiveState';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 export default function BMDvsPValueScatter() {
-  // Use reactive state hook to sync with UMAP
+  const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
-  const data = useSelector(selectChartData);
-
-  // Debug: Log when categoryState changes
-  React.useEffect(() => {
-    console.log('[BMDvsPValueScatter] categoryState changed:', {
-      selectedCount: categoryState.selectedIds.size,
-      source: categoryState.source,
-      selectedIds: Array.from(categoryState.selectedIds).slice(0, 5)
-    });
-  }, [categoryState.selectedIds, categoryState.source]);
-
-  // Background visibility state: 'full' -> 'dimmed' -> 'hidden' -> 'full'
-  const [backdropVisibility, setBackdropVisibility] = useState<'full' | 'dimmed' | 'hidden'>('full');
-
-  // Get cluster colors using shared utility
   const clusterColors = useClusterColors();
+  const hasSelection = categoryState.selectedIds.size > 0;
 
   // Prepare data for plotting
-  const xData = data.map(row => row.bmdMean || 0);
-  const yData = data.map(row => {
-    const pValue = row.fishersExactTwoTailPValue;
-    if (pValue === undefined || pValue === null || pValue === 0) return 0;
-    return -Math.log10(pValue);
-  });
-  const textData = data.map(row => row.categoryDescription || row.categoryId || 'Unknown');
-  const categoryIds = data.map(row => row.categoryId || '');
+  const scatterData = useMemo(() => {
+    if (!data || data.length === 0) return null;
 
-  // Calculate fixed axis ranges from all data
-  const xRange = useMemo(() => {
-    if (xData.length === 0) return undefined;
-    const validX = xData.filter(x => x > 0);
-    if (validX.length === 0) return undefined;
-    const xMin = Math.min(...validX);
-    const xMax = Math.max(...validX);
-    return [Math.log10(xMin) - 0.5, Math.log10(xMax) + 0.5];
-  }, [xData]);
-
-  const yRange = useMemo(() => {
-    if (yData.length === 0) return undefined;
-    const validY = yData.filter(y => y > 0);
-    if (validY.length === 0) return undefined;
-    const yMin = Math.min(...validY);
-    const yMax = Math.max(...validY);
-    const padding = (yMax - yMin) * 0.1;
-    return [Math.max(0, yMin - padding), yMax + padding];
-  }, [yData]);
-
-  // Group data by cluster for base traces
-  const clusterData = useMemo(() => {
-    const byCluster = new Map<string | number, Array<{
-      index: number;
+    // Group data by cluster
+    const byCluster = new Map<number, Array<{
+      x: number;
+      y: number;
       categoryId: string;
+      categoryName: string;
+      inFocus: boolean;
     }>>();
 
-    data.forEach((row, idx) => {
+    data.forEach(row => {
+      const xValue = row.bmdMean;
+      const pValue = row.fishersExactTwoTailPValue;
+
+      if (xValue === undefined || xValue === null || xValue <= 0) return;
+      if (pValue === undefined || pValue === null || pValue <= 0) return;
+
+      const yValue = -Math.log10(pValue);
+      if (!isFinite(yValue)) return;
+
       const clusterId = getClusterIdForCategory(row.categoryId);
       if (!byCluster.has(clusterId)) {
         byCluster.set(clusterId, []);
       }
+
       byCluster.get(clusterId)!.push({
-        index: idx,
+        x: xValue,
+        y: yValue,
         categoryId: row.categoryId || '',
+        categoryName: row.categoryDescription || row.categoryId || 'Unknown',
+        inFocus: row.inFocus
       });
     });
 
     return byCluster;
   }, [data]);
 
-  // Create base traces (without reactive styling)
-  const baseTraces = useMemo(() => {
-    const result: any[] = [];
+  // Calculate axis ranges
+  const { xRange, yRange } = useMemo(() => {
+    if (!scatterData) return { xRange: undefined, yRange: undefined };
 
-    // Layer 1: Backdrop - ALL points in gray (like UMAP Reference Space)
-    result.push({
-      x: xData,
-      y: yData,
-      text: textData,
-      mode: 'markers',
-      type: 'scatter',
-      name: 'Background',
-      marker: {}, // Filled in later with reactive styling
-      hovertemplate: '<b>%{text}</b><br>BMD Mean: %{x:.4f}<br>-log10(p): %{y:.4f}<extra></extra>',
-      showlegend: true,
+    const allX: number[] = [];
+    const allY: number[] = [];
+
+    scatterData.forEach(points => {
+      points.forEach(p => {
+        allX.push(p.x);
+        allY.push(p.y);
+      });
     });
 
-    // Layer 2: Cluster traces (base structure)
-    clusterData.forEach((items, clusterId) => {
+    if (allX.length === 0) return { xRange: undefined, yRange: undefined };
+
+    const xMin = Math.min(...allX);
+    const xMax = Math.max(...allX);
+    const yMin = Math.min(...allY);
+    const yMax = Math.max(...allY);
+
+    return {
+      xRange: [Math.log10(xMin) - 0.5, Math.log10(xMax) + 0.5],
+      yRange: [Math.max(0, yMin - (yMax - yMin) * 0.1), yMax + (yMax - yMin) * 0.1]
+    };
+  }, [scatterData]);
+
+  // Create traces with inFocus-based per-point styling
+  const traces = useMemo(() => {
+    if (!scatterData) return [];
+
+    const result: any[] = [];
+
+    // Sort clusters (outliers last)
+    const sortedClusters = Array.from(scatterData.keys()).sort((a, b) => {
+      if (a === -1) return 1;
+      if (b === -1) return -1;
+      return a - b;
+    });
+
+    sortedClusters.forEach(clusterId => {
+      const points = scatterData.get(clusterId)!;
+      const baseColor = clusterColors[clusterId] || '#999999';
+
+      // Filter points based on displayMode (isolate mode hides out-of-focus)
+      const visiblePoints = points.filter(p => !shouldHidePoint(p.inFocus));
+
+      if (visiblePoints.length === 0) {
+        return; // Skip empty cluster traces
+      }
+
+      // Per-point styling arrays based on inFocus state
+      const markerColors: string[] = [];
+      const markerSizes: number[] = [];
+      const markerOpacities: number[] = [];
+      const markerLineWidths: number[] = [];
+      const markerLineColors: string[] = [];
+
+      visiblePoints.forEach(point => {
+        const isSelected = categoryState.selectedIds.has(point.categoryId);
+        const style = getPointStyle(point.inFocus, baseColor);
+
+        // If selected, enhance with selection highlighting
+        if (isSelected && hasSelection) {
+          markerColors.push(style.color);
+          markerSizes.push(12);
+          markerOpacities.push(1.0);
+          markerLineWidths.push(2);
+          markerLineColors.push('white');
+        } else {
+          markerColors.push(style.color);
+          markerSizes.push(style.size);
+          markerOpacities.push(style.opacity);
+          markerLineWidths.push(style.lineWidth);
+          markerLineColors.push(style.lineColor);
+        }
+      });
+
       result.push({
-        x: items.map(item => xData[item.index]),
-        y: items.map(item => yData[item.index]),
-        text: items.map(item => textData[item.index]),
-        customdata: items.map(item => categoryIds[item.index]),
+        x: visiblePoints.map(p => p.x),
+        y: visiblePoints.map(p => p.y),
+        customdata: visiblePoints.map(p => p.categoryId),
+        text: visiblePoints.map(p => p.categoryName),
         type: 'scatter',
         mode: 'markers',
-        marker: {}, // Filled in later with reactive styling
-        hovertemplate: `<b>%{text}</b><br>${getClusterLabel(clusterId)}<br>BMD Mean: %{x:.4f}<br>-log10(p): %{y:.4f}<extra></extra>`,
         name: getClusterLabel(clusterId),
+        marker: {
+          color: markerColors,
+          size: markerSizes,
+          opacity: markerOpacities,
+          line: {
+            color: markerLineColors,
+            width: markerLineWidths
+          }
+        },
+        hovertemplate:
+          '<b>%{text}</b><br>' +
+          `${getClusterLabel(clusterId)}<br>` +
+          'BMD Mean: %{x:.4f}<br>' +
+          '-log10(p): %{y:.4f}<extra></extra>',
         showlegend: true,
         legendgroup: `cluster_${clusterId}`,
       });
     });
 
     return result;
-  }, [data, xData, yData, textData, categoryIds, clusterData]);
-
-  // Set up cluster legend interaction with special handler for Background
-  const { handleLegendClick, nonSelectedDisplayMode, hasSelection } = useClusterLegendInteraction({
-    traces: baseTraces,
-    categoryState,
-    allData: data,
-    getClusterIdFromCategory: (row) => getClusterIdForCategory(row.categoryId),
-    getCategoryId: (row) => row.categoryId,
-    sourceName: 'BMDvsPValueScatter',
-    specialLegendHandlers: {
-      'Background': () => {
-        setBackdropVisibility(current => {
-          if (current === 'full') {
-            console.log('[BMDvsPValueScatter] Background: full -> dimmed');
-            return 'dimmed';
-          } else if (current === 'dimmed') {
-            console.log('[BMDvsPValueScatter] Background: dimmed -> hidden');
-            return 'hidden';
-          } else {
-            console.log('[BMDvsPValueScatter] Background: hidden -> full');
-            return 'full';
-          }
-        });
-        return false; // Prevent default legend toggle
-      },
-    },
-  });
-
-  // Apply reactive styling to traces
-  const traces = useMemo(() => {
-    console.log('[BMDvsPValueScatter] Recomputing traces. Selection:', {
-      selectedCount: categoryState.selectedIds.size,
-      selectedIds: Array.from(categoryState.selectedIds).slice(0, 5),
-      source: categoryState.source,
-      hasSelection,
-      nonSelectedDisplayMode
-    });
-    const result: any[] = [];
-
-    // Apply backdrop styling
-    const backdropOpacity = backdropVisibility === 'full' ? 0.4 : backdropVisibility === 'dimmed' ? 0.1 : 0;
-    const isBackdropHidden = backdropVisibility !== 'full';
-
-    result.push({
-      ...baseTraces[0],
-      marker: {
-        size: 3,
-        color: isBackdropHidden ? 'rgba(0,0,0,0)' : '#666666',
-        opacity: backdropOpacity,
-        line: {
-          width: isBackdropHidden ? 1 : 0,
-          color: '#666666'
-        },
-      },
-    });
-
-    // Apply cluster styling using getClusterMarkerStyle
-    const sortedClusters = Array.from(clusterData.keys()).sort((a, b) => {
-      if (a === -1) return 1;
-      if (b === -1) return -1;
-      return Number(a) - Number(b);
-    });
-
-    sortedClusters.forEach((clusterId, index) => {
-      const items = clusterData.get(clusterId)!;
-      const baseColor = clusterColors[clusterId] || '#999999';
-
-      // Check if ANY category from this cluster is selected
-      const isClusterSelected = hasSelection && items.some(item => categoryState.isSelected(item.categoryId));
-
-      // Get reactive marker styling
-      const markerStyle = getClusterMarkerStyle(
-        clusterId,
-        baseColor,
-        isClusterSelected,
-        hasSelection,
-        nonSelectedDisplayMode
-      );
-
-      result.push({
-        ...baseTraces[index + 1], // +1 because Background is at index 0
-        marker: {
-          color: markerStyle.color,
-          size: 8,
-          opacity: markerStyle.opacity,
-          line: {
-            color: markerStyle.lineColor,
-            width: markerStyle.lineWidth || 1,
-          },
-        },
-      });
-    });
-
-    return result;
-  }, [baseTraces, clusterData, clusterColors, hasSelection, categoryState.selectedIds, nonSelectedDisplayMode, backdropVisibility]);
+  }, [scatterData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, shouldHidePoint]);
 
   const handlePlotClick = useCallback((event: any) => {
     if (event.points && event.points.length > 0) {
@@ -227,6 +185,14 @@ export default function BMDvsPValueScatter() {
     }
   }, [categoryState]);
 
+  if (!scatterData || scatterData.size === 0) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+        No valid BMD vs P-Value data available for scatter plot
+      </div>
+    );
+  }
+
   return (
     <div style={{ width: '100%', height: '500px' }}>
       <Plot
@@ -236,18 +202,18 @@ export default function BMDvsPValueScatter() {
           xaxis: {
             title: 'BMD Mean',
             type: 'log',
-            range: xRange, // Fixed range based on all data
+            range: xRange,
             gridcolor: DEFAULT_GRID_COLOR,
           },
           yaxis: {
             title: '-log10(Fisher Exact P-Value)',
-            range: yRange, // Fixed range based on all data
+            range: yRange,
             gridcolor: DEFAULT_GRID_COLOR,
           },
           hovermode: 'closest',
           ...DEFAULT_LAYOUT_STYLES,
           margin: { l: 60, r: 30, t: 50, b: 60 },
-          showlegend: true, // Always show legend for visibility toggle
+          showlegend: true,
           legend: {
             x: 1.02,
             y: 1,
@@ -257,7 +223,6 @@ export default function BMDvsPValueScatter() {
         } as any}
         config={createPlotlyConfigWithExport('bmd_vs_pvalue_scatter')}
         onClick={handlePlotClick}
-        onLegendClick={handleLegendClick}
         style={{ width: '100%', height: '100%' }}
       />
     </div>

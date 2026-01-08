@@ -1,228 +1,244 @@
+/**
+ * BMD Box Plot Component
+ *
+ * Displays box plots showing the distribution of BMD, BMDL, and BMDU values
+ * across all categories. Individual points are colored by UMAP cluster assignment.
+ *
+ * Uses inFocus-based display mode styling (highlight/dim/isolate).
+ */
+
 import React, { useMemo, useState } from 'react';
 import Plot from 'react-plotly.js';
-import { useSelector } from 'react-redux';
 import { Button } from 'antd';
-import { selectChartData } from '../../store/slices/categoryResultsSlice';
-import { selectHighlightedIds } from '../../store/slices/visibilitySlice';
-import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
-import { useClusterColors, getClusterIdForCategory } from './utils/clusterColors';
-import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
+import { useClusterColors, getClusterIdForCategory, getClusterLabel } from './utils/clusterColors';
+import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES } from './utils/plotlyConfig';
 
 export default function BMDBoxPlot() {
-  const data = useSelector(selectChartData);
-  const highlightedIds = useSelector(selectHighlightedIds);
+  const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
   const [useFixedScale, setUseFixedScale] = useState(true);
-
-  // Get cluster colors using shared utility
   const clusterColors = useClusterColors();
 
-  // Extract BMD values (filter out null/undefined) and track category IDs
-  const getBMDValuesWithCategories = (dataset: CategoryAnalysisResultDto[]) => ({
-    bmd: dataset.map(row => ({ value: row.bmdMean, categoryId: row.categoryId })).filter(item => item.value !== undefined && item.value !== null && !isNaN(item.value)),
-    bmdl: dataset.map(row => ({ value: row.bmdlMean, categoryId: row.categoryId })).filter(item => item.value !== undefined && item.value !== null && !isNaN(item.value)),
-    bmdu: dataset.map(row => ({ value: row.bmduMean, categoryId: row.categoryId })).filter(item => item.value !== undefined && item.value !== null && !isNaN(item.value)),
-  });
+  // Build traces with inFocus-based styling
+  const { traces, yAxisRange, bmdStats } = useMemo(() => {
+    const result: any[] = [];
 
-  const allValuesWithCategories = getBMDValuesWithCategories(data);
-
-  // Extract just the values for box plots
-  const allValues = {
-    bmd: allValuesWithCategories.bmd.map(item => item.value!),
-    bmdl: allValuesWithCategories.bmdl.map(item => item.value!),
-    bmdu: allValuesWithCategories.bmdu.map(item => item.value!),
-  };
-
-  // Filter for selected categories only (for rescaling)
-  const hasSelection = highlightedIds.size > 0;
-  const selectedValuesWithCategories = useMemo(() => {
-    if (!hasSelection) return allValuesWithCategories;
-
-    return {
-      bmd: allValuesWithCategories.bmd.filter(item => highlightedIds.has(item.categoryId || '')),
-      bmdl: allValuesWithCategories.bmdl.filter(item => highlightedIds.has(item.categoryId || '')),
-      bmdu: allValuesWithCategories.bmdu.filter(item => highlightedIds.has(item.categoryId || '')),
+    // Collect all values for box plots and scatter points
+    const allValues = {
+      bmd: [] as { value: number; categoryId: string; inFocus: boolean }[],
+      bmdl: [] as { value: number; categoryId: string; inFocus: boolean }[],
+      bmdu: [] as { value: number; categoryId: string; inFocus: boolean }[],
     };
-  }, [allValuesWithCategories, highlightedIds, hasSelection]);
 
-  const selectedValues = {
-    bmd: selectedValuesWithCategories.bmd.map(item => item.value!),
-    bmdl: selectedValuesWithCategories.bmdl.map(item => item.value!),
-    bmdu: selectedValuesWithCategories.bmdu.map(item => item.value!),
-  };
-
-  // Build traces
-  const traces: any[] = [];
-
-  // Create black box plots (no individual points shown by box)
-  if (allValues.bmd.length > 0) {
-    traces.push({
-      x: Array(allValues.bmd.length).fill(0),
-      y: allValues.bmd,
-      type: 'box',
-      name: 'BMD Mean',
-      marker: { color: 'black' },
-      line: { color: 'black' },
-      fillcolor: 'rgba(0, 0, 0, 0.1)',
-      boxpoints: false, // Don't show points on box itself
-      boxmean: 'sd',
-      showlegend: true,
-      legendgroup: 'bmd',
-      legendgrouptitle: { text: 'Categories' },
-    });
-  }
-  if (allValues.bmdl.length > 0) {
-    traces.push({
-      x: Array(allValues.bmdl.length).fill(1),
-      y: allValues.bmdl,
-      type: 'box',
-      name: 'BMDL Mean',
-      marker: { color: 'black' },
-      line: { color: 'black' },
-      fillcolor: 'rgba(0, 0, 0, 0.1)',
-      boxpoints: false,
-      boxmean: 'sd',
-      showlegend: true,
-      legendgroup: 'bmdl',
-    });
-  }
-  if (allValues.bmdu.length > 0) {
-    traces.push({
-      x: Array(allValues.bmdu.length).fill(2),
-      y: allValues.bmdu,
-      type: 'box',
-      name: 'BMDU Mean',
-      marker: { color: 'black' },
-      line: { color: 'black' },
-      fillcolor: 'rgba(0, 0, 0, 0.1)',
-      boxpoints: false,
-      boxmean: 'sd',
-      showlegend: true,
-      legendgroup: 'bmdu',
-    });
-  }
-
-  // Add cluster-colored scatter points on top with manual horizontal jitter
-  type DataPoint = { value: number; categoryId: string | undefined; x: number };
-
-  const addClusterPoints = (items: { value: number | undefined; categoryId: string | undefined }[], xPosition: number, categoryName: string) => {
-    // Group by cluster
-    const byCluster = new Map<string | number, DataPoint[]>();
-
-    items.forEach(item => {
-      if (item.value === undefined) return;
-
-      const clusterId = getClusterIdForCategory(item.categoryId);
-
-      if (!byCluster.has(clusterId)) {
-        byCluster.set(clusterId, []);
+    data.forEach(row => {
+      if (row.bmdMean !== undefined && row.bmdMean !== null && !isNaN(row.bmdMean)) {
+        allValues.bmd.push({ value: row.bmdMean, categoryId: row.categoryId || '', inFocus: row.inFocus });
       }
-      byCluster.get(clusterId)!.push({
-        value: item.value,
-        categoryId: item.categoryId,
-        x: xPosition
-      });
+      if (row.bmdlMean !== undefined && row.bmdlMean !== null && !isNaN(row.bmdlMean)) {
+        allValues.bmdl.push({ value: row.bmdlMean, categoryId: row.categoryId || '', inFocus: row.inFocus });
+      }
+      if (row.bmduMean !== undefined && row.bmduMean !== null && !isNaN(row.bmduMean)) {
+        allValues.bmdu.push({ value: row.bmduMean, categoryId: row.categoryId || '', inFocus: row.inFocus });
+      }
     });
 
-    // Create scatter trace for each cluster with manual jitter
-    byCluster.forEach((points, clusterId) => {
+    // Create black box plots (showing all data for context)
+    if (allValues.bmd.length > 0) {
+      result.push({
+        x: Array(allValues.bmd.length).fill(0),
+        y: allValues.bmd.map(v => v.value),
+        type: 'box',
+        name: 'BMD Mean',
+        marker: { color: 'black' },
+        line: { color: 'black' },
+        fillcolor: 'rgba(0, 0, 0, 0.1)',
+        boxpoints: false,
+        boxmean: 'sd',
+        showlegend: true,
+        legendgroup: 'bmd',
+        legendgrouptitle: { text: 'Categories' },
+      });
+    }
+    if (allValues.bmdl.length > 0) {
+      result.push({
+        x: Array(allValues.bmdl.length).fill(1),
+        y: allValues.bmdl.map(v => v.value),
+        type: 'box',
+        name: 'BMDL Mean',
+        marker: { color: 'black' },
+        line: { color: 'black' },
+        fillcolor: 'rgba(0, 0, 0, 0.1)',
+        boxpoints: false,
+        boxmean: 'sd',
+        showlegend: true,
+        legendgroup: 'bmdl',
+      });
+    }
+    if (allValues.bmdu.length > 0) {
+      result.push({
+        x: Array(allValues.bmdu.length).fill(2),
+        y: allValues.bmdu.map(v => v.value),
+        type: 'box',
+        name: 'BMDU Mean',
+        marker: { color: 'black' },
+        line: { color: 'black' },
+        fillcolor: 'rgba(0, 0, 0, 0.1)',
+        boxpoints: false,
+        boxmean: 'sd',
+        showlegend: true,
+        legendgroup: 'bmdu',
+      });
+    }
+
+    // Add cluster-colored scatter points with inFocus-based styling
+    const addClusterPoints = (
+      items: { value: number; categoryId: string; inFocus: boolean }[],
+      xPosition: number
+    ) => {
+      // Group by cluster
+      const byCluster = new Map<number, typeof items>();
+
+      items.forEach(item => {
+        const clusterId = getClusterIdForCategory(item.categoryId);
+        if (!byCluster.has(clusterId)) {
+          byCluster.set(clusterId, []);
+        }
+        byCluster.get(clusterId)!.push(item);
+      });
+
+      // Sort clusters (outliers last)
+      const sortedClusters = Array.from(byCluster.keys()).sort((a, b) => {
+        if (a === -1) return 1;
+        if (b === -1) return -1;
+        return a - b;
+      });
+
+      // Create scatter trace for each cluster with per-point styling
+      sortedClusters.forEach(clusterId => {
+        const clusterItems = byCluster.get(clusterId)!;
+        const baseColor = clusterColors[clusterId] || '#999999';
+
+        // Filter based on displayMode (isolate mode hides out-of-focus)
+        const visibleItems = clusterItems.filter(item => !shouldHidePoint(item.inFocus));
+
+        if (visibleItems.length === 0) return;
+
+        // Per-point styling arrays
+        const markerColors: string[] = [];
+        const markerSizes: number[] = [];
+        const markerOpacities: number[] = [];
+        const markerLineWidths: number[] = [];
+        const markerLineColors: string[] = [];
+
+        visibleItems.forEach(item => {
+          const style = getPointStyle(item.inFocus, baseColor);
+          markerColors.push(style.color);
+          markerSizes.push(6);
+          markerOpacities.push(style.opacity);
+          markerLineWidths.push(style.lineWidth);
+          markerLineColors.push(style.lineColor);
+        });
+
+        // Add random jitter to x positions
+        const jitteredX = visibleItems.map(() => xPosition + (Math.random() - 0.5) * 0.3);
+
+        result.push({
+          x: jitteredX,
+          y: visibleItems.map(item => item.value),
+          type: 'scatter',
+          mode: 'markers',
+          marker: {
+            color: markerColors,
+            size: markerSizes,
+            symbol: 'circle',
+            opacity: markerOpacities,
+            line: {
+              color: markerLineColors,
+              width: markerLineWidths,
+            },
+          },
+          name: getClusterLabel(clusterId),
+          hovertemplate: `${getClusterLabel(clusterId)}<br>Value: %{y:.4f}<extra></extra>`,
+          showlegend: false,
+        });
+      });
+    };
+
+    // Add scatter points for each box plot category
+    addClusterPoints(allValues.bmd, 0);
+    addClusterPoints(allValues.bmdl, 1);
+    addClusterPoints(allValues.bmdu, 2);
+
+    // Add cluster legend traces
+    const clustersInData = new Set<number>();
+    data.forEach(row => {
+      const clusterId = getClusterIdForCategory(row.categoryId);
+      clustersInData.add(clusterId);
+    });
+
+    const sortedLegendClusters = Array.from(clustersInData).sort((a, b) => {
+      if (a === -1) return 1;
+      if (b === -1) return -1;
+      return a - b;
+    });
+
+    sortedLegendClusters.forEach((clusterId, index) => {
       const color = clusterColors[clusterId] || '#999999';
+      const isFirst = index === 0;
 
-      // Add random jitter to x positions (±0.15 around the box position)
-      const jitteredX = points.map(() => xPosition + (Math.random() - 0.5) * 0.3);
-
-      traces.push({
-        x: jitteredX,
-        y: points.map(p => p.value),
+      result.push({
+        x: [null],
+        y: [null],
         type: 'scatter',
         mode: 'markers',
         marker: {
           color: color,
-          size: 6,
+          size: 8,
           symbol: 'circle',
-          line: {
-            color: 'white',
-            width: 1
-          }
         },
-        name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}`,
-        hovertemplate: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}<br>Value: %{y:.4f}<extra></extra>`,
-        showlegend: false, // Hide from legend but link to category
-        legendgroup: categoryName, // Link to category box plot
+        name: getClusterLabel(clusterId),
+        showlegend: true,
+        legendgroup: 'clusters',
+        legendgrouptitle: isFirst ? { text: 'Cluster Colors' } : undefined,
       });
     });
-  };
 
-  // Add scatter points for each box plot category
-  addClusterPoints(allValuesWithCategories.bmd, 0, 'bmd'); // BMD at x=0
-  addClusterPoints(allValuesWithCategories.bmdl, 1, 'bmdl'); // BMDL at x=1
-  addClusterPoints(allValuesWithCategories.bmdu, 2, 'bmdu'); // BMDU at x=2
+    // Calculate y-axis range
+    const allBMDValues = [
+      ...allValues.bmd.map(v => v.value),
+      ...allValues.bmdl.map(v => v.value),
+      ...allValues.bmdu.map(v => v.value),
+    ];
 
-  // Add cluster color legend (display only, non-interactive)
-  // Get all unique cluster IDs from the data
-  const clustersInData = new Set<string | number>();
-  allValuesWithCategories.bmd.forEach(item => {
-    const clusterId = getClusterIdForCategory(item.categoryId);
-    clustersInData.add(clusterId);
-  });
-  allValuesWithCategories.bmdl.forEach(item => {
-    const clusterId = getClusterIdForCategory(item.categoryId);
-    clustersInData.add(clusterId);
-  });
-  allValuesWithCategories.bmdu.forEach(item => {
-    const clusterId = getClusterIdForCategory(item.categoryId);
-    clustersInData.add(clusterId);
-  });
+    let yRange: [number, number] | undefined;
+    if (allBMDValues.length > 0) {
+      const yMin = Math.min(...allBMDValues);
+      const yMax = Math.max(...allBMDValues);
+      const padding = (yMax - yMin) * 0.1;
+      yRange = [Math.max(0, yMin - padding), yMax + padding];
+    }
 
-  // Sort cluster IDs (outliers last)
-  const sortedClusters = Array.from(clustersInData).sort((a, b) => {
-    if (a === -1) return 1;
-    if (b === -1) return -1;
-    return Number(a) - Number(b);
-  });
+    // Calculate statistics
+    let stats = null;
+    if (allValues.bmd.length > 0) {
+      const values = allValues.bmd.map(v => v.value);
+      const sorted = [...values].sort((a, b) => a - b);
+      const median = sorted[Math.floor(sorted.length / 2)];
+      const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+      stats = { median, mean, count: values.length };
+    }
 
-  // Add dummy traces for cluster legend (visible in legend only)
-  sortedClusters.forEach((clusterId, index) => {
-    const color = clusterColors[clusterId] || '#999999';
-    const isFirst = index === 0;
+    return { traces: result, yAxisRange: yRange, bmdStats: stats };
+  }, [data, clusterColors, displayMode, getPointStyle, shouldHidePoint]);
 
-    traces.push({
-      x: [null],
-      y: [null],
-      type: 'scatter',
-      mode: 'markers',
-      marker: {
-        color: color,
-        size: 8,
-        symbol: 'circle',
-      },
-      name: `Cluster ${clusterId === -1 ? 'Outliers' : clusterId}`,
-      showlegend: true,
-      legendgroup: 'clusters',
-      legendgrouptitle: isFirst ? { text: 'Cluster Colors' } : undefined,
-    });
-  });
+  if (!data || data.length === 0) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+        No data available for Box Plot
+      </div>
+    );
+  }
 
-  // Calculate y-axis range - use selected data when available, otherwise all data
-  const yAxisRange = useMemo(() => {
-    const dataToUse = hasSelection ? selectedValues : allValues;
-    const allBMDValues = [...dataToUse.bmd, ...dataToUse.bmdl, ...dataToUse.bmdu];
-    if (allBMDValues.length === 0) return undefined;
-    const yMin = Math.min(...allBMDValues);
-    const yMax = Math.max(...allBMDValues);
-    const padding = (yMax - yMin) * 0.1;
-    return [Math.max(0, yMin - padding), yMax + padding];
-  }, [allValues, selectedValues, hasSelection]);
-
-  // Calculate statistics for subtitle
-  const getStats = (values: number[]) => {
-    if (values.length === 0) return null;
-    const sorted = [...values].sort((a, b) => a - b);
-    const median = sorted[Math.floor(sorted.length / 2)];
-    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
-    return { median, mean, count: values.length };
-  };
-
-  const bmdStats = getStats(allValues.bmd);
   const subtitle = bmdStats
     ? `BMD Statistics: Median=${bmdStats.median.toFixed(3)}, Mean=${bmdStats.mean.toFixed(3)}, N=${bmdStats.count}`
     : '';
@@ -239,34 +255,34 @@ export default function BMDBoxPlot() {
       </div>
       <div style={{ width: '100%', height: '500px' }}>
         <Plot
-        data={traces}
-        layout={{
-          title: `BMD Distribution (Colored by Cluster)<br><sub>${subtitle}</sub>`,
-          yaxis: {
-            title: 'Dose Value',
-            gridcolor: '#e0e0e0',
-            ...(useFixedScale && yAxisRange ? { range: yAxisRange } : { autorange: true }),
-          },
-          xaxis: {
-            title: '',
-            tickmode: 'array',
-            tickvals: [0, 1, 2],
-            ticktext: ['BMD Mean', 'BMDL Mean', 'BMDU Mean'],
-          },
-          ...DEFAULT_LAYOUT_STYLES,
-          margin: { l: 60, r: 30, t: 80, b: 60 },
-          showlegend: true,
-          legend: {
-            x: 1.02,
-            y: 1,
-            xanchor: 'left',
-            yanchor: 'top',
-          },
-          boxmode: 'overlay', // Allow scatter points to overlay boxes
-        } as any}
-        config={createPlotlyConfigWithExport('bmd_box_plot')}
-        style={{ width: '100%', height: '100%' }}
-      />
+          data={traces}
+          layout={{
+            title: `BMD Distribution (Colored by Cluster)<br><sub>${subtitle}</sub>`,
+            yaxis: {
+              title: 'Dose Value',
+              gridcolor: '#e0e0e0',
+              ...(useFixedScale && yAxisRange ? { range: yAxisRange } : { autorange: true }),
+            },
+            xaxis: {
+              title: '',
+              tickmode: 'array',
+              tickvals: [0, 1, 2],
+              ticktext: ['BMD Mean', 'BMDL Mean', 'BMDU Mean'],
+            },
+            ...DEFAULT_LAYOUT_STYLES,
+            margin: { l: 60, r: 30, t: 80, b: 60 },
+            showlegend: true,
+            legend: {
+              x: 1.02,
+              y: 1,
+              xanchor: 'left',
+              yanchor: 'top',
+            },
+            boxmode: 'overlay',
+          } as any}
+          config={createPlotlyConfigWithExport('bmd_box_plot')}
+          style={{ width: '100%', height: '100%' }}
+        />
       </div>
     </div>
   );

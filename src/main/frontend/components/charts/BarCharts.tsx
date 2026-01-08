@@ -1,47 +1,39 @@
+/**
+ * Bar Charts Component
+ *
+ * Displays horizontal bar charts showing BMD/BMDL/BMDU values for top 20 categories.
+ * Each bar represents one category, colored by UMAP cluster assignment.
+ *
+ * Uses inFocus-based display mode styling (highlight/dim/isolate).
+ */
+
 import React, { useMemo } from 'react';
 import Plot from 'react-plotly.js';
 import { Row, Col } from 'antd';
-import { useAppSelector } from '../../store/hooks';
-import { selectChartData } from '../../store/slices/categoryResultsSlice';
-import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
+import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useReactiveState } from './hooks/useReactiveState';
-import { useClusterLegendInteraction, getClusterMarkerStyle } from './hooks/useClusterLegendInteraction';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 export default function BarCharts() {
-  const data = useAppSelector(selectChartData);
+  const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const clusterColors = useClusterColors();
+  const hasSelection = categoryState.selectedIds.size > 0;
 
   // Get top 20 categories sorted by p-value
   const topCategories = useMemo(() => {
     if (!data || data.length === 0) return [];
 
     return data
-      .filter((row: CategoryAnalysisResultDto) => row.fishersExactTwoTailPValue != null)
-      .sort((a: CategoryAnalysisResultDto, b: CategoryAnalysisResultDto) => {
+      .filter(row => row.fishersExactTwoTailPValue != null)
+      .sort((a, b) => {
         const pA = a.fishersExactTwoTailPValue ?? 1;
         const pB = b.fishersExactTwoTailPValue ?? 1;
         return pA - pB;
       })
       .slice(0, 20);
   }, [data]);
-
-  // Group categories by cluster
-  const clusterData = useMemo(() => {
-    const byCluster = new Map<string | number, CategoryAnalysisResultDto[]>();
-
-    topCategories.forEach((row: CategoryAnalysisResultDto) => {
-      const clusterId = getClusterIdForCategory(row.categoryId);
-      if (!byCluster.has(clusterId)) {
-        byCluster.set(clusterId, []);
-      }
-      byCluster.get(clusterId)!.push(row);
-    });
-
-    return byCluster;
-  }, [topCategories]);
 
   // Define chart configs
   const chartConfigs = [
@@ -53,89 +45,113 @@ export default function BarCharts() {
     { title: 'BMDU Mean', field: 'bmduMean' as const },
   ];
 
-  // Create base traces for each chart (grouped by cluster)
-  const charts = useMemo(() => {
+  // Group categories by cluster with inFocus state
+  const clusterData = useMemo(() => {
+    const byCluster = new Map<number, Array<{
+      categoryId: string;
+      categoryName: string;
+      values: Record<string, number>;
+      inFocus: boolean;
+    }>>();
+
+    topCategories.forEach(row => {
+      const clusterId = getClusterIdForCategory(row.categoryId);
+      if (!byCluster.has(clusterId)) {
+        byCluster.set(clusterId, []);
+      }
+
+      byCluster.get(clusterId)!.push({
+        categoryId: row.categoryId || '',
+        categoryName: row.categoryDescription || row.categoryId || 'Unknown',
+        values: {
+          bmdMedian: row.bmdMedian ?? 0,
+          bmdlMedian: row.bmdlMedian ?? 0,
+          bmduMedian: row.bmduMedian ?? 0,
+          bmdMean: row.bmdMean ?? 0,
+          bmdlMean: row.bmdlMean ?? 0,
+          bmduMean: row.bmduMean ?? 0,
+        },
+        inFocus: row.inFocus
+      });
+    });
+
+    return byCluster;
+  }, [topCategories]);
+
+  // Create styled charts for each config
+  const styledCharts = useMemo(() => {
     return chartConfigs.map(config => {
-      const baseTraces: any[] = [];
+      const traces: any[] = [];
 
-      // Create a trace for each cluster
-      clusterData.forEach((clusterRows, clusterId) => {
-        const categories = clusterRows.map(row => row.categoryDescription || 'Unknown');
-        const values = clusterRows.map(row => row[config.field] ?? 0);
+      // Sort clusters (outliers last)
+      const sortedClusters = Array.from(clusterData.keys()).sort((a, b) => {
+        if (a === -1) return 1;
+        if (b === -1) return -1;
+        return a - b;
+      });
 
-        baseTraces.push({
+      sortedClusters.forEach(clusterId => {
+        const items = clusterData.get(clusterId)!;
+        const baseColor = clusterColors[clusterId] || '#999999';
+
+        // Filter items based on displayMode (isolate mode hides out-of-focus)
+        const visibleItems = items.filter(item => !shouldHidePoint(item.inFocus));
+
+        if (visibleItems.length === 0) {
+          return; // Skip empty cluster traces
+        }
+
+        // Per-bar styling arrays
+        const barColors: string[] = [];
+        const barOpacities: number[] = [];
+        const barLineWidths: number[] = [];
+        const barLineColors: string[] = [];
+
+        visibleItems.forEach(item => {
+          const isSelected = categoryState.selectedIds.has(item.categoryId);
+          const style = getPointStyle(item.inFocus, baseColor);
+
+          if (isSelected && hasSelection) {
+            barColors.push(style.color);
+            barOpacities.push(1.0);
+            barLineWidths.push(2);
+            barLineColors.push('white');
+          } else {
+            barColors.push(style.color);
+            barOpacities.push(style.opacity);
+            barLineWidths.push(style.lineWidth);
+            barLineColors.push(style.lineColor);
+          }
+        });
+
+        traces.push({
           type: 'bar',
-          y: categories,
-          x: values,
+          y: visibleItems.map(item => item.categoryName),
+          x: visibleItems.map(item => item.values[config.field]),
           orientation: 'h',
           name: getClusterLabel(clusterId),
-          marker: {}, // Will be filled with reactive styling
+          marker: {
+            color: barColors,
+            opacity: barOpacities,
+            line: {
+              color: barLineColors,
+              width: barLineWidths,
+            },
+          },
           hovertemplate: '<b>%{y}</b><br>' +
             `${getClusterLabel(clusterId)}<br>` +
             'Value: %{x:.4f}<extra></extra>',
           showlegend: true,
           legendgroup: `cluster_${clusterId}`,
-          clusterId: clusterId,
-          categoryIds: clusterRows.map(row => row.categoryId || ''),
         });
       });
 
       return {
         title: config.title,
-        baseTraces: baseTraces,
+        data: traces,
       };
     });
-  }, [chartConfigs, clusterData]);
-
-  // Set up cluster legend interaction (use traces from first chart as representative)
-  const { handleLegendClick, nonSelectedDisplayMode, hasSelection } = useClusterLegendInteraction({
-    traces: charts[0]?.baseTraces || [],
-    categoryState,
-    allData: topCategories,
-    getClusterIdFromCategory: (row) => getClusterIdForCategory(row.categoryId),
-    getCategoryId: (row) => row.categoryId,
-    sourceName: 'BarCharts',
-  });
-
-  // Apply reactive styling to all charts
-  const styledCharts = useMemo(() => {
-    return charts.map(chart => {
-      const styledTraces = chart.baseTraces.map((trace) => {
-        const clusterId = trace.clusterId;
-        const baseColor = clusterColors[clusterId] || '#999999';
-
-        // Check if ANY category from this cluster is selected
-        const isClusterSelected = hasSelection &&
-          trace.categoryIds.some((catId: string) => categoryState.isSelected(catId));
-
-        // Get reactive marker styling
-        const markerStyle = getClusterMarkerStyle(
-          clusterId,
-          baseColor,
-          isClusterSelected,
-          hasSelection,
-          nonSelectedDisplayMode
-        );
-
-        return {
-          ...trace,
-          marker: {
-            color: markerStyle.color,
-            opacity: markerStyle.opacity,
-            line: {
-              color: markerStyle.lineColor,
-              width: markerStyle.lineWidth || 0,
-            },
-          },
-        };
-      });
-
-      return {
-        title: chart.title,
-        data: styledTraces,
-      };
-    });
-  }, [charts, clusterColors, hasSelection, categoryState.selectedIds, nonSelectedDisplayMode]);
+  }, [chartConfigs, clusterData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, shouldHidePoint]);
 
   if (!data || data.length === 0) {
     return (
@@ -191,7 +207,6 @@ export default function BarCharts() {
               config={createPlotlyConfig() as any}
               style={{ width: '100%', height: '100%' }}
               useResizeHandler={true}
-              onLegendClick={handleLegendClick}
             />
           </Col>
         ))}
