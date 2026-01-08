@@ -121,7 +121,55 @@ categoryState.handleMultiSelect(ids, source);    // Bulk select
 3. **Extensible**: Add new types (e.g., 'geneId', 'pathwayId') without changing existing code
 4. **Bidirectional**: Any component can read and write selections
 
-### Pattern 2: Two-Layer Visualization
+### Pattern 2: inFocus Architecture (Filter-Based Visibility)
+
+**Problem**: When filters are applied, filtered-out categories disappear completely, losing context about the full dataset.
+
+**Solution**: Categories are marked with `inFocus: boolean` instead of being removed. Display mode controls how out-of-focus categories appear.
+
+```typescript
+// Types (categoryTypes.ts)
+interface CategoryWithFocus extends CategoryAnalysisResultDto {
+  inFocus: boolean;  // Whether this category passes filter criteria
+}
+
+// Selector returns ALL data with inFocus status
+export const selectDataWithFocus = createSelector(
+  [selectData, selectFilters, selectAnalysisType, selectEnabledFilterGroups],
+  (data, filters, analysisType, filterGroups) => {
+    return data.map(row => ({
+      ...row,
+      inFocus: rowPassesFilters(row, filters, analysisType, filterGroups),
+    }));
+  }
+);
+
+// Display modes control out-of-focus visibility
+type DisplayMode = 'highlight' | 'dim' | 'isolate';
+// highlight = Show All (full opacity)
+// dim = Dim Others (reduced opacity)
+// isolate = Hide Others (hidden)
+```
+
+**Styling Utilities** (`displayModeStyles.ts`):
+
+```typescript
+// For table rows
+const className = getRowClassNameByFocus(record.inFocus, displayMode);
+// Returns: 'in-focus-row' | 'out-of-focus-row' | 'out-of-focus-row dimmed-row' | 'out-of-focus-row hidden-row'
+
+// For chart markers
+const style = getMarkerStyleByFocus(inFocus, displayMode, baseColor);
+// Returns: { color, opacity, size, lineWidth, lineColor }
+```
+
+**Key Files**:
+- `src/main/frontend/types/categoryTypes.ts` - CategoryWithFocus type
+- `src/main/frontend/store/slices/categoryResultsSlice.ts` - selectDataWithFocus, rowPassesFilters
+- `src/main/frontend/components/charts/utils/displayModeStyles.ts` - Styling utilities
+- `src/main/frontend/store/slices/visibilitySlice.ts` - displayMode state
+
+### Pattern 3: Two-Layer Visualization
 
 **Problem**: Users lose context when only selected items are shown.
 
@@ -158,7 +206,7 @@ const foregroundTrace = {
 
 **Used In**: BMDvsPValueScatter, AccumulationCharts, UmapScatterPlot
 
-### Pattern 3: Progressive Disclosure (3-Way Toggle)
+### Pattern 4: Progressive Disclosure (3-Way Toggle)
 
 **Problem**: Too many visual elements overwhelm users.
 
@@ -194,7 +242,7 @@ function getMarkerStyle(clusterId: number) {
 
 **Used In**: UmapScatterPlot cluster legend
 
-### Pattern 4: Memoized Selectors
+### Pattern 5: Memoized Selectors
 
 **Problem**: Expensive computations (filtering, sorting, joining) run on every render.
 
@@ -223,12 +271,14 @@ export const selectFilteredData = createSelector(
 ```
 
 **Key Selectors**:
-- `selectFilteredData` - All filtering logic
+- `selectDataWithFocus` - All data with `inFocus` boolean (filter criteria applied but data not removed)
+- `selectSortedDataWithFocus` - Sorted data with inFocus
+- `selectFilteredData` - Only in-focus data (for backward compatibility)
 - `selectSortedData` - Filtered + sorted
 - `selectCategoryDataWithUmap` - Joined with UMAP coordinates
 - `selectCategoriesInClusters` - Filter by cluster membership
 
-### Pattern 5: Component Remounting with Keys
+### Pattern 6: Component Remounting with Keys
 
 **Problem**: React reuses component instances when route parameters change, causing stale data.
 
@@ -246,7 +296,7 @@ export const selectFilteredData = createSelector(
 
 **Applied To**: All major view components (CategoryResultsView, CategoryAnalysisMultisetView, all chart components)
 
-### Pattern 6: Selection Bridge (Cross-Dimension)
+### Pattern 7: Selection Bridge (Cross-Dimension)
 
 **Problem**: Need to select categories based on cluster membership (or vice versa).
 
@@ -311,6 +361,8 @@ bmdexpress-web/
 │   │   │   │   ├── BMDBoxPlot.tsx
 │   │   │   │   ├── AccumulationCharts.tsx
 │   │   │   │   ├── RangePlot.tsx
+│   │   │   │   ├── utils/              # Chart utilities
+│   │   │   │   │   └── displayModeStyles.ts    # inFocus-based styling
 │   │   │   │   └── hooks/              # Chart-specific hooks
 │   │   │   │       ├── useReactiveState.ts     # Core reactive hook
 │   │   │   │       ├── useClusterLegendInteraction.ts
@@ -352,6 +404,8 @@ bmdexpress-web/
 │   │   │
 │   │   ├── types/                      # TypeScript type definitions
 │   │   │   ├── reactiveTypes.ts                # Reactive selection types
+│   │   │   ├── categoryTypes.ts                # CategoryWithFocus, CategoryWithUmap
+│   │   │   ├── visibilityTypes.ts              # DisplayMode, VisibilityState
 │   │   │   └── filterTypes.ts                  # Filter system types
 │   │   │
 │   │   ├── utils/                      # Utility functions
@@ -410,6 +464,10 @@ bmdexpress-web/
     // NOTE: Selection state is now in visibilitySlice.highlightedIds
     // The reactiveSelection above is the primary selection mechanism
 
+    // Sorting (default: clusterId with special handling for -1, -2)
+    sortColumn: 'clusterId' | string,
+    sortDirection: 'asc' | 'desc',
+
     // Metadata
     analysisType: string | null,        // e.g., "GO_BP", "KEGG"
     analysisParameters: { ... },
@@ -429,6 +487,14 @@ bmdexpress-web/
     selectedProject: string | null,
     selectedAnalysisType: string | null,       // Multi-set view
     selectedCategoryResult: string | null      // Single-result view
+  },
+
+  visibility: {
+    displayMode: 'highlight' | 'dim' | 'isolate',  // How to show out-of-focus items
+    highlightedIds: Set<string>,                    // Currently highlighted category IDs
+    // highlight = Show All (full opacity)
+    // dim = Dim Others (reduced opacity, default)
+    // isolate = Hide Others (hidden)
   }
 }
 ```
@@ -454,6 +520,7 @@ clearReactiveSelection(type: ReactiveType)
 setHighlightedIds(ids: string[])
 toggleHighlight(id: string)
 clearHighlights()
+setDisplayMode(mode: 'highlight' | 'dim' | 'isolate')
 
 // Navigation
 setSelectedProject(projectId: string)
@@ -1066,7 +1133,8 @@ import {
 const columns: ColumnsType<CategoryAnalysisResultWithRank> = useMemo(() => {
   const cols: ColumnsType<CategoryAnalysisResultWithRank> = [];
 
-  // Always show fixed columns (Category ID, Description, Cluster)
+  // Always show fixed columns (Cluster, Category ID, Description)
+  // Cluster column displays: number (0-N), "unclassified" (-1), "not in reference" (-2)
   cols.push(...getFixedColumns(viewMode, analysisInfo));
 
   // Conditionally add column groups based on visibility

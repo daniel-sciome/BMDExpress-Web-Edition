@@ -1,26 +1,19 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Table, Collapse, Checkbox, Popover, Button, Space, Tag } from 'antd';
+import { Table, Collapse, Checkbox, Popover, Button, Space, Tag, Select } from 'antd';
 import { SettingOutlined, CheckSquareOutlined, CloseSquareOutlined, SwapOutlined } from '@ant-design/icons';
 import type { TableProps, ColumnsType } from 'antd/es/table';
+import type { SorterResult } from 'antd/es/table/interface';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import {
-  selectSortedData,
-  setSelectedCategoryIds,
-  selectAllCategories,
-  clearSelection,
-  invertSelection,
-  selectIsAnythingSelected,
-  selectSelectedCount
-} from '../store/slices/categoryResultsSlice';
+import { selectSortedDataWithFocus, setSortColumn } from '../store/slices/categoryResultsSlice';
 import {
   selectHighlightedIds,
-  selectVisibilityDefaults,
   selectDisplayMode,
   highlightCategories,
   clearHighlights,
 } from '../store/slices/visibilitySlice';
-import type { VisibilityState } from '../types/visibilityTypes';
+import { getRowClassNameByFocus } from './charts/utils/displayModeStyles';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
+import type { CategoryWithFocus } from '../types/categoryTypes';
 
 // Import utilities, types, and column visibility helpers
 import {
@@ -72,46 +65,78 @@ import {
   getGeneListsColumns,
 } from './categoryTable/columns';
 
+// Extended type for grid data including focus state and rank
+// Extends CategoryAnalysisResultWithRank to be compatible with column definitions
+type CategoryResultWithFocusAndRank = CategoryAnalysisResultWithRank & {
+  inFocus: boolean;
+};
+
 export default function CategoryResultsGrid() {
   const dispatch = useAppDispatch();
-  const allData = useAppSelector(selectSortedData);
-  const selectedCategoryIds = useAppSelector((state) => state.categoryResults.selectedCategoryIds);
+  // Now gets ALL data with inFocus boolean (not filtered)
+  const allDataWithFocus = useAppSelector(selectSortedDataWithFocus);
   const viewMode = useAppSelector((state) => state.categoryResults.viewMode);
   const analysisType = useAppSelector((state) => state.categoryResults.analysisType);
   const analysisParameters = useAppSelector((state) => state.categoryResults.analysisParameters);
 
-  // Phase 7: Selection state from Phase 3 selectors
-  const isAnythingSelected = useAppSelector(selectIsAnythingSelected);
-  const selectedCount = useAppSelector(selectSelectedCount);
-
-  // Visibility state for row styling
+  // Visibility state - for selection highlighting
   const highlightedIds = useAppSelector(selectHighlightedIds);
-  const visibilityDefaults = useAppSelector(selectVisibilityDefaults);
   const displayMode = useAppSelector(selectDisplayMode);
   const hasHighlights = highlightedIds.size > 0;
+  const selectedCount = highlightedIds.size;
+
+  // Count in-focus vs out-of-focus for display
+  const inFocusCount = useMemo(() =>
+    allDataWithFocus.filter(row => row.inFocus).length,
+    [allDataWithFocus]
+  );
 
   // Debug logging
   useEffect(() => {
     console.log('[CategoryResultsGrid] Component mounted/updated with data:', {
-      dataLength: allData.length,
-      selectedCount: selectedCategoryIds.size,
-      firstCategory: allData[0]?.categoryDescription || 'none',
-      firstCategoryId: allData[0]?.categoryId || 'none',
-      first5Categories: allData.slice(0, 5).map(c => ({
-        id: c.categoryId,
-        desc: c.categoryDescription?.substring(0, 40)
-      }))
+      totalCount: allDataWithFocus.length,
+      inFocusCount,
+      outOfFocusCount: allDataWithFocus.length - inFocusCount,
+      highlightedCount: highlightedIds.size,
+      displayMode,
+      firstCategory: allDataWithFocus[0]?.categoryDescription || 'none',
+      firstCategoryId: allDataWithFocus[0]?.categoryId || 'none',
+      firstCategoryInFocus: allDataWithFocus[0]?.inFocus,
     });
     return () => {
       console.log('[CategoryResultsGrid] Component unmounting');
     };
-  }, [allData.length, selectedCategoryIds.size]);
+  }, [allDataWithFocus.length, inFocusCount, highlightedIds.size, displayMode]);
 
   // Filter toggle state - default OFF (show all rows like desktop)
   const [hideRowsWithoutBMD, setHideRowsWithoutBMD] = useState(false);
 
-  // Pagination state
-  const [pageSize, setPageSize] = useState(50);
+  // Pagination state - default to showing all rows (0 = no pagination)
+  const [pageSize, setPageSize] = useState<number>(0);
+
+  // Page size options for the selector
+  const pageSizeOptions = [
+    { value: 0, label: 'All' },
+    { value: 25, label: '25' },
+    { value: 50, label: '50' },
+    { value: 100, label: '100' },
+    { value: 200, label: '200' },
+    { value: 500, label: '500' },
+  ];
+
+  // Handle table sorting changes - dispatch to Redux for full dataset sorting
+  const handleTableChange = (
+    _pagination: any,
+    _filters: any,
+    sorter: SorterResult<CategoryResultWithFocusAndRank> | SorterResult<CategoryResultWithFocusAndRank>[]
+  ) => {
+    const singleSorter = Array.isArray(sorter) ? sorter[0] : sorter;
+    if (singleSorter.column && singleSorter.order) {
+      const column = singleSorter.columnKey as string || singleSorter.field as string;
+      const direction = singleSorter.order === 'ascend' ? 'asc' : 'desc';
+      dispatch(setSortColumn({ column, direction }));
+    }
+  };
 
   // Remember column selection preference
   const [rememberColumnSelection, setRememberColumnSelection] = useState<boolean>(() => {
@@ -144,22 +169,27 @@ export default function CategoryResultsGrid() {
     }
   }, [rememberColumnSelection]);
 
-  // Apply filter based on toggle and calculate ranks on filtered data
-  const data: CategoryAnalysisResultWithRank[] = useMemo(() => {
-    let filteredData: CategoryAnalysisResultDto[];
+  // Apply local filters and calculate ranks
+  // Note: inFocus state is preserved - display mode controls visibility of out-of-focus rows
+  const data: CategoryResultWithFocusAndRank[] = useMemo(() => {
+    let filteredData = allDataWithFocus;
 
-    if (!hideRowsWithoutBMD) {
-      filteredData = allData;
-    } else {
-      // Hide rows where both bmdMean and bmdMedian are null
-      filteredData = allData.filter(row =>
+    // Optional: hide rows without BMD (local toggle, separate from inFocus)
+    if (hideRowsWithoutBMD) {
+      filteredData = filteredData.filter(row =>
         row.bmdMean != null || row.bmdMedian != null
       );
     }
 
-    // Calculate ranks on the filtered data
-    return calculateAllBMDRanks(filteredData);
-  }, [allData, hideRowsWithoutBMD]);
+    // Calculate ranks on the visible data
+    const rankedData = calculateAllBMDRanks(filteredData);
+
+    // Merge inFocus back into ranked data
+    return rankedData.map((row, idx) => ({
+      ...row,
+      inFocus: filteredData[idx].inFocus,
+    }));
+  }, [allDataWithFocus, hideRowsWithoutBMD]);
 
   // Calculate padding requirements for all numeric columns
   const paddingMap: PaddingMap = useMemo(() => {
@@ -168,17 +198,12 @@ export default function CategoryResultsGrid() {
 
   // Convert Set to array for Ant Design Table
   const selectedKeys = useMemo(() => {
-    return Array.from(selectedCategoryIds);
-  }, [selectedCategoryIds]);
+    return Array.from(highlightedIds);
+  }, [highlightedIds]);
 
-  // Handle selection change - sync to both legacy and visibility state
+  // Handle selection change from table checkboxes
   const handleSelectionChange = (selectedRowKeys: React.Key[]) => {
     const categoryIds = selectedRowKeys.map(key => String(key));
-
-    // Update legacy selection state (for backwards compatibility)
-    dispatch(setSelectedCategoryIds(categoryIds));
-
-    // Update visibility state so ClusterPicker reflects selection
     if (categoryIds.length > 0) {
       dispatch(highlightCategories({ categoryIds, exclusive: true }));
     } else {
@@ -186,27 +211,19 @@ export default function CategoryResultsGrid() {
     }
   };
 
-  // Phase 7: Bulk selection handlers (operate on filtered data only)
-  // Updated to sync with visibility state
+  // Bulk selection handlers (operate on filtered data only)
   const handleSelectAll = () => {
-    // Get all visible category IDs (after Primary Filter and hideRowsWithoutBMD)
     const visibleIds = data.map(cat => cat.categoryId).filter(Boolean) as string[];
-    dispatch(selectAllCategories(visibleIds));
     dispatch(highlightCategories({ categoryIds: visibleIds, exclusive: true }));
   };
 
   const handleClearSelection = () => {
-    dispatch(clearSelection());
     dispatch(clearHighlights());
   };
 
   const handleInvertSelection = () => {
     // Invert within visible categories only
     const visibleIds = data.map(cat => cat.categoryId).filter(Boolean) as string[];
-    dispatch(invertSelection(visibleIds));
-
-    // Calculate inverted selection for visibility
-    const currentHighlighted = Array.from(highlightedIds);
     const invertedIds = visibleIds.filter(id => !highlightedIds.has(id));
     if (invertedIds.length > 0) {
       dispatch(highlightCategories({ categoryIds: invertedIds, exclusive: true }));
@@ -216,7 +233,7 @@ export default function CategoryResultsGrid() {
   };
 
   // Row selection configuration
-  const rowSelection: TableProps<CategoryAnalysisResultWithRank>['rowSelection'] = {
+  const rowSelection: TableProps<CategoryResultWithFocusAndRank>['rowSelection'] = {
     type: 'checkbox',
     selectedRowKeys: selectedKeys,
     onChange: handleSelectionChange,
@@ -230,8 +247,11 @@ export default function CategoryResultsGrid() {
   };
 
   // Build columns dynamically based on visibility state
-  const columns: ColumnsType<CategoryAnalysisResultWithRank> = useMemo(() => {
-    const cols: ColumnsType<CategoryAnalysisResultWithRank> = [];
+  // Using 'any' for column array because column definitions use CategoryAnalysisResultDto
+  // but the data includes additional properties (inFocus, ranks). This is safe because
+  // columns only access properties that exist on the base DTO type.
+  const columns = useMemo(() => {
+    const cols: ColumnsType<any> = [];
 
     // Prepare analysis info for dynamic column labels
     const analysisInfo = {
@@ -351,39 +371,19 @@ export default function CategoryResultsGrid() {
     return cols;
   }, [columnVisibility, viewMode, paddingMap, analysisType, analysisParameters]);
 
-  // Custom row styles based on visibility state
-  const getRowClassName = (record: CategoryAnalysisResultWithRank) => {
+  // Custom row styles based on inFocus state and displayMode
+  // inFocus = passes filter criteria, displayMode controls how out-of-focus rows appear
+  const getRowClassName = (record: CategoryResultWithFocusAndRank) => {
     const categoryId = record.categoryId || '';
-
-    // Check if this category is highlighted
     const isHighlighted = highlightedIds.has(categoryId);
 
-    // If there are highlights and this row is NOT highlighted, apply display mode
-    if (hasHighlights && !isHighlighted) {
-      // Apply the non-selected display mode (dim, isolate, or highlight)
-      switch (displayMode) {
-        case 'dim':
-          return 'dimmed-row';
-        case 'isolate':
-          return 'hidden-row';
-        case 'highlight':
-          return 'normal-row';
-        default:
-          return 'dimmed-row';
-      }
-    }
+    // Use inFocus-based styling for display mode
+    const focusClass = getRowClassNameByFocus(record.inFocus, displayMode);
 
-    // If highlighted, show with emphasis
-    if (isHighlighted) {
-      return 'highlighted-row';
-    }
+    // Add highlight class if this row is selected
+    const highlightClass = isHighlighted ? 'highlighted-row' : '';
 
-    // Fallback: also check legacy selection for backwards compatibility
-    if (selectedCategoryIds.size > 0 && !selectedCategoryIds.has(categoryId)) {
-      return 'dimmed-row';
-    }
-
-    return '';
+    return `${focusClass} ${highlightClass}`.trim();
   };
 
   // Column visibility popover content
@@ -1265,7 +1265,7 @@ export default function CategoryResultsGrid() {
           style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}
           onClick={(e) => e.stopPropagation()}
         >
-          <span>Category Results ({data.length} categories{hideRowsWithoutBMD ? ` / ${allData.length} total` : ''})</span>
+          <span>Category Results ({inFocusCount} in focus / {data.length} total{hideRowsWithoutBMD ? ` (${allDataWithFocus.length} before BMD filter)` : ''})</span>
 
           {/* Visibility highlight counter */}
           {hasHighlights && (
@@ -1274,8 +1274,8 @@ export default function CategoryResultsGrid() {
             </Tag>
           )}
 
-          {/* Phase 7: Selection Counter (legacy) */}
-          {isAnythingSelected && !hasHighlights && (
+          {/* Selection Counter */}
+          {hasHighlights && (
             <Tag color="blue">
               Selected: {selectedCount} of {data.length}
             </Tag>
@@ -1301,7 +1301,7 @@ export default function CategoryResultsGrid() {
                 handleInvertSelection();
               }}
               size="small"
-              disabled={!isAnythingSelected}
+              disabled={!hasHighlights}
               title="Invert selection"
             >
               Invert
@@ -1313,7 +1313,7 @@ export default function CategoryResultsGrid() {
                 handleClearSelection();
               }}
               size="small"
-              disabled={!isAnythingSelected}
+              disabled={!hasHighlights}
               danger
               title="Clear selection"
             >
@@ -1345,23 +1345,61 @@ export default function CategoryResultsGrid() {
         </div>
       ),
       children: (
-        <Table<CategoryAnalysisResultWithRank>
-          columns={columns}
-          dataSource={data}
-          rowKey="categoryId"
-          rowSelection={rowSelection}
-          rowClassName={getRowClassName}
-          pagination={{
-            pageSize: pageSize,
-            showSizeChanger: true,
-            pageSizeOptions: ['2', '5', '10', '25', '50', '100', '200'],
-            onShowSizeChange: (current, size) => setPageSize(size),
-            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} categories`,
-          }}
-          scroll={{ x: 1250 }}
-          tableLayout="fixed"
-          size="small"
-        />
+        <div>
+          {/* Page Size Selector - Top */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', padding: '0 8px' }}>
+            <Space size="small">
+              <span style={{ fontSize: '12px', color: '#666' }}>Show:</span>
+              <Select
+                value={pageSize}
+                onChange={(value) => setPageSize(value)}
+                options={pageSizeOptions}
+                size="small"
+                style={{ width: 80 }}
+              />
+              <span style={{ fontSize: '12px', color: '#666' }}>rows per page</span>
+            </Space>
+            <span style={{ fontSize: '12px', color: '#666' }}>
+              {data.length} total categories
+            </span>
+          </div>
+
+          <Table<CategoryResultWithFocusAndRank>
+            columns={columns}
+            dataSource={data}
+            rowKey="categoryId"
+            rowSelection={rowSelection}
+            rowClassName={getRowClassName}
+            onChange={handleTableChange}
+            pagination={pageSize === 0 ? false : {
+              pageSize: pageSize,
+              showSizeChanger: false, // We use our own selector
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+              position: ['bottomCenter'],
+            }}
+            scroll={{ x: 1250 }}
+            tableLayout="fixed"
+            size="small"
+          />
+
+          {/* Page Size Selector - Bottom */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', padding: '0 8px' }}>
+            <Space size="small">
+              <span style={{ fontSize: '12px', color: '#666' }}>Show:</span>
+              <Select
+                value={pageSize}
+                onChange={(value) => setPageSize(value)}
+                options={pageSizeOptions}
+                size="small"
+                style={{ width: 80 }}
+              />
+              <span style={{ fontSize: '12px', color: '#666' }}>rows per page</span>
+            </Space>
+            <span style={{ fontSize: '12px', color: '#666' }}>
+              {data.length} total categories
+            </span>
+          </div>
+        </div>
       ),
     },
   ];
@@ -1370,7 +1408,16 @@ export default function CategoryResultsGrid() {
     <>
       <style>
         {`
-          /* Visibility-based row styles */
+          /* Focus-based row styles (inFocus = passes filter criteria) */
+          .in-focus-row {
+            /* In-focus rows: full visibility, normal styling */
+          }
+
+          .out-of-focus-row {
+            /* Out-of-focus rows: styled based on display mode */
+          }
+
+          /* Selection highlight (separate from focus) */
           .highlighted-row {
             background-color: #e6f7ff !important;
           }
@@ -1378,6 +1425,7 @@ export default function CategoryResultsGrid() {
             background-color: #bae7ff !important;
           }
 
+          /* Display mode styles for out-of-focus rows */
           .dimmed-row {
             opacity: 0.3;
           }
@@ -1386,7 +1434,7 @@ export default function CategoryResultsGrid() {
           }
 
           .hidden-row {
-            display: none;
+            display: none !important;
           }
 
           .normal-row {

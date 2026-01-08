@@ -7,9 +7,13 @@
 
 import type { ColumnsType } from 'antd/es/table';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
-import { getClusterIdForCategory } from 'Frontend/components/charts/utils/clusterColors';
 import { getCategoryColumnLabels, type AnalysisInfo } from '../utils/categoryLabels';
 import { formatHeader } from '../utils/headerFormatting';
+
+// Extended type that includes the enriched clusterId field
+interface CategoryWithCluster extends CategoryAnalysisResultDto {
+  clusterId?: number;
+}
 
 /**
  * Get the fixed columns (Cluster, Category ID, and Description)
@@ -18,7 +22,7 @@ import { formatHeader } from '../utils/headerFormatting';
  * They provide the primary identification for each category row.
  * Column labels are dynamically determined based on the analysis type.
  *
- * @param viewMode - Current view mode ('simple' | 'power'). Cluster column only shown in power mode.
+ * @param viewMode - Current view mode ('simple' | 'power'). Currently unused - cluster always shown.
  * @param analysisInfo - Information about the analysis type and parameters for dynamic labeling
  * @returns Array of fixed column definitions
  */
@@ -34,24 +38,27 @@ export function getFixedColumns(
   // Build child columns array
   const children: any[] = [];
 
-  // Cluster column - only in power user mode
-  if (viewMode === 'power') {
-    children.push({
-      title: formatHeader('Cluster'),
-      dataIndex: 'categoryId',
-      key: 'cluster',
-      width: 50,
-      render: (categoryId: string) => {
-        const clusterId = getClusterIdForCategory(categoryId);
-        return clusterId === -1 ? '-' : clusterId;
-      },
-      sorter: (a, b) => {
-        const clusterA = getClusterIdForCategory(a.categoryId);
-        const clusterB = getClusterIdForCategory(b.categoryId);
-        return clusterA - clusterB;
-      },
-    });
-  }
+  // Cluster column - always visible since we sort by cluster by default
+  // Uses the enriched clusterId field from CategoryAnalysisResultWithCluster
+  children.push({
+    title: formatHeader('Cluster'),
+    dataIndex: 'clusterId',
+    key: 'clusterId',
+    width: 100,
+    render: (clusterId: number | undefined) => {
+      // -2 = not in reference, -1 = unclassified, 0+ = cluster number
+      if (clusterId === undefined || clusterId === -2) return 'not in reference';
+      if (clusterId === -1) return 'unclassified';
+      return clusterId;
+    },
+    // Note: Actual sorting is handled by Redux (setSortColumn)
+    // This sorter is for local fallback only
+    sorter: (a: CategoryWithCluster, b: CategoryWithCluster) => {
+      const clusterA = a.clusterId ?? -999;
+      const clusterB = b.clusterId ?? -999;
+      return clusterA - clusterB;
+    },
+  });
 
   // Category ID and Description - always visible, with dynamic labels
   children.push(

@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card } from 'antd';
-import { FileTextOutlined, InfoCircleOutlined, LineChartOutlined } from '@ant-design/icons';
+import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card, Radio } from 'antd';
+import { FileTextOutlined, InfoCircleOutlined, LineChartOutlined, EyeOutlined } from '@ant-design/icons';
 import { Icon } from '@vaadin/react-components';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadCategoryResultsWithRenderState, loadAnalysisParameters, setAnalysisType } from '../store/slices/categoryResultsSlice';
-import { loadVisibilityDefaults, selectVisibilityInitialized } from '../store/slices/visibilitySlice';
+import { loadVisibilityDefaults, selectVisibilityInitialized, setDisplayMode, selectDisplayMode } from '../store/slices/visibilitySlice';
+import type { DisplayMode } from '../types/visibilityTypes';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
 import CategoryResultsGrid from './CategoryResultsGrid';
@@ -74,9 +75,15 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   const dispatch = useAppDispatch();
   const { loading, error, data, experimentDescription, analysisParameters, filters, viewMode } = useAppSelector((state) => state.categoryResults);
   const visibilityInitialized = useAppSelector(selectVisibilityInitialized);
+  const displayMode = useAppSelector(selectDisplayMode);
   const [annotation, setAnnotation] = useState<AnalysisAnnotationDto | null>(null);
   const [visibleCharts, setVisibleCharts] = useState<string[]>([]);
   const [availableResults, setAvailableResults] = useState<string[]>([]);
+
+  // Handle display mode change
+  const handleDisplayModeChange = (mode: DisplayMode) => {
+    dispatch(setDisplayMode(mode));
+  };
 
   // Load visibility defaults from backend on first render (if not already loaded)
   useEffect(() => {
@@ -387,6 +394,33 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           />
         </div>
       )}
+
+      {/* Display Mode Toggle */}
+      <div style={{ padding: '0 1rem 8px 1rem', flexShrink: 0 }}>
+        <Space size="middle" align="center">
+          <Space size="small">
+            <EyeOutlined style={{ color: '#666' }} />
+            <span style={{ fontSize: '12px', color: '#666' }}>Out-of-Focus:</span>
+          </Space>
+          <Radio.Group
+            value={displayMode}
+            onChange={(e) => handleDisplayModeChange(e.target.value as DisplayMode)}
+            size="small"
+            optionType="button"
+            buttonStyle="solid"
+          >
+            <Tooltip title="Show all categories (filtered + unfiltered) at full opacity">
+              <Radio.Button value="highlight">Show All</Radio.Button>
+            </Tooltip>
+            <Tooltip title="Dim categories that don't pass filter criteria">
+              <Radio.Button value="dim">Dim Others</Radio.Button>
+            </Tooltip>
+            <Tooltip title="Hide categories that don't pass filter criteria">
+              <Radio.Button value="isolate">Hide Others</Radio.Button>
+            </Tooltip>
+          </Radio.Group>
+        </Space>
+      </div>
 
       {/* Chart Selection - Collapsible (Power User mode only) */}
       {viewMode === 'power' && (
