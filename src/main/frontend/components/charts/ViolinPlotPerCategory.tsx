@@ -5,6 +5,8 @@
  * Each category shows the distribution of BMD values from its gene list.
  * Categories are colored by their UMAP cluster assignment.
  *
+ * Uses inFocus-based display mode styling (highlight/dim/isolate).
+ *
  * LOCATION: Used in CategoryResultsView as one of the visualization options.
  *
  * NAVIGATION PATH: Sidebar → Analysis Result → Charts → Violin Plot Per Category
@@ -12,18 +14,17 @@
 
 import React, { useMemo, useState } from 'react';
 import Plot from 'react-plotly.js';
-import { useSelector } from 'react-redux';
-import { selectChartData } from '../../store/slices/categoryResultsSlice';
 import { Alert, Select } from 'antd';
+import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useClusterColors, getClusterIdForCategory } from './utils/clusterColors';
 import ClusterLegend from './ClusterLegend';
-import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES } from './utils/plotlyConfig';
 import { parseSemicolonNumericList } from 'Frontend/utils/dtoParsingUtils';
 
 const { Option } = Select;
 
 export default function ViolinPlotPerCategory() {
-  const data = useSelector(selectChartData);
+  const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
   const [selectedMetric, setSelectedMetric] = useState<'bmd' | 'bmdl' | 'bmdu'>('bmd');
   const [hiddenClusters, setHiddenClusters] = useState<Set<string | number>>(new Set());
 
@@ -74,11 +75,18 @@ export default function ViolinPlotPerCategory() {
       });
     });
 
-    // Filter out categories from hidden clusters
+    // Filter out categories from hidden clusters and based on displayMode
     const visibleData = data.filter((row) => {
       const categoryId = row.categoryId || '';
       const clusterId = getClusterIdForCategory(categoryId);
-      return !hiddenClusters.has(clusterId);
+
+      // Filter by hidden clusters
+      if (hiddenClusters.has(clusterId)) return false;
+
+      // Filter by displayMode (isolate mode hides out-of-focus)
+      if (shouldHidePoint(row.inFocus)) return false;
+
+      return true;
     });
 
     // Sort by BMD median descending and take top 5
@@ -115,9 +123,10 @@ export default function ViolinPlotPerCategory() {
 
       if (values.length === 0) return;
 
-      // Get cluster color
+      // Get cluster color and apply inFocus-based styling
       const clusterId = getClusterIdForCategory(categoryId);
-      const color = clusterColors[clusterId] || '#999999';
+      const baseColor = clusterColors[clusterId] || '#999999';
+      const style = getPointStyle(row.inFocus, baseColor);
 
       // Truncate category description to 20 characters for x-axis label
       const truncatedDesc = categoryDesc.length > 20 ? categoryDesc.substring(0, 20) + '...' : categoryDesc;
@@ -135,13 +144,13 @@ export default function ViolinPlotPerCategory() {
           visible: true
         },
         marker: {
-          color: color
+          color: style.color
         },
         line: {
-          color: color
+          color: style.color
         },
-        fillcolor: color,
-        opacity: 0.6,
+        fillcolor: style.color,
+        opacity: style.opacity,
         hoverinfo: 'y+name',
         hovertemplate: `<b>${categoryDesc}</b><br>Value: %{y:.4f}<extra></extra>`,
       });
@@ -163,7 +172,7 @@ export default function ViolinPlotPerCategory() {
     }
 
     return { violinData: traces, yAxisRange: yRange };
-  }, [data, clusterColors, selectedMetric, hiddenClusters]);
+  }, [data, clusterColors, selectedMetric, hiddenClusters, displayMode, getPointStyle, shouldHidePoint]);
 
   if (!data || data.length === 0) {
     return (
@@ -265,6 +274,7 @@ export default function ViolinPlotPerCategory() {
           <li>Colors correspond to UMAP cluster assignments (see legend above)</li>
           <li>Box plot inside each violin shows median and quartiles</li>
           <li>Mean line is displayed as a dashed line</li>
+          <li>In-focus categories appear at full opacity; out-of-focus are dimmed/hidden based on display mode</li>
         </ul>
       </div>
     </div>
