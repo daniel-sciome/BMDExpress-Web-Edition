@@ -2,7 +2,7 @@
  * ClusterScatterPlot Component
  *
  * Scatter plot showing BMD distribution by gene cluster assignment:
- * - X-axis: BMD Median (log scale)
+ * - X-axis: BMD Median or Mean (log scale, user-selectable)
  * - Y-axis: Gene Cluster ID (with jitter to avoid overlap)
  * - Color: Cluster membership based on gene overlap
  * - Size: Number of genes that passed filters
@@ -27,10 +27,13 @@ interface ClusterScatterPlotProps {
   initialLinkageMethod?: LinkageMethod;
 }
 
+type BmdMetric = 'median' | 'mean';
+
 export default function ClusterScatterPlot({
   initialLinkageMethod = 'average',
 }: ClusterScatterPlotProps) {
   const [linkageMethod, setLinkageMethod] = useState<LinkageMethod>(initialLinkageMethod);
+  const [bmdMetric, setBmdMetric] = useState<BmdMetric>('median');
   const [hiddenClusters, setHiddenClusters] = useState<Set<number>>(new Set());
 
   const {
@@ -98,7 +101,9 @@ export default function ClusterScatterPlot({
         // Filter based on displayMode (isolate mode hides out-of-focus)
         if (shouldHidePoint(inFocus)) return;
 
-        const bmd = cat.bmdMedian ?? cat.bmdMean;
+        const bmd = bmdMetric === 'median'
+          ? (cat.bmdMedian ?? cat.bmdMean)
+          : (cat.bmdMean ?? cat.bmdMedian);
 
         if (bmd != null && bmd > 0) {
           xValues.push(bmd);
@@ -120,10 +125,11 @@ export default function ClusterScatterPlot({
           const pValueStr = pValue != null && pValue > 0
             ? `Fisher p: ${pValue.toExponential(2)}<br>`
             : '';
+          const metricLabel = bmdMetric === 'median' ? 'BMD Median' : 'BMD Mean';
 
           texts.push(
             `<b>${cat.categoryDescription || categoryId}</b><br>` +
-            `BMD Median: ${bmd.toFixed(4)}<br>` +
+            `${metricLabel}: ${bmd.toFixed(4)}<br>` +
             pValueStr +
             `Cluster: ${clusterId}<br>` +
             `Genes: ${geneCount}`
@@ -155,7 +161,7 @@ export default function ClusterScatterPlot({
     });
 
     return traces;
-  }, [clusterAssignments, categoryData, uniqueClusterIds, hiddenClusters, focusMap, displayMode, getPointStyle, shouldHidePoint]);
+  }, [clusterAssignments, categoryData, uniqueClusterIds, hiddenClusters, focusMap, displayMode, getPointStyle, shouldHidePoint, bmdMetric]);
 
   // Calculate Y-axis range to show all clusters with padding
   // Must be before early returns to comply with React hooks rules
@@ -204,13 +210,15 @@ export default function ClusterScatterPlot({
     );
   }
 
+  const xAxisLabel = bmdMetric === 'median' ? 'BMD Median' : 'BMD Mean';
+
   const layout: any = {
     title: {
       text: `Gene Clusters: BMD by Cluster (${categoryCount} categories, ${uniqueClusterIds.length} clusters)`,
       font: { size: 16 },
     },
     xaxis: {
-      title: { text: 'BMD Median' },
+      title: { text: xAxisLabel },
       type: 'log',
       autorange: true,
       gridcolor: DEFAULT_GRID_COLOR,
@@ -243,6 +251,18 @@ export default function ClusterScatterPlot({
     <div style={{ width: '100%' }}>
       {/* Controls */}
       <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+        <Space>
+          <Text>BMD Metric:</Text>
+          <Select
+            value={bmdMetric}
+            onChange={setBmdMetric}
+            style={{ width: 100 }}
+            options={[
+              { value: 'median', label: 'Median' },
+              { value: 'mean', label: 'Mean' },
+            ]}
+          />
+        </Space>
         <Space>
           <Text>Linkage Method:</Text>
           <Select
