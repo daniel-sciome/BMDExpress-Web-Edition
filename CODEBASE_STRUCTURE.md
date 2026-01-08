@@ -87,8 +87,8 @@ src/main/frontend/
   - `loading`, `error`: Async loading states
   - `projectId`, `resultName`: Current context
   
-- **Selection State** (Set<string>):
-  - `selectedCategoryIds`: Set of category IDs selected by user
+- **Selection State** (via visibilitySlice):
+  - `highlightedIds`: Set of category IDs highlighted by user (in visibilitySlice)
   - Used for cross-component highlighting in charts
   - Synchronized between table grid and visualizations
   
@@ -283,15 +283,15 @@ All charts use `selectChartData` selector from Redux:
 ```typescript
 // From BMDvsPValueScatter.tsx (example pattern)
 const data = useSelector(selectChartData);
-const selectedCategoryIds = useSelector(state => state.categoryResults.selectedCategoryIds);
+const highlightedIds = useSelector(selectHighlightedIds);  // From visibilitySlice
 
 // Charts split data into selected/unselected traces
 // Selected: highlighted in blue
 // Unselected: dimmed gray (opacity 0.3)
 
 // Click handling dispatches Redux action
-dispatch(toggleCategorySelection(categoryId));      // Ctrl+Click
-dispatch(setSelectedCategoryIds([categoryId]));     // Single click
+dispatch(toggleHighlight(categoryId));              // Ctrl+Click
+dispatch(setHighlightedIds([categoryId]));          // Single click
 ```
 
 ### Chart Selector in CategoryResultsView
@@ -343,9 +343,9 @@ Charts re-render with new traces
 ```
 User clicks category in grid/chart
     ↓
-toggleCategorySelection(categoryId) or setSelectedCategoryIds([...])
+toggleHighlight(categoryId) or setHighlightedIds([...])
     ↓
-Redux updates state.categoryResults.selectedCategoryIds (Set<string>)
+Redux updates state.visibility.highlightedIds (Set<string>)
     ↓
 selectChartData selector recalculates
     ↓
@@ -418,8 +418,8 @@ const results = await CategoryResultsService.getCategoryResults(...);
 
 ### 3. Component Selection Highlighting
 ```typescript
-// Shared selection state in Redux
-// Table grid and charts both read same selectedCategoryIds Set
+// Shared selection state in Redux (visibilitySlice)
+// Table grid and charts both read same highlightedIds Set
 // Clicking category → dispatch action → all components update
 ```
 
@@ -539,8 +539,8 @@ if (!isExperimentDescriptionComplete) {
                   │
                   ↓
 ┌─────────────────────────────────────────────────────────────┐
-│          Redux Store (categoryResultsSlice)                 │
-│  (Updates state: data[], filters, selectedCategoryIds)      │
+│          Redux Store (categoryResultsSlice + visibilitySlice)│
+│  (Updates state: data[], filters, highlightedIds)           │
 └─────────────────┬───────────────────────────────────────────┘
                   │
           ┌───────┼───────┬──────────┐
