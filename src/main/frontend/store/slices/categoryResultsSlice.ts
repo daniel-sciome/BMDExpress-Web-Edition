@@ -171,7 +171,7 @@ const DEFAULT_PRIMARY_FILTERS: Filters = {
   genesPassedFiltersMin: 3,
   allGenesMin: 40,
   allGenesMax: 500,
-  excludeUnclassified: true,  // Exclude cluster_id === -1 (unclassified) by default
+  excludeUnclassified: false,  // Include cluster_id === -1 (unclassified) by default
 };
 
 /**
@@ -627,10 +627,22 @@ function debugFilterImpact(
     .filter(([key, val]) => key !== 'total' && val > 0)
     .reduce((acc, [key, val]) => ({ ...acc, [key]: val }), {});
 
-  console.log('[categoryResultsSlice] Filter impact analysis:', {
-    total: counts.total,
-    failures: activeFailures,
-  });
+  // Log explicitly to avoid truncation
+  console.log('[categoryResultsSlice] Filter impact analysis - total:', counts.total);
+  console.log('[categoryResultsSlice] Filter impact analysis - failures:', JSON.stringify(activeFailures));
+
+  // Also log data distribution for debugging
+  if (data.length > 0) {
+    const percentages = data.map(r => r.percentage).filter(v => v !== undefined);
+    const genesPassed = data.map(r => r.genesThatPassedAllFilters).filter(v => v !== undefined);
+    const allGenes = data.map(r => r.geneAllCount).filter(v => v !== undefined);
+
+    console.log('[categoryResultsSlice] Data distribution:', {
+      percentage: { min: Math.min(...percentages), max: Math.max(...percentages), defined: percentages.length },
+      genesThatPassedAllFilters: { min: Math.min(...genesPassed), max: Math.max(...genesPassed), defined: genesPassed.length },
+      geneAllCount: { min: Math.min(...allGenes), max: Math.max(...allGenes), defined: allGenes.length },
+    });
+  }
 }
 
 /**
@@ -648,11 +660,30 @@ function debugFilterImpact(
 export const selectDataWithFocus = createSelector(
   [selectData, selectFilters, (state: RootState) => state.categoryResults.analysisType, selectEnabledFilterGroups],
   (data, filters, analysisType, filterGroups): (CategoryAnalysisResultWithCluster & CategoryWithFocus)[] => {
+    // Log ALL filter values to see if there are unexpected filters being applied
     console.log('[categoryResultsSlice] selectDataWithFocus running with:', {
       dataCount: data.length,
-      filters,
+      filters: JSON.stringify(filters, null, 2),
       analysisType,
       filterGroupsCount: filterGroups.length,
+    });
+
+    // Log individual filter values for clarity
+    console.log('[categoryResultsSlice] Individual filter values:', {
+      // Master filters (legacy)
+      bmdMin: filters.bmdMin,
+      bmdMax: filters.bmdMax,
+      pValueMax: filters.pValueMax,
+      minGenesInCategory: filters.minGenesInCategory,
+      fisherPValueMax: filters.fisherPValueMax,
+      foldChangeMin: filters.foldChangeMin,
+      // Primary filters
+      percentageMin: filters.percentageMin,
+      genesPassedFiltersMin: filters.genesPassedFiltersMin,
+      allGenesMin: filters.allGenesMin,
+      allGenesMax: filters.allGenesMax,
+      // Cluster filter
+      excludeUnclassified: filters.excludeUnclassified,
     });
 
     // Debug: analyze filter impact before computing inFocus

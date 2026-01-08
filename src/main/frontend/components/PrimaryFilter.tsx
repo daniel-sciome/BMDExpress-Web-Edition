@@ -77,9 +77,10 @@ export default function PrimaryFilter({ hideCard = false, showComparisonMode = f
     dispatch(updateFiltersWithRenderState(filtersToLoad));
   }, [dispatch]);
 
-  // Count active filters
-  const activeFilterCount = Object.entries(localFilters).filter(
-    ([_, value]) => value !== undefined && value !== null
+  // Count active filters (only the 4 visible primary filter fields)
+  const primaryFilterKeys: (keyof PrimaryFilterState)[] = ['percentageMin', 'genesPassedFiltersMin', 'allGenesMin', 'allGenesMax'];
+  const activeFilterCount = primaryFilterKeys.filter(
+    key => localFilters[key] !== undefined && localFilters[key] !== null
   ).length;
 
   // Handle apply filters
