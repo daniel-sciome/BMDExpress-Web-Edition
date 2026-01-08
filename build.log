@@ -1,0 +1,49 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ---------------------< com.sciome:bmdexpress-web >----------------------
+[INFO] Building bmdexpress-web 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+Downloading from vaadin-directory: https://maven.vaadin.com/vaadin-addons/com/sciome/bmdexpress3/3.0.0-SNAPSHOT/maven-metadata.xml
+Downloading from vaadin-prereleases: https://maven.vaadin.com/vaadin-prereleases/com/sciome/bmdexpress3/3.0.0-SNAPSHOT/maven-metadata.xml
+[INFO] 
+[INFO] --- clean:3.4.1:clean (default-clean) @ bmdexpress-web ---
+[INFO] Deleting /home/svobodadl/bmdexpress-web/target
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ bmdexpress-web ---
+[INFO] Copying 1 resource from src/main/resources to target/classes
+[INFO] Copying 3 resources from src/main/resources to target/classes
+[INFO] 
+[INFO] --- vaadin:24.9.2:prepare-frontend (default) @ bmdexpress-web ---
+[INFO] Reflections took 1367 ms to scan 267 urls, producing 17151 keys and 79219 values
+[INFO] Visited 117 classes. Took 72 ms.
+[INFO] Copying frontend resources from jar files ...
+[INFO] Visited 269 resources. Took 93 ms.
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ bmdexpress-web ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 21 source files with javac [debug parameters release 21] to target/classes
+[INFO] /home/svobodadl/bmdexpress-web/src/main/java/com/sciome/service/BmdExpressApiService.java: /home/svobodadl/bmdexpress-web/src/main/java/com/sciome/service/BmdExpressApiService.java uses or overrides a deprecated API.
+[INFO] /home/svobodadl/bmdexpress-web/src/main/java/com/sciome/service/BmdExpressApiService.java: Recompile with -Xlint:deprecation for details.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ bmdexpress-web ---
+[INFO] skip non existing resourceDirectory /home/svobodadl/bmdexpress-web/src/test/resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ bmdexpress-web ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] 
+[INFO] --- surefire:3.5.4:test (default-test) @ bmdexpress-web ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.4.2:jar (default-jar) @ bmdexpress-web ---
+[INFO] Building jar: /home/svobodadl/bmdexpress-web/target/bmdexpress-web-0.0.1-SNAPSHOT.jar
+[INFO] 
+[INFO] --- spring-boot:3.5.6:repackage (repackage) @ bmdexpress-web ---
+[INFO] Replacing main artifact /home/svobodadl/bmdexpress-web/target/bmdexpress-web-0.0.1-SNAPSHOT.jar with repackaged archive, adding nested dependencies in BOOT-INF/.
+[INFO] The original artifact has been renamed to /home/svobodadl/bmdexpress-web/target/bmdexpress-web-0.0.1-SNAPSHOT.jar.original
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  7.799 s
+[INFO] Finished at: 2025-10-27T10:14:29-04:00
+[INFO] ------------------------------------------------------------------------

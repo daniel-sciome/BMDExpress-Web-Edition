@@ -172,10 +172,10 @@ export function evaluateFilterGroups(groups: FilterGroup[], row: CategoryAnalysi
  * Filter an array of data rows using filter groups
  * Returns only rows that pass all enabled filter groups
  */
-export function applyFilterGroups(
-  data: CategoryAnalysisResultDto[],
+export function applyFilterGroups<T extends CategoryAnalysisResultDto>(
+  data: T[],
   groups: FilterGroup[]
-): CategoryAnalysisResultDto[] {
+): T[] {
   // No groups or empty data
   if (groups.length === 0 || data.length === 0) {
     return data;

@@ -11,7 +11,6 @@ import { ColumnVisibility, ColumnGroup, DEFAULT_COLUMN_VISIBILITY, COLUMN_VISIBI
  * List of simple boolean column visibility fields
  */
 const SIMPLE_BOOLEAN_FIELDS: (keyof ColumnVisibility)[] = [
-  'significantANOVA',
   'fishersFull',
   'bmdExtended',
   'bmdConfidence',
@@ -28,7 +27,8 @@ const SIMPLE_BOOLEAN_FIELDS: (keyof ColumnVisibility)[] = [
  * List of column group fields (ColumnGroup structure with {all, columns})
  */
 const COLUMN_GROUP_FIELDS: (keyof ColumnVisibility)[] = [
-  'geneCounts',
+  'primaryFilters',
+  'preFilters',
   'filterCounts',
   'percentiles',
   'directionalUp',

@@ -1,0 +1,195 @@
+# Category and Grouping Configuration
+#
+# This file defines:
+# - Category Types: What annotation sources exist (GO, KEGG, etc.)
+# - Grouping Schemes: How categories can be organized
+# - Reference Data Sets: External data that provides grouping values
+# - Post-Processing Annotations: Computed/user-defined groupings
+
+# =============================================================================
+# CATEGORY TYPES
+# =============================================================================
+# Category types define the annotation sources. Builtin types come from
+# BMDExpress Java library; user types are custom-defined.
+
+categoryTypes:
+  GO:
+    id: "GO"
+    label: "Gene Ontology"
+    source: "builtin"
+    idPattern: "GO:\\d{7}"
+    topLevelSplit:
+      field: "aspect"
+      values:
+        - "BP"
+        - "MF"
+        - "CC"
+      labels:
+        BP: "Biological Process"
+        MF: "Molecular Function"
+        CC: "Cellular Component"
+    categoryAttributes:
+      - field: "gotermLevel"
+        label: "Hierarchy Level"
+        type: "integer"
+
+  KEGG:
+    id: "KEGG"
+    label: "KEGG Pathways"
+    source: "builtin"
+    idPattern: "hsa\\d+"
+    topLevelSplit:
+      field: "category"
+      values:
+        - "Metabolism"
+        - "Genetic Information Processing"
+        - "Environmental Information Processing"
+        - "Cellular Processes"
+        - "Organismal Systems"
+        - "Human Diseases"
+        - "Drug Development"
+
+  REACTOME:
+    id: "REACTOME"
+    label: "Reactome Pathways"
+    source: "builtin"
+    idPattern: "R-HSA-\\d+"
+
+  CUSTOM:
+    id: "CUSTOM"
+    label: "User Defined"
+    source: "user"
+    idPattern: null  # No validation for custom categories
+
+# =============================================================================
+# GROUPING SCHEMES
+# =============================================================================
+# Abstract organizational concepts - how categories can be grouped.
+# These are independent of category type.
+
+groupingSchemes:
+  CLUSTERS:
+    id: "CLUSTERS"
+    label: "Clusters"
+    description: "Discrete groups from clustering algorithms"
+    icon: "cluster"
+
+  TOP_LEVEL_SPLIT:
+    id: "TOP_LEVEL_SPLIT"
+    label: "Top-Level Split"
+    description: "First-level partitioning of category type (e.g., BP/MF/CC for GO)"
+    icon: "partition"
+
+  CATEGORY_ATTRIBUTE:
+    id: "CATEGORY_ATTRIBUTE"
+    label: "Category Attribute"
+    description: "Grouping by an attribute on the category itself"
+    icon: "attribute"
+
+  POST_PROCESSING_ANNOTATION:
+    id: "POST_PROCESSING_ANNOTATION"
+    label: "Post-Processing Annotation"
+    description: "Annotation added after primary analysis (computed, BM2, or webapp)"
+    icon: "tag"
+
+# =============================================================================
+# REFERENCE DATA SETS
+# =============================================================================
+# External data that provides grouping values for categories.
+# Each combines a category type with a data source.
+
+referenceDataSets:
+  GO_EMBEDDINGS_UMAP:
+    id: "GO_EMBEDDINGS_UMAP"
+    label: "GO Semantic Embeddings (UMAP)"
+    categoryType: "GO"
+    dataSource: "static"
+    file: "data/go_umap_embeddings.json"
+    provides:
+      CLUSTERS:
+        field: "cluster_id"
+        specialValues:
+          -1: "Unclassified"
+          -2: "Not in Reference"
+      coordinates:
+        x: "x"
+        y: "y"
+
+  # Future: GO Ontology structure
+  # GO_ONTOLOGY:
+  #   id: "GO_ONTOLOGY"
+  #   label: "GO Ontology Structure"
+  #   categoryType: "GO"
+  #   dataSource: "static"
+  #   file: "data/go_ontology.json"
+  #   provides:
+  #     TOP_LEVEL_SPLIT:
+  #       field: "aspect"
+  #     CATEGORY_ATTRIBUTE:
+  #       field: "level"
+
+# =============================================================================
+# POST-PROCESSING ANNOTATIONS
+# =============================================================================
+# Annotations that can be applied after primary analysis.
+# Sources: computed (runtime), bm2 (from file), webapp (user-created)
+
+postProcessingAnnotations:
+  BMD_RANGE:
+    id: "BMD_RANGE"
+    label: "BMD Range"
+    description: "Group categories by BMD value ranges"
+    source: "computed"
+    algorithm: "quantile"
+    field: "bmdMedian"
+    buckets: 5
+    enabled: false  # Not enabled by default
+
+  PVALUE_RANGE:
+    id: "PVALUE_RANGE"
+    label: "P-Value Range"
+    description: "Group categories by statistical significance"
+    source: "computed"
+    algorithm: "threshold"
+    field: "fishersExactTwoTailPValue"
+    thresholds:
+      - 0.001
+      - 0.01
+      - 0.05
+      - 0.1
+    labels:
+      - "p < 0.001"
+      - "0.001 <= p < 0.01"
+      - "0.01 <= p < 0.05"
+      - "0.05 <= p < 0.1"
+      - "p >= 0.1"
+    enabled: false
+
+# =============================================================================
+# DEFAULT SETTINGS
+# =============================================================================
+# Default configuration for the application
+
+defaults:
+  # Default grouping scheme to show in the picker
+  activeGroupingScheme: "CLUSTERS"
+
+  # Cluster filter defaults
+  filters:
+    excludeUnclassified: true  # Exclude cluster_id === -1 by default
+
+  # Color palette for groups (future enhancement)
+  # Currently colors are generated dynamically with HSL
+  colorPalette:
+    type: "dynamic"  # "dynamic" or "defined"
+    # defined:
+    #   - "#1f77b4"
+    #   - "#ff7f0e"
+    #   - "#2ca02c"
+    #   - "#d62728"
+    #   - "#9467bd"
+    #   - "#8c564b"
+    #   - "#e377c2"
+    #   - "#7f7f7f"
+    #   - "#bcbd22"
+    #   - "#17becf"

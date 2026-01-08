@@ -75,11 +75,14 @@ export default function GlobalViolinComparison({
         CategoryResultsService.getCategoryResults(projectId, resultName)
       );
 
-      const allResultsData = await Promise.all(dataPromises);
+      const allContainerData = await Promise.all(dataPromises);
+
+      // Extract results arrays from container DTOs
+      const allResultsData = allContainerData.map(container => container?.results || []);
 
       // Apply master filters to each dataset
       const filteredResultsData = allResultsData.map(data =>
-        applyPrimaryFilters(data || [], filters, analysisType)
+        applyPrimaryFilters(data, filters, analysisType)
       );
 
       // Apply intersection/union logic

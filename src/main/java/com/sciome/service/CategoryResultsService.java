@@ -9,6 +9,7 @@ import com.sciome.bmdexpress2.mvp.model.stat.ProbeStatResult;
 import com.sciome.dto.AnalysisAnnotationDto;
 import com.sciome.dto.BMDMarkersDto;
 import com.sciome.dto.CategoryAnalysisResultDto;
+import com.sciome.dto.CategoryAnalysisResultsDto;
 import com.sciome.dto.CurveDataDto;
 import com.sciome.dto.DosePointDto;
 import com.sciome.dto.PathwayInfoDto;
@@ -88,71 +89,100 @@ public class CategoryResultsService {
      *
      * @param projectId the project identifier
      * @param categoryResultName the name of the category result to retrieve
-     * @return list of category analysis result DTOs
+     * @return container DTO with experiment description and results list
      * @throws IllegalArgumentException if the project or result is not found
      */
-    public List<CategoryAnalysisResultDto> getCategoryResults(String projectId, String categoryResultName) {
-        // Use package-private helper to get the desktop app object
+    public CategoryAnalysisResultsDto getCategoryResults(String projectId, String categoryResultName) {
+        BMDProject project = projectService.getProject(projectId);
         CategoryAnalysisResults categoryResults = findCategoryResult(projectId, categoryResultName);
 
-        if (categoryResults.getCategoryAnalsyisResults() == null) {
-            return List.of();
-        }
+        // DEBUG: Inspect object identities and ExperimentDescription status
+        logger.info("============================================");
+        logger.info("[DEBUG-WEBAPP] Inspecting category results: {}", categoryResultName);
 
-        // Extract experiment description from the relationship chain:
-        // CategoryAnalysisResults → BMDResult → DoseResponseExperiment → ExperimentDescription
-        com.sciome.dto.ExperimentDescriptionDto experimentDescDto = null;
-        if (categoryResults.getBmdResult() != null &&
-            categoryResults.getBmdResult().getDoseResponseExperiment() != null) {
-            com.sciome.bmdexpress2.mvp.model.info.ExperimentDescription expDesc =
-                categoryResults.getBmdResult().getDoseResponseExperiment().getExperimentDescription();
-            experimentDescDto = com.sciome.dto.ExperimentDescriptionDto.fromDesktopObject(expDesc);
+        // Check what getExperimentDescription() returns (the convenience method)
+        var directExpDesc = categoryResults.getExperimentDescription();
+        logger.info("[DEBUG-WEBAPP] categoryResults.getExperimentDescription(): {}", directExpDesc);
 
-            logger.info("==== EXPERIMENT DESCRIPTION DEBUG ====");
-            logger.info("Project: {}, Category Result: {}", projectId, categoryResultName);
-            if (experimentDescDto != null) {
-                logger.info("ExperimentDescription FOUND:");
-                logger.info("  Subject Type: {}", experimentDescDto.getSubjectType());
-                logger.info("  Test Article: {}", experimentDescDto.getTestArticle());
-                logger.info("  CASRN: {}", experimentDescDto.getCasrn());
-                logger.info("  DSSTOX: {}", experimentDescDto.getDsstox());
-                logger.info("  Species: {}", experimentDescDto.getSpecies());
-                logger.info("  Strain: {}", experimentDescDto.getStrain());
-                logger.info("  Sex: {}", experimentDescDto.getSex());
-                logger.info("  Organ: {}", experimentDescDto.getOrgan());
-                logger.info("  Cell Line: {}", experimentDescDto.getCellLine());
-                logger.info("  Study Duration: {}", experimentDescDto.getStudyDuration());
-                logger.info("  Article Type: {}", experimentDescDto.getArticleType());
-                logger.info("  Article Route: {}", experimentDescDto.getArticleRoute());
-                logger.info("  Article Vehicle: {}", experimentDescDto.getArticleVehicle());
-                logger.info("  Admin Means: {}", experimentDescDto.getAdministrationMeans());
-                logger.info("  Platform: {}", experimentDescDto.getPlatform());
-                logger.info("  Provider: {}", experimentDescDto.getProvider());
+        // Check the BMDResult's DoseResponseExperiment
+        if (categoryResults.getBmdResult() != null) {
+            var bmdDoseResp = categoryResults.getBmdResult().getDoseResponseExperiment();
+            if (bmdDoseResp != null) {
+                logger.info("[DEBUG-WEBAPP] BMDResult.DoseResponseExperiment.name: {}", bmdDoseResp.getName());
+                logger.info("[DEBUG-WEBAPP] BMDResult.DoseResponseExperiment.identity: {}",
+                    System.identityHashCode(bmdDoseResp));
+                logger.info("[DEBUG-WEBAPP] BMDResult.DoseResponseExperiment.getExperimentDescription(): {}",
+                    bmdDoseResp.getExperimentDescription());
             } else {
-                logger.info("ExperimentDescription is NULL");
+                logger.warn("[DEBUG-WEBAPP] BMDResult.DoseResponseExperiment is NULL!");
             }
-            logger.info("======================================");
         } else {
-            logger.info("==== EXPERIMENT DESCRIPTION DEBUG ====");
-            logger.info("Project: {}, Category Result: {}", projectId, categoryResultName);
-            logger.info("Cannot extract ExperimentDescription - BMDResult or DoseResponseExperiment is null");
-            logger.info("  BMDResult: {}", categoryResults.getBmdResult() != null ? "present" : "NULL");
-            if (categoryResults.getBmdResult() != null) {
-                logger.info("  DoseResponseExperiment: {}",
-                    categoryResults.getBmdResult().getDoseResponseExperiment() != null ? "present" : "NULL");
-            }
-            logger.info("======================================");
+            logger.warn("[DEBUG-WEBAPP] categoryResults.getBmdResult() is NULL!");
         }
 
-        // Convert desktop app objects to DTOs for Hilla and add experiment description to each
-        final com.sciome.dto.ExperimentDescriptionDto finalExpDesc = experimentDescDto;
-        return categoryResults.getCategoryAnalsyisResults().stream()
-                .map(result -> {
-                    CategoryAnalysisResultDto dto = CategoryAnalysisResultDto.fromDesktopObject(result);
-                    dto.setExperimentDescription(finalExpDesc);
-                    return dto;
-                })
-                .collect(Collectors.toList());
+        // Check the project's DoseResponseExperiments list
+        logger.info("[DEBUG-WEBAPP] Project's DoseResponseExperiments:");
+        if (project.getDoseResponseExperiments() != null) {
+            for (var exp : project.getDoseResponseExperiments()) {
+                logger.info("  Name: {}", exp.getName());
+                logger.info("    Identity: {}", System.identityHashCode(exp));
+                logger.info("    Has ExperimentDescription: {}", exp.getExperimentDescription() != null);
+                if (exp.getExperimentDescription() != null) {
+                    logger.info("    Sex: {}", exp.getExperimentDescription().getSex());
+                }
+            }
+        }
+        logger.info("============================================");
+
+        // Get experiment description - look it up by name from project's DoseResponseExperiments list
+        // because the BMDResult's reference may be a stale object without the experiment description
+        com.sciome.bmdexpress2.mvp.model.info.ExperimentDescription experimentDesc =
+            findExperimentDescriptionByName(project, categoryResults);
+
+        if (categoryResults.getCategoryAnalsyisResults() == null) {
+            CategoryAnalysisResultsDto emptyDto = new CategoryAnalysisResultsDto();
+            emptyDto.setName(categoryResults.getName());
+            emptyDto.setExperimentDescription(
+                com.sciome.dto.ExperimentDescriptionDto.fromDesktopObject(experimentDesc));
+            emptyDto.setResults(List.of());
+            return emptyDto;
+        }
+
+        CategoryAnalysisResultsDto dto = CategoryAnalysisResultsDto.fromDesktopObject(categoryResults);
+        // Override with the experiment description we found from project lookup
+        dto.setExperimentDescription(com.sciome.dto.ExperimentDescriptionDto.fromDesktopObject(experimentDesc));
+        return dto;
+    }
+
+    /**
+     * Find the ExperimentDescription by looking up the DoseResponseExperiment by name
+     * from the project's list. This handles cases where serialized BMDResult references
+     * point to stale objects that don't have the ExperimentDescription populated.
+     */
+    private com.sciome.bmdexpress2.mvp.model.info.ExperimentDescription findExperimentDescriptionByName(
+            BMDProject project, CategoryAnalysisResults categoryResults) {
+
+        // First try the convenience method (in case the reference is up-to-date)
+        com.sciome.bmdexpress2.mvp.model.info.ExperimentDescription desc =
+            categoryResults.getExperimentDescription();
+        if (desc != null) {
+            return desc;
+        }
+
+        // Fall back to looking up by name from the project's DoseResponseExperiments
+        if (categoryResults.getBmdResult() != null &&
+            categoryResults.getBmdResult().getDoseResponseExperiment() != null &&
+            project.getDoseResponseExperiments() != null) {
+
+            String expName = categoryResults.getBmdResult().getDoseResponseExperiment().getName();
+            for (var exp : project.getDoseResponseExperiments()) {
+                if (exp.getName() != null && exp.getName().equals(expName)) {
+                    return exp.getExperimentDescription();
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

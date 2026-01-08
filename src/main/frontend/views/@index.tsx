@@ -2,17 +2,26 @@ import { useState, useEffect } from 'react';
 import { ConfigService } from 'Frontend/generated/endpoints';
 import LibraryView from './LibraryView';
 import CategoryResultsView from '../components/CategoryResultsView';
-import UploadSection from './home/UploadSection';
-import ProjectsList from './home/ProjectsList';
-import SelectedProjectInfo from './home/SelectedProjectInfo';
-import EmptyState from './home/EmptyState';
-import { useProjectManagement } from './home/useProjectManagement';
+import UploadSection from '../components/home/UploadSection';
+import ProjectsList from '../components/home/ProjectsList';
+import SelectedProjectInfo from '../components/home/SelectedProjectInfo';
+import ProjectMetadataPanel from '../components/home/ProjectMetadataPanel';
+import EmptyState from '../components/home/EmptyState';
+import { useProjectManagement } from '../components/home/useProjectManagement';
 import {
   VerticalLayout,
   Icon
 } from '@vaadin/react-components';
 
 export default function HomeView() {
+  // Always use library view (sidebar-based selection)
+  // Upload view code kept dormant for potential future use
+  return <LibraryView />;
+
+  // --- DORMANT CODE BELOW ---
+  // The following code implements file upload functionality.
+  // It is intentionally unreachable but preserved for future use.
+
   const [viewMode, setViewMode] = useState<'upload' | 'library' | null>(null);
 
   // Use custom hook for project management
@@ -22,6 +31,7 @@ export default function HomeView() {
     loading,
     categoryResults,
     selectedCategoryResult,
+    projectMetadata,
     handleUpload,
     handleSelectProject,
     handleDeleteProject,
@@ -104,6 +114,11 @@ export default function HomeView() {
               selectedCategoryResult={selectedCategoryResult}
               onSelectCategoryResult={setSelectedCategoryResult}
             />
+          )}
+
+          {/* Project Metadata Panel */}
+          {selectedProject && (
+            <ProjectMetadataPanel metadata={projectMetadata} />
           )}
 
           {/* Category Results View */}

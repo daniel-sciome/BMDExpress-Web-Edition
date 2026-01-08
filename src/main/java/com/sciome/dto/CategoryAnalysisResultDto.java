@@ -1,12 +1,18 @@
 package com.sciome.dto;
 
+import com.sciome.bmdexpress2.mvp.model.category.AdverseDirectionEnum;
 import com.sciome.bmdexpress2.mvp.model.category.CategoryAnalysisResult;
+import com.sciome.bmdexpress2.mvp.model.category.ReferenceGeneProbeStatResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * DTO for category analysis results that can be serialized by Hilla/Vaadin
  * Represents a single category (e.g., GO term, pathway) with enrichment statistics
  */
 public class CategoryAnalysisResultDto {
+
+    private static final Logger logger = LoggerFactory.getLogger(CategoryAnalysisResultDto.class);
 
     // Category identification
     private String categoryId;
@@ -200,9 +206,6 @@ public class CategoryAnalysisResultDto {
     private Integer geneAllCountFromExperiment;
     private String chartableDataLabel;
 
-    // Experiment description (biological context metadata)
-    private ExperimentDescriptionDto experimentDescription;
-
     // Default constructor for Hilla
     public CategoryAnalysisResultDto() {
     }
@@ -341,9 +344,62 @@ public class CategoryAnalysisResultDto {
         dto.setMaxModelFoldChange(result.getMaxModelFoldChange());
         dto.setMeanModelFoldChange(result.getMeanModelFoldChange());
 
-        // Gene lists
-        dto.setGenes(result.getGenes());
-        dto.setGeneSymbols(result.getGeneSymbols());
+        // Gene lists - compute directly from referenceGeneProbeStatResults to avoid
+        // issues with transient fields in the desktop model
+        var refs = result.getReferenceGeneProbeStatResults();
+        String categoryIdForLog = dto.getCategoryId();
+
+        // Debug logging - always log for first few GO categories
+        logger.info("[GENE-DEBUG] CategoryAnalysisResultDto.fromDesktopObject: categoryId={}, refs={}",
+            categoryIdForLog, refs != null ? refs.size() : "NULL");
+
+        if (refs != null && !refs.isEmpty()) {
+            StringBuilder genesBuilder = new StringBuilder();
+            StringBuilder geneSymbolsBuilder = new StringBuilder();
+
+            for (ReferenceGeneProbeStatResult ref : refs) {
+                if (ref.getReferenceGene() != null) {
+                    // Add gene ID
+                    if (genesBuilder.length() > 0) genesBuilder.append(";");
+                    genesBuilder.append(ref.getReferenceGene().getId());
+
+                    // Add gene symbol
+                    if (ref.getReferenceGene().getGeneSymbol() != null) {
+                        if (geneSymbolsBuilder.length() > 0) geneSymbolsBuilder.append(";");
+                        geneSymbolsBuilder.append(ref.getReferenceGene().getGeneSymbol());
+                    }
+                }
+            }
+
+            String genesResult = genesBuilder.toString();
+            String geneSymbolsResult = geneSymbolsBuilder.toString();
+
+            dto.setGenes(genesResult);
+            dto.setGeneSymbols(geneSymbolsResult);
+
+            // Debug log the results (only first 3 characters to reduce spam)
+            if (genesResult.length() > 0) {
+                logger.info("[GENE-DEBUG] Computed genes for {}: genes='{}...', symbols='{}...'",
+                    categoryIdForLog,
+                    genesResult.substring(0, Math.min(20, genesResult.length())),
+                    geneSymbolsResult.substring(0, Math.min(20, geneSymbolsResult.length())));
+            }
+        } else {
+            // Fallback to the transient getter methods
+            // Note: getGenes() may return null if refs is null (bug in desktop app)
+            // Always ensure we return empty string, not null
+            String fallbackGenes = result.getGenes();
+            String fallbackSymbols = result.getGeneSymbols();
+            dto.setGenes(fallbackGenes != null ? fallbackGenes : "");
+            dto.setGeneSymbols(fallbackSymbols != null ? fallbackSymbols : "");
+
+            // Debug log the fallback
+            logger.info("[GENE-DEBUG] Using fallback for {}: refs={}, genes='{}', symbols='{}'",
+                categoryIdForLog,
+                refs == null ? "NULL" : "EMPTY",
+                fallbackGenes != null ? "has-value" : "null",
+                fallbackSymbols != null ? "has-value" : "null");
+        }
         dto.setProbeIds(result.getProbeIds());
         dto.setGenesIds(result.getGenesIds());
 
@@ -385,8 +441,36 @@ public class CategoryAnalysisResultDto {
         dto.setBmduUp(result.getBMDUUp());
         dto.setProbesDown(result.getProbesDown());
         dto.setProbesUp(result.getProbesUp());
-        dto.setGenesDown(result.getGenesDown());
-        dto.setGenesUp(result.getGenesUp());
+
+        // Compute genesUp and genesDown directly from referenceGeneProbeStatResults
+        // to avoid issues with transient fields
+        if (result.getReferenceGeneProbeStatResults() != null && !result.getReferenceGeneProbeStatResults().isEmpty()) {
+            StringBuilder genesUpBuilder = new StringBuilder();
+            StringBuilder genesDownBuilder = new StringBuilder();
+
+            for (ReferenceGeneProbeStatResult ref : result.getReferenceGeneProbeStatResults()) {
+                if (ref.getReferenceGene() == null) continue;
+
+                String geneId = ref.getReferenceGene().getId();
+                if (geneId == null) continue;
+
+                AdverseDirectionEnum direction = ref.getAdverseDirection();
+                if (direction == AdverseDirectionEnum.UP) {
+                    if (genesUpBuilder.length() > 0) genesUpBuilder.append(";");
+                    genesUpBuilder.append(geneId);
+                } else if (direction == AdverseDirectionEnum.DOWN) {
+                    if (genesDownBuilder.length() > 0) genesDownBuilder.append(";");
+                    genesDownBuilder.append(geneId);
+                }
+            }
+
+            dto.setGenesUp(genesUpBuilder.toString());
+            dto.setGenesDown(genesDownBuilder.toString());
+        } else {
+            // Fallback to the transient getter methods
+            dto.setGenesDown(result.getGenesDown());
+            dto.setGenesUp(result.getGenesUp());
+        }
 
         // Adverse direction counts
         dto.setGenesAdverseDownCount(result.getGenesAdverseDownCount());
@@ -1559,13 +1643,5 @@ public class CategoryAnalysisResultDto {
 
     public void setChartableDataLabel(String chartableDataLabel) {
         this.chartableDataLabel = chartableDataLabel;
-    }
-
-    public ExperimentDescriptionDto getExperimentDescription() {
-        return experimentDescription;
-    }
-
-    public void setExperimentDescription(ExperimentDescriptionDto experimentDescription) {
-        this.experimentDescription = experimentDescription;
     }
 }

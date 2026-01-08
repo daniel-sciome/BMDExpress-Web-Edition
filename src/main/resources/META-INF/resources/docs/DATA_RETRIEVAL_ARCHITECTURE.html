@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BMDExpress Web - Data Retrieval & Management Architecture</title>
+
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+
+    <style>
+        :root {
+            --primary: #1890ff;
+            --success: #52c41a;
+            --warning: #faad14;
+            --error: #ff4d4f;
+            --purple: #722ed1;
+            --cyan: #13c2c2;
+            --orange: #fa8c16;
+            --bg-dark: #1a1a2e;
+            --bg-medium: #16213e;
+            --bg-light: #0f3460;
+            --text-primary: #e8e8e8;
+            --text-secondary: #a0a0a0;
+            --border: #3a3a5c;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 40px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--orange), var(--warning));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--orange);
+            color: var(--orange);
+        }
+
+        h3 {
+            font-size: 1.2rem;
+            margin: 1.5rem 0 0.75rem;
+            color: var(--cyan);
+        }
+
+        h4 {
+            font-size: 1rem;
+            margin: 1rem 0 0.5rem;
+            color: var(--text-primary);
+        }
+
+        p {
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .card {
+            background: var(--bg-medium);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        .card-header {
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .architecture-diagram {
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        code {
+            background: var(--bg-light);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9em;
+            color: var(--cyan);
+        }
+
+        pre {
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--bg-light);
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        td {
+            background: var(--bg-medium);
+            color: var(--text-secondary);
+        }
+
+        .highlight {
+            color: var(--primary);
+        }
+
+        .success {
+            color: var(--success);
+        }
+
+        .warning {
+            color: var(--warning);
+        }
+
+        .layer {
+            border-left: 4px solid;
+            padding-left: 1rem;
+            margin: 1rem 0;
+        }
+
+        .layer-backend {
+            border-color: var(--purple);
+        }
+
+        .layer-enrichment {
+            border-color: var(--orange);
+        }
+
+        .layer-state {
+            border-color: var(--primary);
+        }
+
+        .layer-reference {
+            border-color: var(--cyan);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+
+        .badge-backend {
+            background: var(--purple);
+            color: white;
+        }
+
+        .badge-frontend {
+            background: var(--primary);
+            color: white;
+        }
+
+        .badge-reference {
+            background: var(--cyan);
+            color: black;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .two-column {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .toc {
+            background: var(--bg-medium);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .toc h3 {
+            margin-top: 0;
+        }
+
+        .toc ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .toc li {
+            padding: 0.3rem 0;
+        }
+
+        .toc a {
+            color: var(--orange);
+            text-decoration: none;
+        }
+
+        .toc a:hover {
+            text-decoration: underline;
+        }
+
+        .cluster-demo {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin: 1.5rem 0;
+            flex-wrap: wrap;
+        }
+
+        .cluster-item {
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .cluster-item .swatch {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            margin: 0 auto 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .swatch.cluster-normal {
+            background: hsl(200, 70%, 50%);
+            color: white;
+        }
+
+        .swatch.cluster-outlier {
+            background: #999999;
+            color: white;
+        }
+
+        .swatch.cluster-not-in-ref {
+            background: #fa8c16;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>BMDExpress Web</h1>
+        <p class="subtitle">Data Retrieval & Management Architecture</p>
+
+        <nav class="toc">
+            <h3>Table of Contents</h3>
+            <ul>
+                <li><a href="#overview">1. Architecture Overview</a></li>
+                <li><a href="#data-flow">2. Data Flow Diagram</a></li>
+                <li><a href="#backend-services">3. Backend Services</a></li>
+                <li><a href="#umap-reference">4. UMAP Reference Data</a></li>
+                <li><a href="#enrichment">5. Data Enrichment</a></li>
+                <li><a href="#cluster-classification">6. Cluster Classification</a></li>
+                <li><a href="#redux-state">7. Redux State Management</a></li>
+                <li><a href="#selectors">8. Selectors & Data Access</a></li>
+                <li><a href="#initialization">9. Initialization Sequence</a></li>
+                <li><a href="#persistence">10. Persistence & Caching</a></li>
+            </ul>
+        </nav>
+
+        <!-- Section 1: Overview -->
+        <section id="overview">
+            <h2>1. Architecture Overview</h2>
+
+            <p>The data retrieval and management subsystem handles loading, enriching, and managing category analysis data. It consists of four main layers:</p>
+
+            <div class="two-column">
+                <div class="card layer layer-backend">
+                    <div class="card-header">Backend Layer (Java/Hilla)</div>
+                    <p>Server-side services that load and parse BMD analysis data.</p>
+                    <ul>
+                        <li>CategoryResultsService (@BrowserCallable)</li>
+                        <li>ProjectService for file management</li>
+                        <li>DTOs generated to TypeScript via Hilla</li>
+                        <li>BM2 file parsing and conversion</li>
+                    </ul>
+                </div>
+
+                <div class="card layer layer-reference">
+                    <div class="card-header">Reference Data Layer</div>
+                    <p>Static pre-computed data for semantic analysis.</p>
+                    <ul>
+                        <li>UMAP embeddings for GO terms</li>
+                        <li>Cluster assignments (-1, 0, 1, 2, ...)</li>
+                        <li>Semantic similarity coordinates (x, y)</li>
+                        <li>Loaded once at app initialization</li>
+                    </ul>
+                </div>
+
+                <div class="card layer layer-enrichment">
+                    <div class="card-header">Enrichment Layer</div>
+                    <p>Client-side augmentation of backend data.</p>
+                    <ul>
+                        <li>Add clusterId to each category</li>
+                        <li>Distinguish -1 (outlier) vs -2 (not in reference)</li>
+                        <li>Happens during Redux reducer processing</li>
+                        <li>Enables cluster-based filtering</li>
+                    </ul>
+                </div>
+
+                <div class="card layer layer-state">
+                    <div class="card-header">State Layer (Redux)</div>
+                    <p>Client-side state management and reactivity.</p>
+                    <ul>
+                        <li>categoryResultsSlice for enriched data</li>
+                        <li>filterSlice for filter configurations</li>
+                        <li>renderStateSlice for CategorySets</li>
+                        <li>Memoized selectors for derived data</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>Key Design Principles</h3>
+            <ul>
+                <li><strong>Single enrichment point:</strong> Data is enriched exactly once when loaded into Redux</li>
+                <li><strong>Type extension:</strong> CategoryAnalysisResultWithCluster extends base DTO with clusterId</li>
+                <li><strong>Reference data separation:</strong> UMAP data is static, analysis data is dynamic</li>
+                <li><strong>Harmonious filtering:</strong> Cluster-based filters use same pattern as other hard filters</li>
+            </ul>
+        </section>
+
+        <!-- Section 2: Data Flow -->
+        <section id="data-flow">
+            <h2>2. Data Flow Diagram</h2>
+
+            <div class="architecture-diagram">
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          BM2 FILE (Project Data)                             │
+│                         Stored in resources/data/bmd/                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    BACKEND SERVICES (Java/@BrowserCallable)                  │
+│  ┌─────────────────────────────┐  ┌─────────────────────────────────────┐   │
+│  │   CategoryResultsService    │  │         ProjectService              │   │
+│  │                             │  │                                     │   │
+│  │  getCategoryResults()       │  │  getProjects()                      │   │
+│  │  getCategoryResultAnnotation│  │  getProjectById()                   │   │
+│  │                             │  │  uploadProject()                    │   │
+│  │  Returns:                   │  │                                     │   │
+│  │  • CategoryAnalysisResultDto│  │  Returns:                           │   │
+│  │  • ExperimentDescriptionDto │  │  • ProjectDto[]                     │   │
+│  │  • AnalysisAnnotationDto    │  │  • Available result names           │   │
+│  └─────────────────────────────┘  └─────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ Hilla generates TypeScript types
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     FRONTEND: Redux Async Thunk                              │
+│                     loadCategoryResults({ projectId, resultName })          │
+│                                                                              │
+│  1. Calls CategoryResultsService.getCategoryResults()                        │
+│  2. Returns { results: CategoryAnalysisResultDto[], experimentDescription }  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     ENRICHMENT (in Redux reducer)                            │
+│                                                                              │
+│  loadCategoryResults.fulfilled → state.data = results.map(cat => {          │
+│    const umapData = umapDataService.getByGoId(cat.categoryId);              │
+│    if (!umapData) {                                                          │
+│      clusterId = CLUSTER_NOT_IN_REF;  // -2                                 │
+│    } else {                                                                  │
+│      clusterId = umapData.cluster_id ?? CLUSTER_OUTLIER;  // -1             │
+│    }                                                                         │
+│    return { ...cat, clusterId };                                            │
+│  });                                                                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                         ┌──────────┴──────────┐
+                         │                     │
+                         ▼                     ▼
+┌────────────────────────────────┐  ┌─────────────────────────────────────────┐
+│  UMAP REFERENCE DATA (Static)  │  │     ENRICHED DATA (Redux State)         │
+│                                │  │                                         │
+│  umapDataService               │  │  state.categoryResults.data             │
+│  • getByGoId(goId)            │  │  CategoryAnalysisResultWithCluster[]    │
+│  • getAllData()               │  │                                         │
+│                                │  │  Each category now has:                 │
+│  Returns:                      │  │  • All original DTO fields              │
+│  • x, y coordinates           │  │  • clusterId: number (-2, -1, 0, 1...)  │
+│  • cluster_id                  │  │                                         │
+│  • cluster_label               │  └─────────────────────────────────────────┘
+│  • go_id                       │
+└────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        SELECTORS (Memoized)                                  │
+│  ┌──────────────────────────┐  ┌──────────────────────────────────────────┐ │
+│  │   selectFilteredData     │  │      selectCategorySetsByType           │ │
+│  │                          │  │                                          │ │
+│  │  Applies:                │  │  Returns CategorySets for:               │ │
+│  │  • Primary Filter        │  │  • CLUSTER type (0, 1, 2, -1, -2)       │ │
+│  │  • Filter Groups         │  │  • MASTER_FILTER type                   │ │
+│  │  • Cluster Filter (-1)   │  │                                          │ │
+│  │                          │  │  Used by ClusterPicker                   │ │
+│  │  Returns: Working Set    │  │                                          │ │
+│  └──────────────────────────┘  └──────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          UI COMPONENTS                                       │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
+│  │    Table     │  │    Charts    │  │  Cluster     │  │    UMAP      │    │
+│  │              │  │              │  │  Picker      │  │   Scatter    │    │
+│  │ Uses Working │  │ Uses Working │  │              │  │              │    │
+│  │ Set data     │  │ Set data     │  │ Uses         │  │ Uses UMAP    │    │
+│  │              │  │              │  │ CategorySets │  │ coordinates  │    │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘</div>
+        </section>
+
+        <!-- Section 3: Backend Services -->
+        <section id="backend-services">
+            <h2>3. Backend Services</h2>
+
+            <h3>3.1 CategoryResultsService</h3>
+            <p>The primary service for loading category analysis data from BM2 files.</p>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Parameters</th>
+                            <th>Returns</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>getCategoryResults</code></td>
+                            <td>projectId, resultName</td>
+                            <td>CategoryAnalysisResultsDto (container with results[] + experimentDescription)</td>
+                        </tr>
+                        <tr>
+                            <td><code>getCategoryResultAnnotation</code></td>
+                            <td>projectId, resultName</td>
+                            <td>AnalysisAnnotationDto (analysisType, date, etc.)</td>
+                        </tr>
+                        <tr>
+                            <td><code>getAvailableResults</code></td>
+                            <td>projectId</td>
+                            <td>String[] (list of result names)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>3.2 Key DTOs</h3>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>DTO</th>
+                            <th>Purpose</th>
+                            <th>Key Fields</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>CategoryAnalysisResultDto</code></td>
+                            <td>Single category result</td>
+                            <td>categoryId, categoryName, bmdMedian, fishersExactTwoTailPValue, percentage, genesThatPassedAllFilters, geneAllCount, ...</td>
+                        </tr>
+                        <tr>
+                            <td><code>CategoryAnalysisResultsDto</code></td>
+                            <td>Container for results</td>
+                            <td>results[], experimentDescription</td>
+                        </tr>
+                        <tr>
+                            <td><code>ExperimentDescriptionDto</code></td>
+                            <td>Experiment metadata</td>
+                            <td>sex, organ, doses[], analysisName</td>
+                        </tr>
+                        <tr>
+                            <td><code>AnalysisAnnotationDto</code></td>
+                            <td>Analysis metadata</td>
+                            <td>analysisType (GO, GENE, etc.), creationDate</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>3.3 File Location</h3>
+
+            <pre><code>src/main/java/com/sciome/service/CategoryResultsService.java
+src/main/java/com/sciome/dto/CategoryAnalysisResultDto.java
+src/main/java/com/sciome/dto/CategoryAnalysisResultsDto.java
+src/main/java/com/sciome/dto/ExperimentDescriptionDto.java</code></pre>
+        </section>
+
+        <!-- Section 4: UMAP Reference Data -->
+        <section id="umap-reference">
+            <h2>4. UMAP Reference Data</h2>
+
+            <p>The UMAP reference data provides pre-computed semantic embeddings for GO terms. This enables cluster-based analysis and visualization.</p>
+
+            <h3>4.1 Data Structure</h3>
+
+            <pre><code>interface UmapDataPoint {
+  go_id: string;           // e.g., "GO:0001234"
+  x: number;               // UMAP x-coordinate
+  y: number;               // UMAP y-coordinate
+  cluster_id: number;      // Cluster assignment (-1 for outliers, 0+ for clusters)
+  cluster_label: string;   // Human-readable cluster name
+}</code></pre>
+
+            <h3>4.2 Data Service</h3>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Returns</th>
+                            <th>Usage</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>getByGoId(goId)</code></td>
+                            <td>UmapDataPoint | undefined</td>
+                            <td>Lookup single GO term; returns undefined if not in reference</td>
+                        </tr>
+                        <tr>
+                            <td><code>getAllData()</code></td>
+                            <td>UmapDataPoint[]</td>
+                            <td>Get entire reference dataset</td>
+                        </tr>
+                        <tr>
+                            <td><code>getClusterIds()</code></td>
+                            <td>number[]</td>
+                            <td>List of unique cluster IDs in reference</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>4.3 File Location</h3>
+
+            <pre><code>src/main/frontend/data/umapDataService.ts      // Service for lookups
+src/main/frontend/data/referenceUmapData.ts    // Static reference data</code></pre>
+
+            <h3>4.4 Important Considerations</h3>
+
+            <div class="card" style="border-color: var(--warning);">
+                <div class="card-header" style="color: var(--warning);">Reference Data Limitations</div>
+                <ul>
+                    <li>Reference data is <strong>static</strong> - pre-computed from a fixed set of GO terms</li>
+                    <li>Analysis data may contain GO terms <strong>not in reference</strong> (clusterId = -2)</li>
+                    <li>Cluster assignments reflect <strong>semantic similarity</strong>, not BMD analysis results</li>
+                    <li>UMAP coordinates are used for the semantic space scatter plot</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Section 5: Data Enrichment -->
+        <section id="enrichment">
+            <h2>5. Data Enrichment</h2>
+
+            <p>Data enrichment adds the <code>clusterId</code> field to each category at load time. This happens in the Redux reducer when <code>loadCategoryResults.fulfilled</code> is processed.</p>
+
+            <h3>5.1 Extended Type</h3>
+
+            <pre><code>// Constants for special cluster IDs
+export const CLUSTER_OUTLIER = -1;      // In UMAP reference but semantically dissimilar
+export const CLUSTER_NOT_IN_REF = -2;   // Not in UMAP reference data
+
+// Extended type with cluster information
+export interface CategoryAnalysisResultWithCluster extends CategoryAnalysisResultDto {
+  clusterId: number;  // -2 = not in reference, -1 = outlier, 0+ = cluster
+}</code></pre>
+
+            <h3>5.2 Enrichment Logic</h3>
+
+            <pre><code>// In categoryResultsSlice.ts, loadCategoryResults.fulfilled reducer
+state.data = action.payload.results.map(cat => {
+  const umapData = cat.categoryId ? umapDataService.getByGoId(cat.categoryId) : undefined;
+
+  let clusterId: number;
+  if (!umapData) {
+    // GO term not found in UMAP reference
+    clusterId = CLUSTER_NOT_IN_REF;  // -2
+  } else {
+    // Found in reference - use cluster_id or mark as outlier
+    const rawClusterId = umapData.cluster_id;
+    clusterId = typeof rawClusterId === 'number'
+      ? rawClusterId
+      : (rawClusterId !== undefined ? parseInt(String(rawClusterId), 10) : CLUSTER_OUTLIER);
+  }
+
+  return { ...cat, clusterId };
+});</code></pre>
+
+            <h3>5.3 Benefits of This Approach</h3>
+
+            <ul>
+                <li><strong>Single lookup:</strong> UMAP data is looked up once per category at load time</li>
+                <li><strong>Type safety:</strong> Extended type ensures clusterId is always present</li>
+                <li><strong>Filter harmony:</strong> Cluster filtering uses same pattern as other filters</li>
+                <li><strong>No repeated lookups:</strong> Selectors don't need to call umapDataService</li>
+            </ul>
+        </section>
+
+        <!-- Section 6: Cluster Classification -->
+        <section id="cluster-classification">
+            <h2>6. Cluster Classification</h2>
+
+            <p>Categories are classified into three groups based on their relationship to the UMAP reference data:</p>
+
+            <div class="cluster-demo">
+                <div class="cluster-item">
+                    <div class="swatch cluster-normal">0+</div>
+                    <div><strong>Normal Cluster</strong></div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">clusterId: 0, 1, 2, ...</div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">In reference, assigned to cluster</div>
+                </div>
+                <div class="cluster-item">
+                    <div class="swatch cluster-outlier">-1</div>
+                    <div><strong>Cluster Outlier</strong></div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">clusterId: -1</div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">In reference, semantically dissimilar</div>
+                </div>
+                <div class="cluster-item">
+                    <div class="swatch cluster-not-in-ref">-2</div>
+                    <div><strong>Not in Reference</strong></div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">clusterId: -2</div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">GO term not in UMAP reference</div>
+                </div>
+            </div>
+
+            <h3>6.1 Classification Table</h3>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>clusterId</th>
+                            <th>Label</th>
+                            <th>Color</th>
+                            <th>Hard Filter Default</th>
+                            <th>Meaning</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>0, 1, 2, ...</td>
+                            <td>Cluster N</td>
+                            <td>Dynamic HSL</td>
+                            <td>Included</td>
+                            <td>GO term is in UMAP reference and assigned to a cluster</td>
+                        </tr>
+                        <tr>
+                            <td>-1</td>
+                            <td>Cluster Outliers</td>
+                            <td style="color: #999999;">#999999 (Gray)</td>
+                            <td><strong>Excluded</strong> by default</td>
+                            <td>GO term is in UMAP reference but semantically dissimilar from all clusters</td>
+                        </tr>
+                        <tr>
+                            <td>-2</td>
+                            <td>Not in Semantic Space</td>
+                            <td style="color: #fa8c16;">#fa8c16 (Orange)</td>
+                            <td>Included (flagged)</td>
+                            <td>GO term not found in UMAP reference data - anomalous, warrants investigation</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>6.2 Filter Behavior</h3>
+
+            <div class="card" style="border-color: var(--primary);">
+                <div class="card-header" style="color: var(--primary);">excludeClusterOutliers Filter</div>
+                <p>When <code>excludeClusterOutliers: true</code> (default):</p>
+                <ul>
+                    <li>Categories with <code>clusterId === -1</code> are <strong>excluded</strong> from Working Set</li>
+                    <li>Categories with <code>clusterId === -2</code> are <strong>included</strong> (but visually flagged)</li>
+                    <li>Categories with <code>clusterId >= 0</code> are <strong>included</strong></li>
+                </ul>
+                <p style="margin-top: 1rem;"><strong>Rationale:</strong> -1 (outliers) are known but uninteresting; -2 (not in reference) are potentially anomalous and should be visible for investigation.</p>
+            </div>
+        </section>
+
+        <!-- Section 7: Redux State Management -->
+        <section id="redux-state">
+            <h2>7. Redux State Management</h2>
+
+            <h3>7.1 categoryResultsSlice State Shape</h3>
+
+            <pre><code>interface CategoryResultsState {
+  // Enriched data with clusterId
+  data: CategoryAnalysisResultWithCluster[];
+
+  // Metadata
+  experimentDescription: ExperimentDescriptionDto | null;
+  loading: boolean;
+  error: string | null;
+  projectId: string | null;
+  resultName: string | null;
+  analysisType: string | null;
+  analysisParameters: string[];
+
+  // Filters
+  filters: Filters;
+
+  // UI State
+  viewMode: 'simple' | 'power';
+  comparisonMode: 'intersection' | 'union';
+
+  // Note: Selection state is managed by visibilitySlice.highlightedIds
+  // (legacy selectedCategoryIds and selectedUmapGoIds have been removed)
+}</code></pre>
+
+            <h3>7.2 Filters Interface</h3>
+
+            <pre><code>interface Filters {
+  // Primary Filter fields
+  percentageMin?: number;
+  genesPassedFiltersMin?: number;
+  allGenesMin?: number;
+  allGenesMax?: number;
+
+  // Cluster filter
+  excludeClusterOutliers?: boolean;  // Filter out clusterId === -1
+
+  // Additional filter fields
+  bmdMin?: number;
+  bmdMax?: number;
+  pValueMax?: number;
+  // ...
+}</code></pre>
+
+            <h3>7.3 Default Filters</h3>
+
+            <pre><code>const DEFAULT_PRIMARY_FILTERS: Filters = {
+  percentageMin: 5,
+  genesPassedFiltersMin: 3,
+  allGenesMin: 40,
+  allGenesMax: 500,
+  excludeClusterOutliers: true,  // Exclude -1 by default
+};</code></pre>
+
+            <h3>7.4 Related Slices</h3>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Slice</th>
+                            <th>Purpose</th>
+                            <th>File</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>categoryResultsSlice</code></td>
+                            <td>Enriched category data, filters, metadata</td>
+                            <td>store/slices/categoryResultsSlice.ts</td>
+                        </tr>
+                        <tr>
+                            <td><code>filterSlice</code></td>
+                            <td>Filter group configurations</td>
+                            <td>store/slices/filterSlice.ts</td>
+                        </tr>
+                        <tr>
+                            <td><code>renderStateSlice</code></td>
+                            <td>CategorySets for clusters, per-category render state</td>
+                            <td>store/slices/renderStateSlice.ts</td>
+                        </tr>
+                        <tr>
+                            <td><code>visibilitySlice</code></td>
+                            <td>Per-category visual state (highlighted/dimmed/hidden)</td>
+                            <td>store/slices/visibilitySlice.ts</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Section 8: Selectors -->
+        <section id="selectors">
+            <h2>8. Selectors & Data Access</h2>
+
+            <h3>8.1 Key Selectors</h3>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Selector</th>
+                            <th>Returns</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>selectFilteredData</code></td>
+                            <td>CategoryAnalysisResultWithCluster[]</td>
+                            <td>Working Set: categories passing all hard filters (primary + filter groups)</td>
+                        </tr>
+                        <tr>
+                            <td><code>selectCategorySetsByType</code></td>
+                            <td>CategorySet[]</td>
+                            <td>Get all CategorySets of a given type (CLUSTER, MASTER_FILTER)</td>
+                        </tr>
+                        <tr>
+                            <td><code>selectHighlightedIds</code></td>
+                            <td>Set&lt;string&gt;</td>
+                            <td>Category IDs currently highlighted (from visibilitySlice)</td>
+                        </tr>
+                        <tr>
+                            <td><code>selectEnabledFilterGroups</code></td>
+                            <td>FilterGroup[]</td>
+                            <td>Currently enabled filter groups (from filterSlice)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>8.2 selectFilteredData Implementation</h3>
+
+            <pre><code>export const selectFilteredData = createSelector(
+  [(state: RootState) => state.categoryResults.data,
+   (state: RootState) => state.categoryResults.filters,
+   (state: RootState) => state.categoryResults.analysisType,
+   selectEnabledFilterGroups],
+  (data, filters, analysisType, filterGroups) => {
+    let filtered = [...data];
+
+    // Apply primary filter (skip for GENE analyses)
+    if (analysisType !== 'GENE') {
+      filtered = filtered.filter(row => {
+        if (filters.percentageMin !== undefined &&
+            row.percentage !== undefined &&
+            row.percentage < filters.percentageMin) return false;
+        // ... other primary filter checks
+
+        // Cluster filter: exclude outliers if enabled
+        if (filters.excludeClusterOutliers && row.clusterId === CLUSTER_OUTLIER) {
+          return false;  // Filter out -1 (outliers)
+        }
+        // Note: -2 (not in reference) passes through
+
+        return true;
+      });
+    }
+
+    // Apply filter groups
+    if (filterGroups.length > 0) {
+      filtered = applyFilterGroups(filtered, filterGroups);
+    }
+
+    return filtered;
+  }
+);</code></pre>
+        </section>
+
+        <!-- Section 9: Initialization Sequence -->
+        <section id="initialization">
+            <h2>9. Initialization Sequence</h2>
+
+            <p>When a dataset is loaded, the following sequence occurs:</p>
+
+            <div class="architecture-diagram" style="font-size: 0.85rem;">
+1. User selects project + result name
+   │
+   ▼
+2. dispatch(loadCategoryResultsWithRenderState({ projectId, resultName }))
+   │
+   ├──▶ Step 1: Load primary filters from localStorage (or defaults)
+   │    dispatch(setFilters(primaryFilters))
+   │
+   ├──▶ Step 1b: Fetch analysisType from backend
+   │    CategoryResultsService.getCategoryResultAnnotation()
+   │    dispatch(setAnalysisType(analysisType))
+   │
+   ├──▶ Step 2: Load category data
+   │    dispatch(loadCategoryResults({ projectId, resultName }))
+   │    │
+   │    └──▶ loadCategoryResults.fulfilled reducer:
+   │         • Enriches each category with clusterId
+   │         • umapDataService.getByGoId() for each category
+   │         • Sets state.data = enriched categories
+   │
+   ├──▶ Step 3: Initialize render state
+   │    dispatch(initializeCategories(categories))
+   │
+   ├──▶ Step 4: Create cluster CategorySets
+   │    createClusterSets(categories) → CategorySet[] for each cluster
+   │    dispatch(upsertCategorySet(set)) for each
+   │
+   ├──▶ Step 5: Create primary filter CategorySet
+   │    createPrimaryFilterSet(categories, filters)
+   │    dispatch(upsertCategorySet(primaryFilterSet))
+   │
+   └──▶ Step 6: Initialize visibility (all selected)
+        Apply primary filters to get filtered categories
+        dispatch(highlightCategories({ categoryIds: filteredIds, exclusive: true }))
+        // visibilitySlice.highlightedIds is now the single source of truth</div>
+
+            <h3>9.1 Key Files</h3>
+
+            <pre><code>// Thunk that orchestrates loading
+src/main/frontend/store/slices/categoryResultsSlice.ts
+  → loadCategoryResultsWithRenderState
+
+// Cluster set creation
+src/main/frontend/store/utils/initializeRenderState.ts
+  → createClusterSets()
+  → createPrimaryFilterSet()
+
+// View that triggers loading
+src/main/frontend/components/CategoryResultsView.tsx</code></pre>
+        </section>
+
+        <!-- Section 10: Persistence -->
+        <section id="persistence">
+            <h2>10. Persistence & Caching</h2>
+
+            <h3>10.1 What Gets Persisted</h3>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Storage</th>
+                            <th>Key</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Primary Filter values</td>
+                            <td>localStorage</td>
+                            <td><code>bmdexpress_master_filters_global</code></td>
+                        </tr>
+                        <tr>
+                            <td>Filter Group configurations</td>
+                            <td>localStorage</td>
+                            <td><code>bmdexpress_filter_groups</code></td>
+                        </tr>
+                        <tr>
+                            <td>"Remember Filters" preference</td>
+                            <td>localStorage</td>
+                            <td><code>bmdexpress_rememberFilters</code></td>
+                        </tr>
+                        <tr>
+                            <td>View mode (simple/power)</td>
+                            <td>localStorage</td>
+                            <td><code>bmdexpress_view_mode</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>10.2 What is NOT Persisted</h3>
+
+            <ul>
+                <li><strong>Category data:</strong> Re-fetched from backend on each load</li>
+                <li><strong>Cluster assignments:</strong> Re-computed during enrichment</li>
+                <li><strong>CategorySets:</strong> Re-created during initialization</li>
+                <li><strong>Visibility state:</strong> Session-only (resets on reload)</li>
+            </ul>
+
+            <h3>10.3 UMAP Reference Data</h3>
+
+            <div class="card" style="border-color: var(--cyan);">
+                <div class="card-header" style="color: var(--cyan);">Static Reference Data</div>
+                <p>The UMAP reference data is:</p>
+                <ul>
+                    <li>Bundled with the application (not fetched at runtime)</li>
+                    <li>Loaded once when <code>umapDataService</code> is first imported</li>
+                    <li>Indexed by GO ID for O(1) lookups</li>
+                    <li>Never changes during application lifecycle</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--border); text-align: center; color: var(--text-secondary);">
+            <p>BMDExpress Web - Data Retrieval & Management Architecture</p>
+            <p>Generated: <script>document.write(new Date().toLocaleDateString())</script></p>
+            <p style="margin-top: 1rem;"><a href="REACTIVITY_ARCHITECTURE_DESIGN.html" style="color: var(--primary);">See also: Reactivity Architecture Design</a></p>
+        </footer>
+    </div>
+
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+</body>
+</html>

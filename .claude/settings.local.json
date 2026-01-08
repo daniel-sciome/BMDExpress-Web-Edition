@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Read(//home/svobodadl/BMDExpress-3/**)",
+      "Bash(awk '{print $9, $5}')",
+      "WebFetch(domain:codepen.io)",
+      "WebFetch(domain:plotly.com)",
+      "Read(//home/svobodadl/**)",
+      "Bash(sudo firewall-cmd:*)",
+      "Bash(ss:*)",
+      "Bash(ip addr:*)",
+      "Bash(touch:*)",
+      "Bash(awk:*)",
+      "Bash(jar -tf:*)",
+      "Bash(find:*)",
+      "Bash(hdiutil attach:*)",
+      "Bash(mdfind:*)",
+      "Bash(\"/private/tmp/bmdexpress_mount/BMDExpress3 Installer.app/Contents/MacOS/JavaApplicationStub\" -h)",
+      "Bash(\"/private/tmp/bmdexpress_mount/BMDExpress3 Installer.app/Contents/MacOS/JavaApplicationStub\" -q -dir /tmp/bmdexpress_extracted)",
+      "WebSearch"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
