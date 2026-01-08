@@ -1,15 +1,15 @@
 /**
- * ClusterHeatmap Component
+ * ClusterHistogram Component (formerly ClusterHeatmap)
  *
- * Visualizes hierarchical clustering results as a heatmap where:
- * - Y-axis shows categories ordered by dendrogram (similar categories adjacent)
- * - X-axis shows BMD values (log scale)
- * - Color indicates cluster membership
+ * Stacked histogram showing BMD distribution by gene cluster:
+ * - X-axis: BMD values (log scale)
+ * - Y-axis: Count of categories
+ * - Stacked bars colored by cluster membership
  *
  * Uses inFocus-based display mode styling (highlight/dim/isolate).
  *
- * This visualization helps identify groups of categories with similar
- * gene activity patterns and their associated BMD distributions.
+ * This visualization helps identify how BMD values are distributed
+ * across different gene-similarity clusters.
  */
 
 import React, { useMemo, useState } from 'react';
@@ -23,21 +23,21 @@ import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from '.
 const { Text } = Typography;
 
 interface ClusterHeatmapProps {
-  /** Maximum categories to display (default: 100) */
-  maxCategories?: number;
   /** Initial linkage method */
   initialLinkageMethod?: LinkageMethod;
 }
 
+type BmdMetric = 'median' | 'mean';
+
 export default function ClusterHeatmap({
-  maxCategories = 100,
   initialLinkageMethod = 'average',
 }: ClusterHeatmapProps) {
   const [linkageMethod, setLinkageMethod] = useState<LinkageMethod>(initialLinkageMethod);
+  const [bmdMetric, setBmdMetric] = useState<BmdMetric>('median');
+  const [hiddenClusters, setHiddenClusters] = useState<Set<number>>(new Set());
 
   const {
-    orderedCategoryIds,
-    orderedClusterIds,
+    clusterAssignments,
     categoryData,
     uniqueClusterIds,
     categoryCount,
@@ -59,100 +59,102 @@ export default function ClusterHeatmap({
     return map;
   }, [allDataWithFocus]);
 
-  // Build heatmap data
+  // Build histogram traces (one per cluster, stacked)
   const plotData = useMemo(() => {
-    if (orderedCategoryIds.length === 0) return null;
+    if (clusterAssignments.size === 0) return [];
 
-    // Limit categories for performance
-    const displayCount = Math.min(orderedCategoryIds.length, maxCategories);
-    const displayCategoryIds = orderedCategoryIds.slice(0, displayCount);
-    const displayClusterIds = orderedClusterIds.slice(0, displayCount);
+    // Group BMD values by cluster
+    const clusterBmdValues = new Map<number, number[]>();
+    uniqueClusterIds.forEach(id => clusterBmdValues.set(id, []));
 
-    // Get BMD values and labels for display, filtering by displayMode
-    const categoryLabels: string[] = [];
-    const bmdValues: number[] = [];
-    const markerColors: string[] = [];
-    const markerOpacities: number[] = [];
-    const markerSizes: number[] = [];
-    const markerLineWidths: number[] = [];
-    const markerLineColors: string[] = [];
-    const hoverTexts: string[] = [];
-
-    displayCategoryIds.forEach((categoryId, index) => {
+    clusterAssignments.forEach((clusterId, categoryId) => {
       const cat = categoryData.get(categoryId);
-      const clusterId = displayClusterIds[index];
+      if (!cat) return;
+
       const inFocus = focusMap.get(categoryId) ?? true;
 
       // Filter based on displayMode (isolate mode hides out-of-focus)
       if (shouldHidePoint(inFocus)) return;
 
-      // Truncate long labels
-      let label = cat?.categoryDescription || categoryId;
-      if (label.length > 50) {
-        label = label.substring(0, 47) + '...';
+      // Get BMD value based on selected metric
+      const bmd = bmdMetric === 'median'
+        ? (cat.bmdMedian ?? cat.bmdMean)
+        : (cat.bmdMean ?? cat.bmdMedian);
+
+      if (bmd != null && bmd > 0) {
+        const values = clusterBmdValues.get(clusterId);
+        if (values) {
+          values.push(bmd);
+        }
       }
-      categoryLabels.push(label);
-
-      // Get BMD value (use median, fallback to mean)
-      const bmd = cat?.bmdMedian ?? cat?.bmdMean ?? 0;
-      bmdValues.push(bmd > 0 ? bmd : 0.001); // Avoid log(0)
-
-      // Get cluster color and apply inFocus styling
-      const colorIndex = uniqueClusterIds.indexOf(clusterId);
-      const baseColor = colorIndex >= 0
-        ? CLUSTER_COLOR_PALETTE[colorIndex % CLUSTER_COLOR_PALETTE.length]
-        : OUTLIER_COLOR;
-
-      const style = getPointStyle(inFocus, baseColor);
-      markerColors.push(style.color);
-      markerOpacities.push(style.opacity);
-      markerSizes.push(12);
-      markerLineWidths.push(style.lineWidth);
-      markerLineColors.push(style.lineColor);
-
-      hoverTexts.push(
-        `Category: ${cat?.categoryDescription || categoryId}<br>` +
-        `BMD Median: ${cat?.bmdMedian?.toFixed(4) || 'N/A'}<br>` +
-        `Cluster: ${clusterId}<br>` +
-        `Genes: ${cat?.genesThatPassedAllFilters || 0}`
-      );
     });
 
-    if (categoryLabels.length === 0) {
-      return null;
-    }
+    // Create histogram trace for each cluster
+    const traces: any[] = [];
 
-    // Create scatter trace showing BMD by category, colored by cluster
-    const trace: any = {
-      type: 'scatter',
-      mode: 'markers',
-      x: bmdValues,
-      y: categoryLabels,
-      marker: {
-        size: markerSizes,
-        color: markerColors,
-        opacity: markerOpacities,
-        symbol: 'circle',
-        line: {
-          color: markerLineColors,
-          width: markerLineWidths,
+    uniqueClusterIds.forEach((clusterId, clusterIndex) => {
+      const bmdValues = clusterBmdValues.get(clusterId) || [];
+      if (bmdValues.length === 0) return;
+
+      const isHidden = hiddenClusters.has(clusterId);
+      const baseColor = CLUSTER_COLOR_PALETTE[clusterIndex % CLUSTER_COLOR_PALETTE.length];
+
+      traces.push({
+        type: 'histogram',
+        x: bmdValues,
+        name: `Cluster ${clusterId} (${bmdValues.length})`,
+        marker: {
+          color: baseColor,
+          line: {
+            color: 'white',
+            width: 1,
+          },
         },
-      },
-      text: hoverTexts,
-      hovertemplate: '%{text}<extra></extra>',
-    };
+        opacity: 0.8,
+        visible: isHidden ? 'legendonly' : true,
+        hovertemplate: `Cluster ${clusterId}<br>BMD: %{x}<br>Count: %{y}<extra></extra>`,
+      });
+    });
 
-    return [trace];
-  }, [orderedCategoryIds, orderedClusterIds, categoryData, uniqueClusterIds, maxCategories, focusMap, displayMode, getPointStyle, shouldHidePoint]);
+    return traces;
+  }, [clusterAssignments, categoryData, uniqueClusterIds, focusMap, displayMode, shouldHidePoint, bmdMetric, hiddenClusters]);
 
-  // Build cluster legend
+  // Toggle cluster visibility
+  const toggleCluster = (clusterId: number) => {
+    setHiddenClusters(prev => {
+      const next = new Set(prev);
+      if (next.has(clusterId)) {
+        next.delete(clusterId);
+      } else {
+        next.add(clusterId);
+      }
+      return next;
+    });
+  };
+
+  // Build cluster legend with counts
   const clusterLegend = useMemo(() => {
+    const counts = new Map<number, number>();
+    clusterAssignments.forEach((clusterId, categoryId) => {
+      const inFocus = focusMap.get(categoryId) ?? true;
+      if (shouldHidePoint(inFocus)) return;
+
+      const cat = categoryData.get(categoryId);
+      const bmd = bmdMetric === 'median'
+        ? (cat?.bmdMedian ?? cat?.bmdMean)
+        : (cat?.bmdMean ?? cat?.bmdMedian);
+
+      if (bmd != null && bmd > 0) {
+        counts.set(clusterId, (counts.get(clusterId) || 0) + 1);
+      }
+    });
+
     return uniqueClusterIds.map((clusterId, index) => ({
       id: clusterId,
       color: CLUSTER_COLOR_PALETTE[index % CLUSTER_COLOR_PALETTE.length],
-      count: orderedClusterIds.filter(c => c === clusterId).length,
+      count: counts.get(clusterId) || 0,
     }));
-  }, [uniqueClusterIds, orderedClusterIds]);
+  }, [uniqueClusterIds, clusterAssignments, categoryData, focusMap, shouldHidePoint, bmdMetric]);
 
   if (loading) {
     return (
@@ -171,40 +173,45 @@ export default function ClusterHeatmap({
     );
   }
 
-  if (!plotData || orderedCategoryIds.length === 0) {
+  if (plotData.length === 0) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-        No data available for cluster heatmap
+        No data available for cluster histogram
       </div>
     );
   }
 
-  // Calculate height based on visible items
-  const visibleCount = plotData[0]?.y?.length || 0;
-  const chartHeight = Math.max(400, visibleCount * 20 + 150);
+  const xAxisLabel = bmdMetric === 'median' ? 'BMD Median' : 'BMD Mean';
 
   const layout: any = {
     title: {
-      text: `Gene Cluster Heatmap (${categoryCount} categories, ${uniqueClusterIds.length} clusters)`,
+      text: `Gene Cluster Distribution (${categoryCount} categories, ${uniqueClusterIds.length} clusters)`,
       font: { size: 16 },
     },
     xaxis: {
-      title: { text: 'BMD Median' },
+      title: { text: xAxisLabel },
       type: 'log',
       autorange: true,
       gridcolor: DEFAULT_GRID_COLOR,
     },
     yaxis: {
-      title: { text: '' },
-      autorange: true,
-      tickfont: { size: 10 },
-      dtick: 1,
+      title: { text: 'Count' },
+      gridcolor: DEFAULT_GRID_COLOR,
     },
-    height: chartHeight,
-    margin: { l: 250, r: 100, t: 60, b: 60 },
+    barmode: 'stack',
+    height: 500,
+    margin: { l: 60, r: 100, t: 60, b: 60 },
     hovermode: 'closest',
     ...DEFAULT_LAYOUT_STYLES,
-    showlegend: false,
+    showlegend: true,
+    legend: {
+      orientation: 'v',
+      x: 1.02,
+      y: 1,
+      bgcolor: 'rgba(255,255,255,0.9)',
+      bordercolor: '#ddd',
+      borderwidth: 1,
+    },
   };
 
   const config = createPlotlyConfig();
@@ -212,7 +219,19 @@ export default function ClusterHeatmap({
   return (
     <div style={{ width: '100%' }}>
       {/* Controls */}
-      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+        <Space>
+          <Text>BMD Metric:</Text>
+          <Select
+            value={bmdMetric}
+            onChange={setBmdMetric}
+            style={{ width: 100 }}
+            options={[
+              { value: 'median', label: 'Median' },
+              { value: 'mean', label: 'Mean' },
+            ]}
+          />
+        </Space>
         <Space>
           <Text>Linkage Method:</Text>
           <Select
@@ -229,7 +248,7 @@ export default function ClusterHeatmap({
         </Space>
       </div>
 
-      {/* Cluster Legend */}
+      {/* Interactive Cluster Legend */}
       <div style={{
         marginBottom: '1rem',
         padding: '0.75rem',
@@ -237,22 +256,44 @@ export default function ClusterHeatmap({
         borderRadius: '4px',
         border: '1px solid #d9d9d9'
       }}>
-        <Text strong style={{ marginRight: '12px' }}>Clusters:</Text>
+        <Text strong style={{ marginRight: '12px' }}>Clusters (click to toggle):</Text>
         <Space wrap>
-          {clusterLegend.map(({ id, color, count }) => (
-            <div key={id} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <div style={{
-                width: 12,
-                height: 12,
-                backgroundColor: color,
-                borderRadius: 2,
-                border: '1px solid rgba(0,0,0,0.1)',
-              }} />
-              <Text style={{ fontSize: '12px' }}>
-                Cluster {id} ({count})
-              </Text>
-            </div>
-          ))}
+          {clusterLegend.map(({ id, color, count }) => {
+            const isHidden = hiddenClusters.has(id);
+
+            return (
+              <div
+                key={id}
+                onClick={() => toggleCluster(id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  cursor: 'pointer',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  background: isHidden ? 'transparent' : 'white',
+                  border: isHidden ? '1px dashed #ccc' : '1px solid #d9d9d9',
+                  opacity: isHidden ? 0.5 : 1,
+                  transition: 'all 0.2s',
+                }}
+              >
+                <div style={{
+                  width: 12,
+                  height: 12,
+                  backgroundColor: isHidden ? 'transparent' : color,
+                  border: `2px solid ${color}`,
+                  borderRadius: 2,
+                }} />
+                <Text style={{
+                  fontSize: '12px',
+                  textDecoration: isHidden ? 'line-through' : 'none',
+                }}>
+                  Cluster {id} ({count})
+                </Text>
+              </div>
+            );
+          })}
         </Space>
       </div>
 
@@ -264,12 +305,6 @@ export default function ClusterHeatmap({
         style={{ width: '100%' }}
         useResizeHandler={true}
       />
-
-      {visibleCount < categoryCount && (
-        <div style={{ textAlign: 'center', color: '#666', fontSize: '12px', marginTop: '8px' }}>
-          Showing {visibleCount} of {categoryCount} categories
-        </div>
-      )}
     </div>
   );
 }
