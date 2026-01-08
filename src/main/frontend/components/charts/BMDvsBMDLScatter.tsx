@@ -10,29 +10,31 @@
  * - Overall distribution patterns of dose-response estimates
  *
  * CATEGORY-LEVEL: Each point = one category's median/mean values
+ * Uses inFocus-based display mode styling (highlight/dim/isolate)
  */
 
 import React, { useMemo, useState } from 'react';
 import { Checkbox, Radio, Space } from 'antd';
-import { useSelector } from 'react-redux';
 import Plot from 'react-plotly.js';
-import { selectFilteredData } from '../../store/slices/categoryResultsSlice';
 import { useReactiveState } from './hooks/useReactiveState';
-import { useClusterLegendInteraction, getClusterMarkerStyle } from './hooks/useClusterLegendInteraction';
+import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 type MetricType = 'median' | 'mean';
 
 export default function BMDvsBMDLScatter() {
-  const data = useSelector(selectFilteredData);
+  // Get ALL data with inFocus state using shared hook
+  const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
   const clusterColors = useClusterColors();
   const categoryState = useReactiveState('categoryId');
   const [useLogX, setUseLogX] = useState(true);
   const [useLogY, setUseLogY] = useState(true);
   const [metricType, setMetricType] = useState<MetricType>('median');
 
-  // Extract scatter plot data grouped by cluster
+  const hasSelection = categoryState.selectedIds.size > 0;
+
+  // Extract scatter plot data grouped by cluster, including inFocus state
   const scatterData = useMemo(() => {
     if (!data || data.length === 0) return null;
 
@@ -42,6 +44,7 @@ export default function BMDvsBMDLScatter() {
       y: number;
       categoryId: string;
       categoryName: string;
+      inFocus: boolean;
     }>>();
 
     data.forEach(row => {
@@ -72,7 +75,8 @@ export default function BMDvsBMDLScatter() {
           x: xValue,
           y: yValue,
           categoryId: row.categoryId || '',
-          categoryName: row.categoryDescription || row.categoryId || 'Unknown'
+          categoryName: row.categoryDescription || row.categoryId || 'Unknown',
+          inFocus: row.inFocus
         });
       }
     });
@@ -89,7 +93,7 @@ export default function BMDvsBMDLScatter() {
   }
 
   // Calculate axis ranges for log scale
-  const getAllValues = (byCluster: Map<number, Array<{x: number, y: number, categoryId: string, categoryName: string}>>, axis: 'x' | 'y'): number[] => {
+  const getAllValues = (byCluster: Map<number, Array<{x: number, y: number, categoryId: string, categoryName: string, inFocus: boolean}>>, axis: 'x' | 'y'): number[] => {
     const values: number[] = [];
     byCluster.forEach(points => {
       points.forEach(point => values.push(point[axis]));
@@ -122,8 +126,8 @@ export default function BMDvsBMDLScatter() {
 
   const metricLabel = metricType === 'median' ? 'Median' : 'Mean';
 
-  // Create base traces first (will be updated with reactive styling later)
-  const baseTraces = useMemo(() => {
+  // Create traces with inFocus-based per-point styling
+  const traces = useMemo(() => {
     const result: any[] = [];
 
     // Sort clusters (outliers last)
@@ -135,15 +139,58 @@ export default function BMDvsBMDLScatter() {
 
     sortedClusters.forEach(clusterId => {
       const points = scatterData.get(clusterId)!;
+      const baseColor = clusterColors[clusterId] || '#999999';
+
+      // Filter points based on displayMode (isolate mode hides out-of-focus)
+      const visiblePoints = points.filter(p => !shouldHidePoint(p.inFocus));
+
+      if (visiblePoints.length === 0) {
+        return; // Skip empty cluster traces
+      }
+
+      // Per-point styling arrays based on inFocus state
+      const markerColors: string[] = [];
+      const markerSizes: number[] = [];
+      const markerOpacities: number[] = [];
+      const markerLineWidths: number[] = [];
+      const markerLineColors: string[] = [];
+
+      visiblePoints.forEach(point => {
+        const isSelected = categoryState.selectedIds.has(point.categoryId);
+        const style = getPointStyle(point.inFocus, baseColor);
+
+        // If selected, enhance with selection highlighting
+        if (isSelected && hasSelection) {
+          markerColors.push(style.color);
+          markerSizes.push(12);
+          markerOpacities.push(1.0);
+          markerLineWidths.push(2);
+          markerLineColors.push('white');
+        } else {
+          markerColors.push(style.color);
+          markerSizes.push(style.size);
+          markerOpacities.push(style.opacity);
+          markerLineWidths.push(style.lineWidth);
+          markerLineColors.push(style.lineColor);
+        }
+      });
 
       result.push({
-        x: points.map(p => p.x),
-        y: points.map(p => p.y),
+        x: visiblePoints.map(p => p.x),
+        y: visiblePoints.map(p => p.y),
         type: 'scatter',
         mode: 'markers',
         name: getClusterLabel(clusterId),
-        marker: {}, // Will be filled in later
-        text: points.map(p => p.categoryName),
+        marker: {
+          color: markerColors,
+          size: markerSizes,
+          opacity: markerOpacities,
+          line: {
+            color: markerLineColors,
+            width: markerLineWidths
+          }
+        },
+        text: visiblePoints.map(p => p.categoryName),
         hovertemplate:
           '<b>%{text}</b><br>' +
           `${getClusterLabel(clusterId)}<br>` +
@@ -156,57 +203,7 @@ export default function BMDvsBMDLScatter() {
     });
 
     return result;
-  }, [scatterData, metricLabel]);
-
-  // Set up cluster legend interaction
-  const { handleLegendClick, nonSelectedDisplayMode, hasSelection } = useClusterLegendInteraction({
-    traces: baseTraces,
-    categoryState,
-    allData: data,
-    getClusterIdFromCategory: (row) => getClusterIdForCategory(row.categoryId),
-    getCategoryId: (row) => row.categoryId,
-    sourceName: 'BMDvsBMDLScatter',
-  });
-
-  // Apply reactive styling to traces
-  const traces = useMemo(() => {
-    const sortedClusters = Array.from(scatterData.keys()).sort((a, b) => {
-      if (a === -1) return 1;
-      if (b === -1) return -1;
-      return a - b;
-    });
-
-    return baseTraces.map((trace, index) => {
-      const clusterId = sortedClusters[index];
-      const points = scatterData.get(clusterId)!;
-      const baseColor = clusterColors[clusterId] || '#999999';
-
-      // Check if ANY category from this cluster is selected
-      const isClusterSelected = hasSelection && points.some(p => categoryState.isSelected(p.categoryId));
-
-      // Get reactive marker styling based on selection state
-      const markerStyle = getClusterMarkerStyle(
-        clusterId,
-        baseColor,
-        isClusterSelected,
-        hasSelection,
-        nonSelectedDisplayMode
-      );
-
-      return {
-        ...trace,
-        marker: {
-          size: 8,
-          color: markerStyle.color,
-          line: {
-            color: markerStyle.lineColor,
-            width: markerStyle.lineWidth || 1
-          },
-          opacity: markerStyle.opacity
-        }
-      };
-    });
-  }, [baseTraces, scatterData, clusterColors, hasSelection, categoryState.selectedIds, nonSelectedDisplayMode]);
+  }, [scatterData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, shouldHidePoint, metricLabel]);
 
   return (
     <div style={{ width: '100%' }}>
@@ -265,7 +262,6 @@ export default function BMDvsBMDLScatter() {
         config={createPlotlyConfig() as any}
         style={{ width: '100%', height: '100%' }}
         useResizeHandler={true}
-        onLegendClick={handleLegendClick}
       />
 
       <div style={{ marginTop: '1rem', fontSize: '0.9em', color: '#666' }}>
@@ -278,7 +274,7 @@ export default function BMDvsBMDLScatter() {
           <li>Points farther from the diagonal indicate wider confidence intervals (more uncertain estimates)</li>
           <li>Log scales are typically used since BMD values often span multiple orders of magnitude</li>
           <li>Colors indicate cluster assignments from UMAP semantic space analysis</li>
-          <li>Click legend items to show/hide specific clusters</li>
+          <li>In-focus categories (passing Primary Filter) appear at full size; out-of-focus are dimmed/hidden based on display mode</li>
         </ul>
       </div>
     </div>

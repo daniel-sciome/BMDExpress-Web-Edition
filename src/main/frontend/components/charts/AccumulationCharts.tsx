@@ -1,16 +1,14 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import Plot from 'react-plotly.js';
 import { Row, Col } from 'antd';
-import { useAppSelector } from '../../store/hooks';
-import { selectFilteredData } from '../../store/slices/categoryResultsSlice';
 import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveState';
-import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
+import { useFocusAwareStyling } from 'Frontend/components/charts/hooks/useFocusAwareStyling';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 export default function AccumulationCharts() {
-  // Get ALL filtered data (after Primary Filter)
-  const allData = useAppSelector(selectFilteredData);
+  // Get ALL data with inFocus state using shared hook
+  const { data: allData, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
 
   // Get selection state using reactive infrastructure
   const categoryState = useReactiveState('categoryId');
@@ -67,11 +65,12 @@ export default function AccumulationCharts() {
     ];
 
     const chartsData = chartConfigs.map(config => {
-      // Get all values for cumulative calculation
+      // Get all values for cumulative calculation, including inFocus state
       const allValues = allData
-        .map((row: CategoryAnalysisResultDto) => ({
+        .map((row) => ({
           value: (row as any)[config.field],
-          categoryId: row.categoryId
+          categoryId: row.categoryId,
+          inFocus: row.inFocus
         }))
         .filter(item => item.value != null && item.value > 0)
         .sort((a, b) => a.value - b.value);
@@ -86,8 +85,8 @@ export default function AccumulationCharts() {
       const xMax = Math.max(...allX);
       const xAxisRange: [number, number] = [Math.log10(xMin), Math.log10(xMax)];
 
-      // Group ALL categories by cluster
-      const byCluster = new Map<string | number, Array<{x: number, y: number, categoryId: string}>>();
+      // Group ALL categories by cluster with inFocus state
+      const byCluster = new Map<string | number, Array<{x: number, y: number, categoryId: string, inFocus: boolean}>>();
 
       allValues.forEach((item, index) => {
         const clusterId = getClusterIdForCategory(item.categoryId);
@@ -99,11 +98,12 @@ export default function AccumulationCharts() {
         byCluster.get(clusterId)!.push({
           x: item.value,
           y: cumulativePercent,
-          categoryId: item.categoryId || ''
+          categoryId: item.categoryId || '',
+          inFocus: item.inFocus
         });
       });
 
-      // Create traces with reactive styling
+      // Create traces with inFocus-based styling (per-point)
       const traces: any[] = [];
       const sortedClusters = Array.from(byCluster.keys()).sort((a, b) => {
         if (a === -1) return 1;
@@ -115,41 +115,54 @@ export default function AccumulationCharts() {
         const points = byCluster.get(clusterId)!;
         const baseColor = clusterColors[clusterId] || '#999999';
 
-        // Determine marker styling based on selection state
-        let markerColor = baseColor;
-        let markerSize = 8;
-        let markerLineWidth = 1;
-        let markerLineColor = 'white';
-        let markerOpacity = 1.0;
+        // Filter points based on displayMode (isolate mode hides out-of-focus)
+        const visiblePoints = points.filter(p => !shouldHidePoint(p.inFocus));
 
-        // Check if ANY category from this cluster is selected
-        const isClusterSelected = hasSelection && points.some(p => categoryState.selectedIds.has(p.categoryId));
-
-        if (hasSelection) {
-          if (isClusterSelected) {
-            // This cluster is selected - make it stand out
-            markerSize = 10;
-            markerLineWidth = 2;
-          } else {
-            // This cluster is NOT selected - fade it out
-            markerOpacity = 0.2;
-          }
+        if (visiblePoints.length === 0) {
+          return; // Skip empty cluster traces
         }
+
+        // Per-point styling arrays based on inFocus state
+        const markerColors: string[] = [];
+        const markerSizes: number[] = [];
+        const markerOpacities: number[] = [];
+        const markerLineWidths: number[] = [];
+        const markerLineColors: string[] = [];
+
+        visiblePoints.forEach(point => {
+          const isSelected = categoryState.selectedIds.has(point.categoryId);
+          const style = getPointStyle(point.inFocus, baseColor);
+
+          // If selected, enhance with selection highlighting
+          if (isSelected && hasSelection) {
+            markerColors.push(style.color);
+            markerSizes.push(12);
+            markerOpacities.push(1.0);
+            markerLineWidths.push(2);
+            markerLineColors.push('white');
+          } else {
+            markerColors.push(style.color);
+            markerSizes.push(style.size);
+            markerOpacities.push(style.opacity);
+            markerLineWidths.push(style.lineWidth);
+            markerLineColors.push(style.lineColor);
+          }
+        });
 
         traces.push({
           type: 'scatter',
           mode: 'markers',
-          x: points.map(p => p.x),
-          y: points.map(p => p.y),
-          customdata: points.map(p => p.categoryId),
+          x: visiblePoints.map(p => p.x),
+          y: visiblePoints.map(p => p.y),
+          customdata: visiblePoints.map(p => p.categoryId),
           marker: {
-            color: markerColor,
-            size: markerSize,
+            color: markerColors,
+            size: markerSizes,
             symbol: 'circle',
-            opacity: markerOpacity,
+            opacity: markerOpacities,
             line: {
-              color: markerLineColor,
-              width: markerLineWidth
+              color: markerLineColors,
+              width: markerLineWidths
             }
           },
           name: getClusterLabel(clusterId),
@@ -186,7 +199,7 @@ export default function AccumulationCharts() {
     }).filter(chart => chart !== null);
 
     setCharts(chartsData as any[]);
-  }, [allData, clusterColors, categoryState.selectedIds]);
+  }, [allData, clusterColors, categoryState.selectedIds, displayMode, getPointStyle, shouldHidePoint]);
 
   if (!allData || allData.length === 0) {
     return (

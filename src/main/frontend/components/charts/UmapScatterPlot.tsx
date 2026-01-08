@@ -1,15 +1,15 @@
 // UmapScatterPlot.tsx
 // UMAP scatter plot showing GO term semantic embeddings with interactive selection
 // Reacts to individual category selections (table, ClusterPicker, lasso select) - NO legend interaction
-// Three-level styling: selected (full + white border), same cluster (outline only), other clusters (faded)
+// Respects global displayMode from visibilitySlice for consistent styling across table and charts
+// Two-layer styling: inFocus-based (primary filter) + selection highlighting (additive)
 
 import React, { useMemo, useCallback, useState } from 'react';
 import Plot from 'react-plotly.js';
 import { Card, Button, Space, Tag, Tooltip } from 'antd';
 import { ClearOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import { useAppSelector } from 'Frontend/store/hooks';
-import { selectFilteredData } from 'Frontend/store/slices/categoryResultsSlice';
 import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveState';
+import { useFocusAwareStyling } from 'Frontend/components/charts/hooks/useFocusAwareStyling';
 import { umapDataService } from 'Frontend/data/umapDataService';
 import { useClusterColors } from './utils/clusterColors';
 import { createPlotlyConfig } from './utils/plotlyConfig';
@@ -23,11 +23,11 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
   // Use reactive state hook - UMAP reacts to category selections
   const categoryState = useReactiveState('categoryId');
 
+  // Get ALL data with inFocus state and displayMode from shared hook
+  const { data: allCategories, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
+
   // Reference space visibility toggle
   const [showReference, setShowReference] = useState<boolean>(true);
-
-  // Get FILTERED analysis results (after Primary Filter is applied)
-  const filteredCategories = useAppSelector(selectFilteredData);
 
   // Debug logging
   React.useEffect(() => {
@@ -38,26 +38,42 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
     });
   }, [categoryState.selectedIds, categoryState.source]);
 
-  // Create a set of GO IDs that pass the Primary Filter
-  const filteredGoIds = useMemo(() => {
-    return new Set(filteredCategories.map(cat => cat.categoryId).filter(Boolean) as string[]);
-  }, [filteredCategories]);
+  // Create maps for GO ID to inFocus state
+  const goIdToFocus = useMemo(() => {
+    const map = new Map<string, boolean>();
+    allCategories.forEach(cat => {
+      if (cat.categoryId) {
+        map.set(cat.categoryId, cat.inFocus);
+      }
+    });
+    return map;
+  }, [allCategories]);
+
+  // Get all GO IDs that exist in the analysis (regardless of filter)
+  const analysisGoIds = useMemo(() => {
+    return new Set(allCategories.map(cat => cat.categoryId).filter(Boolean) as string[]);
+  }, [allCategories]);
+
+  // Count in-focus categories
+  const inFocusCount = useMemo(() => {
+    return allCategories.filter(cat => cat.inFocus).length;
+  }, [allCategories]);
 
   // Get all UMAP reference data
   const allUmapData = useMemo(() => umapDataService.getAllData(), []);
 
-  // Filter to only categories that pass the Primary Filter
-  const filteredPoints = useMemo(() => {
-    return allUmapData.filter(item => filteredGoIds.has(item.go_id));
-  }, [allUmapData, filteredGoIds]);
+  // Get UMAP points that are in our analysis (regardless of filter)
+  const analysisPoints = useMemo(() => {
+    return allUmapData.filter(item => analysisGoIds.has(item.go_id));
+  }, [allUmapData, analysisGoIds]);
 
   // Get cluster colors using shared utility
   const clusterColors = useClusterColors();
 
-  // Group filtered points by cluster
+  // Group analysis points by cluster (includes all categories, not just in-focus)
   const clusterData = useMemo(() => {
     const byCluster = new Map<string | number, ReferenceUmapItem[]>();
-    filteredPoints.forEach(point => {
+    analysisPoints.forEach(point => {
       const clusterId = point.cluster_id;
       if (!byCluster.has(clusterId)) {
         byCluster.set(clusterId, []);
@@ -65,15 +81,11 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
       byCluster.get(clusterId)!.push(point);
     });
     return byCluster;
-  }, [filteredPoints]);
+  }, [analysisPoints]);
 
-  // Create traces with reactive styling
+  // Create traces with inFocus-based styling + selection highlighting
   const traces = useMemo(() => {
-    console.log('[UmapScatterPlot] Recomputing traces. Selection:', {
-      selectedCount: categoryState.selectedIds.size,
-      selectedIds: Array.from(categoryState.selectedIds).slice(0, 5),
-      source: categoryState.source,
-    });
+    console.log('[UmapScatterPlot] Recomputing traces. inFocus:', inFocusCount, 'selected:', categoryState.selectedIds.size);
     const result: any[] = [];
 
     const hasSelection = categoryState.selectedIds.size > 0;
@@ -97,7 +109,7 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
       });
     }
 
-    // Layer 2: Cluster traces with reactive styling
+    // Layer 2: Cluster traces with inFocus-based styling
     const sortedClusters = Array.from(clusterData.keys()).sort((a, b) => {
       if (a === -1) return 1;
       if (b === -1) return -1;
@@ -108,89 +120,76 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
       const points = clusterData.get(clusterId)!;
       const baseColor = clusterColors[clusterId] || '#999999';
 
-      // Check if this cluster has any selected categories
-      const clusterHasSelection = hasSelection && points.some(p => categoryState.selectedIds.has(p.go_id));
-
-      // Individual point-level styling with three-level hierarchy:
-      // 1. Selected points: full color with white border
-      // 2. Non-selected points in same cluster as selected: outline only
-      // 3. Points in clusters with no selections: faded out
+      // Individual point-level styling based on inFocus state
       const markerColors: string[] = [];
       const markerSizes: number[] = [];
       const markerOpacities: number[] = [];
       const markerLineWidths: number[] = [];
       const markerLineColors: string[] = [];
 
-      // Convert hex color to RGB for transparent fill
-      const hexToRgb = (hex: string): [number, number, number] => {
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        return [r, g, b];
-      };
-
-      const [r, g, b] = hexToRgb(baseColor);
+      // Track which points to include (for isolate mode)
+      const includedPoints: ReferenceUmapItem[] = [];
 
       points.forEach(point => {
-        const isPointSelected = categoryState.selectedIds.has(point.go_id);
+        const inFocus = goIdToFocus.get(point.go_id) ?? false;
+        const isSelected = categoryState.selectedIds.has(point.go_id);
 
-        if (hasSelection) {
-          if (isPointSelected) {
-            // Level 1: This specific point is selected - full highlight
-            markerColors.push(baseColor);
-            markerSizes.push(10);
-            markerOpacities.push(1.0);
-            markerLineWidths.push(2);
-            markerLineColors.push('white');
-          } else if (clusterHasSelection) {
-            // Level 2: Same cluster as selected point - outline only (transparent fill, colored border)
-            markerColors.push(`rgba(${r}, ${g}, ${b}, 0)`); // Transparent fill
-            markerSizes.push(8);
-            markerOpacities.push(1.0);
-            markerLineWidths.push(1);
-            markerLineColors.push(baseColor); // Colored border
-          } else {
-            // Level 3: Different cluster - fade it out
-            markerColors.push(baseColor);
-            markerSizes.push(8);
-            markerOpacities.push(0.2);
-            markerLineWidths.push(0);
-            markerLineColors.push('white');
-          }
-        } else {
-          // No selection - normal styling
-          markerColors.push(baseColor);
-          markerSizes.push(8);
+        // In isolate mode, skip out-of-focus points entirely
+        if (shouldHidePoint(inFocus)) {
+          return;
+        }
+
+        includedPoints.push(point);
+
+        // Get base style from inFocus state
+        const style = getPointStyle(inFocus, baseColor);
+
+        // If selected, enhance with selection highlighting (additive)
+        if (isSelected && hasSelection) {
+          markerColors.push(style.color);
+          markerSizes.push(12); // Larger for selected
           markerOpacities.push(1.0);
-          markerLineWidths.push(0);
-          markerLineColors.push('white');
+          markerLineWidths.push(2);
+          markerLineColors.push('white'); // White border for selected
+        } else {
+          markerColors.push(style.color);
+          markerSizes.push(style.size);
+          markerOpacities.push(style.opacity);
+          markerLineWidths.push(style.lineWidth);
+          markerLineColors.push(style.lineColor);
         }
       });
 
-      result.push({
-        x: points.map(p => p.UMAP_1),
-        y: points.map(p => p.UMAP_2),
-        text: points.map(p => `${p.go_id}: ${p.go_term}<br>Cluster: ${clusterId}<br><b>FILTERED</b>`),
-        customdata: points.map(p => p.go_id),
-        mode: 'markers',
-        type: 'scatter',
-        name: `Cluster ${clusterId}`,
-        marker: {
-          color: markerColors,
-          size: markerSizes,
-          opacity: markerOpacities,
-          line: {
-            color: markerLineColors,
-            width: markerLineWidths,
+      // Only add trace if there are points to show
+      if (includedPoints.length > 0) {
+        result.push({
+          x: includedPoints.map(p => p.UMAP_1),
+          y: includedPoints.map(p => p.UMAP_2),
+          text: includedPoints.map(p => {
+            const inFocus = goIdToFocus.get(p.go_id) ?? false;
+            return `${p.go_id}: ${p.go_term}<br>Cluster: ${clusterId}<br>${inFocus ? '<b>IN FOCUS</b>' : 'out of focus'}`;
+          }),
+          customdata: includedPoints.map(p => p.go_id),
+          mode: 'markers',
+          type: 'scatter',
+          name: `Cluster ${clusterId}`,
+          marker: {
+            color: markerColors,
+            size: markerSizes,
+            opacity: markerOpacities,
+            line: {
+              color: markerLineColors,
+              width: markerLineWidths,
+            },
           },
-        },
-        hoverinfo: 'text',
-        showlegend: false,
-      });
+          hoverinfo: 'text',
+          showlegend: false,
+        });
+      }
     });
 
     return result;
-  }, [allUmapData, clusterData, clusterColors, categoryState.selectedIds, showReference]);
+  }, [allUmapData, clusterData, clusterColors, goIdToFocus, categoryState.selectedIds, showReference, displayMode, getPointStyle, shouldHidePoint, inFocusCount]);
 
   // Handle Plotly selection events
   const handleSelected = useCallback((event: any) => {
@@ -258,8 +257,8 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
       }
       extra={
         <Space>
-          <Tag color="blue">{filteredPoints.length} filtered</Tag>
-          <Tag color="default">{allUmapData.length} reference</Tag>
+          <Tag color="blue">{inFocusCount} in focus</Tag>
+          <Tag color="default">{analysisPoints.length} total</Tag>
           {categoryState.isAnythingSelected && (
             <>
               <Tag color="orange">{categoryState.selectedIds.size} selected</Tag>
@@ -296,9 +295,9 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
           <strong>How to use:</strong> Select individual categories by clicking table rows, using the lasso/box select tool on this plot, or use the <strong>Cluster Picker</strong> in the sidebar to select entire clusters.
         </p>
         <p style={{ marginTop: '8px' }}>
-          <strong>Visualization:</strong> Selected categories appear with <strong>larger markers and white borders</strong>.
-          Other categories in the same cluster show as <strong>outline markers</strong> (hollow with colored border).
-          Categories in unselected clusters are <strong>faded</strong>.
+          <strong>Visualization:</strong> In-focus categories (passing Primary Filter) appear with <strong>full-size markers</strong>.
+          Out-of-focus categories are <strong>dimmed or hidden</strong> based on the display mode setting.
+          Selected categories have <strong>larger markers with white borders</strong>.
           Small black points form the backdrop (entire UMAP reference space).
         </p>
       </div>
