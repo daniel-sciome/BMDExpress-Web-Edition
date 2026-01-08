@@ -7,7 +7,8 @@ import type { ReactiveSelectionMap, SelectionSource } from 'Frontend/types/react
 import { initializeCategories, upsertCategorySet } from './renderStateSlice';
 import { createClusterSets, createPrimaryFilterSet } from '../utils/initializeRenderState';
 import { highlightCategories, selectHighlightedIds } from './visibilitySlice';
-import { applyFilterGroups } from '../../utils/filterEvaluation';
+import { applyFilterGroups, evaluateFilterGroups } from '../../utils/filterEvaluation';
+import type { CategoryWithFocus } from '../../types/categoryTypes';
 import { selectEnabledFilterGroups } from './filterSlice';
 import { umapDataService } from '../../data/umapDataService';
 
@@ -135,7 +136,7 @@ const initialState: CategoryResultsState = {
     },
   },
   highlightedRow: null,
-  sortColumn: null,
+  sortColumn: 'clusterId',  // Default sort by cluster ID
   sortDirection: 'asc',
   currentPage: 0,
   pageSize: 50,
@@ -544,78 +545,246 @@ const selectCurrentPage = (state: RootState) => state.categoryResults.currentPag
 const selectPageSize = (state: RootState) => state.categoryResults.pageSize;
 
 // Memoized selectors
+
 /**
- * selectFilteredData (alias: selectWorkingSet)
- *
- * This is the "Hard Filter" in the two-layer filtering architecture:
- * 1. Hard Filter (this selector) → defines the Working Set (what data is available)
- * 2. Visibility (visibilitySlice) → per-category visual state (how data is displayed)
- *
- * Categories excluded by the hard filter are completely removed from the data pipeline.
- * Categories in the working set can have different visibility states (highlighted, normal, dimmed, hidden).
+ * Helper function to check if a single row passes all filter criteria.
+ * Used by selectDataWithFocus to mark each row with inFocus status.
  */
-export const selectFilteredData = createSelector(
-  [selectData, selectFilters, (state: RootState) => state.categoryResults.analysisType, selectEnabledFilterGroups],
-  (data, filters, analysisType, filterGroups) => {
-    console.log('[categoryResultsSlice] selectFilteredData running:');
-    console.log('[categoryResultsSlice] Filter groups count:', filterGroups.length);
-    console.log('[categoryResultsSlice] Filter groups:', filterGroups.map(g => ({ id: g.id, name: g.name, enabled: g.enabled, filterCount: g.filters.length, enabledFilters: g.filters.filter(f => f.enabled).length })));
-    // Apply master filters
-    let filtered = data.filter(row => {
-      if (filters.bmdMin !== undefined && row.bmdMean !== undefined && row.bmdMean < filters.bmdMin) return false;
-      if (filters.bmdMax !== undefined && row.bmdMean !== undefined && row.bmdMean > filters.bmdMax) return false;
-      if (filters.pValueMax !== undefined && row.fishersExactTwoTailPValue !== undefined && row.fishersExactTwoTailPValue > filters.pValueMax) return false;
-      if (filters.minGenesInCategory !== undefined && row.genesThatPassedAllFilters !== undefined && row.genesThatPassedAllFilters < filters.minGenesInCategory) return false;
-      if (filters.fisherPValueMax !== undefined && row.fishersExactTwoTailPValue !== undefined && row.fishersExactTwoTailPValue > filters.fisherPValueMax) return false;
+function rowPassesFilters(
+  row: CategoryAnalysisResultWithCluster,
+  filters: Filters,
+  analysisType: string | null,
+  filterGroups: ReturnType<typeof selectEnabledFilterGroups>
+): boolean {
+  // Master filters
+  if (filters.bmdMin !== undefined && row.bmdMean !== undefined && row.bmdMean < filters.bmdMin) return false;
+  if (filters.bmdMax !== undefined && row.bmdMean !== undefined && row.bmdMean > filters.bmdMax) return false;
+  if (filters.pValueMax !== undefined && row.fishersExactTwoTailPValue !== undefined && row.fishersExactTwoTailPValue > filters.pValueMax) return false;
+  if (filters.minGenesInCategory !== undefined && row.genesThatPassedAllFilters !== undefined && row.genesThatPassedAllFilters < filters.minGenesInCategory) return false;
+  if (filters.fisherPValueMax !== undefined && row.fishersExactTwoTailPValue !== undefined && row.fishersExactTwoTailPValue > filters.fisherPValueMax) return false;
 
-      // Primary Filter fields (Phase 1) - skip for GENE analyses
-      if (analysisType !== 'GENE') {
-        if (filters.percentageMin !== undefined && row.percentage !== undefined && row.percentage < filters.percentageMin) return false;
-        if (filters.genesPassedFiltersMin !== undefined && row.genesThatPassedAllFilters !== undefined && row.genesThatPassedAllFilters < filters.genesPassedFiltersMin) return false;
-        if (filters.allGenesMin !== undefined && row.geneAllCount !== undefined && row.geneAllCount < filters.allGenesMin) return false;
-        if (filters.allGenesMax !== undefined && row.geneAllCount !== undefined && row.geneAllCount > filters.allGenesMax) return false;
-      }
+  // Primary Filter fields (Phase 1) - skip for GENE analyses
+  if (analysisType !== 'GENE') {
+    if (filters.percentageMin !== undefined && row.percentage !== undefined && row.percentage < filters.percentageMin) return false;
+    if (filters.genesPassedFiltersMin !== undefined && row.genesThatPassedAllFilters !== undefined && row.genesThatPassedAllFilters < filters.genesPassedFiltersMin) return false;
+    if (filters.allGenesMin !== undefined && row.geneAllCount !== undefined && row.geneAllCount < filters.allGenesMin) return false;
+    if (filters.allGenesMax !== undefined && row.geneAllCount !== undefined && row.geneAllCount > filters.allGenesMax) return false;
+  }
 
-      // Cluster filter: exclude unclassified categories if enabled
-      if (filters.excludeUnclassified && row.clusterId === CLUSTER_UNCLASSIFIED) return false;
+  // Cluster filter: exclude unclassified categories if enabled
+  if (filters.excludeUnclassified && row.clusterId === CLUSTER_UNCLASSIFIED) return false;
 
-      return true;
-    });
+  // Filter groups (custom filters) with AND logic
+  if (filterGroups.length > 0) {
+    if (!evaluateFilterGroups(filterGroups, row)) return false;
+  }
 
-    // Apply filter groups (custom master filters) with AND logic
-    if (filterGroups.length > 0) {
-      filtered = applyFilterGroups(filtered, filterGroups);
+  return true;
+}
+
+/**
+ * Debug helper: Count how many rows fail each filter criterion.
+ * Call this once per selector invocation to understand filter impact.
+ */
+function debugFilterImpact(
+  data: CategoryAnalysisResultWithCluster[],
+  filters: Filters,
+  analysisType: string | null
+): void {
+  const counts = {
+    total: data.length,
+    failBmdMin: 0,
+    failBmdMax: 0,
+    failPValueMax: 0,
+    failMinGenesInCategory: 0,
+    failFisherPValueMax: 0,
+    failPercentageMin: 0,
+    failGenesPassedFiltersMin: 0,
+    failAllGenesMin: 0,
+    failAllGenesMax: 0,
+    failExcludeUnclassified: 0,
+  };
+
+  data.forEach(row => {
+    if (filters.bmdMin !== undefined && row.bmdMean !== undefined && row.bmdMean < filters.bmdMin) counts.failBmdMin++;
+    if (filters.bmdMax !== undefined && row.bmdMean !== undefined && row.bmdMean > filters.bmdMax) counts.failBmdMax++;
+    if (filters.pValueMax !== undefined && row.fishersExactTwoTailPValue !== undefined && row.fishersExactTwoTailPValue > filters.pValueMax) counts.failPValueMax++;
+    if (filters.minGenesInCategory !== undefined && row.genesThatPassedAllFilters !== undefined && row.genesThatPassedAllFilters < filters.minGenesInCategory) counts.failMinGenesInCategory++;
+    if (filters.fisherPValueMax !== undefined && row.fishersExactTwoTailPValue !== undefined && row.fishersExactTwoTailPValue > filters.fisherPValueMax) counts.failFisherPValueMax++;
+
+    if (analysisType !== 'GENE') {
+      if (filters.percentageMin !== undefined && row.percentage !== undefined && row.percentage < filters.percentageMin) counts.failPercentageMin++;
+      if (filters.genesPassedFiltersMin !== undefined && row.genesThatPassedAllFilters !== undefined && row.genesThatPassedAllFilters < filters.genesPassedFiltersMin) counts.failGenesPassedFiltersMin++;
+      if (filters.allGenesMin !== undefined && row.geneAllCount !== undefined && row.geneAllCount < filters.allGenesMin) counts.failAllGenesMin++;
+      if (filters.allGenesMax !== undefined && row.geneAllCount !== undefined && row.geneAllCount > filters.allGenesMax) counts.failAllGenesMax++;
     }
 
-    return filtered;
+    if (filters.excludeUnclassified && row.clusterId === CLUSTER_UNCLASSIFIED) counts.failExcludeUnclassified++;
+  });
+
+  // Only log non-zero failures
+  const activeFailures = Object.entries(counts)
+    .filter(([key, val]) => key !== 'total' && val > 0)
+    .reduce((acc, [key, val]) => ({ ...acc, [key]: val }), {});
+
+  console.log('[categoryResultsSlice] Filter impact analysis:', {
+    total: counts.total,
+    failures: activeFailures,
+  });
+}
+
+/**
+ * selectDataWithFocus
+ *
+ * Returns ALL data with an `inFocus` boolean indicating whether each category
+ * passes the user's filter criteria. Categories that don't pass filters are
+ * NOT removed - they're marked as `inFocus: false`.
+ *
+ * This enables display mode to control visibility of out-of-focus categories:
+ * - Highlight mode: shows out-of-focus at full opacity (context)
+ * - Dim mode: shows out-of-focus at reduced opacity
+ * - Focus mode: hides out-of-focus completely
+ */
+export const selectDataWithFocus = createSelector(
+  [selectData, selectFilters, (state: RootState) => state.categoryResults.analysisType, selectEnabledFilterGroups],
+  (data, filters, analysisType, filterGroups): (CategoryAnalysisResultWithCluster & CategoryWithFocus)[] => {
+    console.log('[categoryResultsSlice] selectDataWithFocus running with:', {
+      dataCount: data.length,
+      filters,
+      analysisType,
+      filterGroupsCount: filterGroups.length,
+    });
+
+    // Debug: analyze filter impact before computing inFocus
+    if (data.length > 0) {
+      debugFilterImpact(data, filters, analysisType);
+    }
+
+    const result = data.map(row => ({
+      ...row,
+      inFocus: rowPassesFilters(row, filters, analysisType, filterGroups),
+    }));
+
+    const inFocusCount = result.filter(r => r.inFocus).length;
+    console.log('[categoryResultsSlice] selectDataWithFocus result:', {
+      total: result.length,
+      inFocus: inFocusCount,
+      outOfFocus: result.length - inFocusCount,
+    });
+
+    // Debug: log first few rows to see their filter values
+    if (result.length > 0) {
+      console.log('[categoryResultsSlice] Sample rows:', result.slice(0, 3).map(r => ({
+        categoryId: r.categoryId,
+        inFocus: r.inFocus,
+        percentage: r.percentage,
+        genesThatPassedAllFilters: r.genesThatPassedAllFilters,
+        geneAllCount: r.geneAllCount,
+        clusterId: r.clusterId,
+      })));
+    }
+
+    return result;
   }
 );
 
+/**
+ * selectFilteredData (alias: selectWorkingSet)
+ *
+ * Returns only categories that are "in focus" (pass filter criteria).
+ * This is for backward compatibility with components that expect filtered data.
+ *
+ * For components that need ALL data with focus status, use selectDataWithFocus instead.
+ */
+export const selectFilteredData = createSelector(
+  [selectDataWithFocus],
+  (dataWithFocus) => {
+    console.log('[categoryResultsSlice] selectFilteredData running (derived from selectDataWithFocus)');
+    return dataWithFocus.filter(row => row.inFocus);
+  }
+);
+
+/**
+ * Helper function to sort data by column and direction.
+ * Used by both selectSortedData and selectSortedDataWithFocus.
+ *
+ * Special handling for clusterId:
+ * - Positive cluster IDs (0+) sorted first in ascending order
+ * - Cluster ID -1 (unclassified) at the end
+ * - Cluster ID -2 (not in reference) at the very end
+ */
+function sortData<T extends CategoryAnalysisResultDto>(
+  data: T[],
+  sortColumn: string | null,
+  sortDirection: 'asc' | 'desc'
+): T[] {
+  if (!sortColumn) return data;
+
+  return [...data].sort((a, b) => {
+    const aVal = (a as any)[sortColumn];
+    const bVal = (b as any)[sortColumn];
+
+    // Special handling for clusterId - always put -1 and -2 at the end
+    if (sortColumn === 'clusterId') {
+      const aCluster = aVal as number;
+      const bCluster = bVal as number;
+
+      // Both are special values (-1 or -2)
+      if (aCluster < 0 && bCluster < 0) {
+        // -1 before -2 (unclassified before not-in-reference)
+        return aCluster > bCluster ? -1 : aCluster < bCluster ? 1 : 0;
+      }
+
+      // One is special, one is normal
+      if (aCluster < 0) return 1;  // a goes to end
+      if (bCluster < 0) return -1; // b goes to end
+
+      // Both are normal cluster IDs (0+)
+      return sortDirection === 'asc' ? aCluster - bCluster : bCluster - aCluster;
+    }
+
+    // Standard sorting for other columns
+    if (aVal === undefined || aVal === null) return 1;
+    if (bVal === undefined || bVal === null) return -1;
+
+    if (typeof aVal === 'number' && typeof bVal === 'number') {
+      return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+    }
+
+    if (typeof aVal === 'string' && typeof bVal === 'string') {
+      const comparison = aVal.localeCompare(bVal);
+      return sortDirection === 'asc' ? comparison : -comparison;
+    }
+
+    if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+}
+
+/**
+ * selectSortedDataWithFocus
+ *
+ * Returns ALL data (with inFocus status) sorted by the current sort column.
+ * Use this for components that need to show all data with display mode styling.
+ */
+export const selectSortedDataWithFocus = createSelector(
+  [selectDataWithFocus, selectSortColumn, selectSortDirection],
+  (dataWithFocus, sortColumn, sortDirection) => {
+    return sortData(dataWithFocus, sortColumn, sortDirection);
+  }
+);
+
+/**
+ * selectSortedData
+ *
+ * Returns only in-focus data sorted by the current sort column.
+ * For backward compatibility with components that expect filtered data.
+ */
 export const selectSortedData = createSelector(
   [selectFilteredData, selectSortColumn, selectSortDirection],
   (filtered, sortColumn, sortDirection) => {
-    if (!sortColumn) return filtered;
-
-    return [...filtered].sort((a, b) => {
-      const aVal = a[sortColumn as keyof CategoryAnalysisResultDto];
-      const bVal = b[sortColumn as keyof CategoryAnalysisResultDto];
-
-      if (aVal === undefined || aVal === null) return 1;
-      if (bVal === undefined || bVal === null) return -1;
-
-      if (typeof aVal === 'number' && typeof bVal === 'number') {
-        return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
-      }
-
-      if (typeof aVal === 'string' && typeof bVal === 'string') {
-        const comparison = aVal.localeCompare(bVal);
-        return sortDirection === 'asc' ? comparison : -comparison;
-      }
-
-      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
+    return sortData(filtered, sortColumn, sortDirection);
   }
 );
 
