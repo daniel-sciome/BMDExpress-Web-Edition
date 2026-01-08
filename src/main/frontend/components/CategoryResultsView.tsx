@@ -20,7 +20,6 @@ import PathwayCurveViewer from './PathwayCurveViewer';
 import UmapScatterPlot from './charts/UmapScatterPlot';
 import PrimaryFilter, { PrimaryFilterTitle } from './PrimaryFilter';
 import ViolinPlotPerCategory from './charts/ViolinPlotPerCategory';
-import GlobalViolinComparison from './charts/GlobalViolinComparison';
 import MeanHistograms from './charts/MeanHistograms';
 import MedianHistograms from './charts/MedianHistograms';
 import BMDvsBMDLScatter from './charts/BMDvsBMDLScatter';
@@ -78,7 +77,6 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   const displayMode = useAppSelector(selectDisplayMode);
   const [annotation, setAnnotation] = useState<AnalysisAnnotationDto | null>(null);
   const [visibleCharts, setVisibleCharts] = useState<string[]>([]);
-  const [availableResults, setAvailableResults] = useState<string[]>([]);
 
   // Handle display mode change
   const handleDisplayModeChange = (mode: DisplayMode) => {
@@ -134,28 +132,6 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
       setAnnotation(null);
     }
   };
-
-  // Load all available category results for this project
-  useEffect(() => {
-    const loadAvailableResults = async () => {
-      try {
-        const allAnnotations = await CategoryResultsService.getAllCategoryResultAnnotations(projectId);
-        const validAnnotations = (allAnnotations || [])
-          .filter((a): a is AnalysisAnnotationDto => a !== undefined && a.fullName !== undefined);
-
-        // Get all unique result names for this project
-        const resultNames = validAnnotations.map(a => a.fullName!);
-        setAvailableResults(resultNames);
-      } catch (error) {
-        console.error('[CategoryResultsView] Failed to load available results:', error);
-        setAvailableResults([resultName]); // Fallback to just current result
-      }
-    };
-
-    if (projectId) {
-      loadAvailableResults();
-    }
-  }, [projectId, resultName]);
 
   // Update analysisType in Redux when annotation changes
   useEffect(() => {
@@ -448,7 +424,6 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                     <Checkbox value="10">Median Histograms</Checkbox>
                     <Checkbox value="11">BMD vs BMDL Scatter</Checkbox>
                     <Checkbox value="12">Violin Per Category</Checkbox>
-                    <Checkbox value="13">Global Violin Plot</Checkbox>
                     <Checkbox value="14">Gene Cluster Heatmap</Checkbox>
                     <Checkbox value="15">Gene Cluster Scatter</Checkbox>
                   </div>
@@ -471,105 +446,194 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
       }}>
         {/* Charts - Direct rendering based on checkbox selection (Power User mode only) */}
         {viewMode === 'power' && visibleCharts.includes('1') && (
-          <Card size="small" style={{ marginBottom: '1rem' }}>
-            <Row gutter={16} key={`${projectId}-${resultName}`}>
-              <Col xs={24} xl={12}>
-                <BMDvsPValueScatter key={`${projectId}-${resultName}-scatter`} />
-              </Col>
-              <Col xs={24} xl={12}>
-                <BMDBoxPlot key={`${projectId}-${resultName}-box`} />
-              </Col>
-            </Row>
-          </Card>
+          <div style={{ marginBottom: '1rem' }}>
+            <Collapse
+              defaultActiveKey={['chart-1']}
+              items={[{
+                key: 'chart-1',
+                label: <span style={{ lineHeight: '22px' }}>BMD Overview (Scatter & Box Plot)</span>,
+                children: (
+                  <Row gutter={16} key={`${projectId}-${resultName}`}>
+                    <Col xs={24} xl={12}>
+                      <BMDvsPValueScatter key={`${projectId}-${resultName}-scatter`} />
+                    </Col>
+                    <Col xs={24} xl={12}>
+                      <BMDBoxPlot key={`${projectId}-${resultName}-box`} />
+                    </Col>
+                  </Row>
+                )
+              }]}
+            />
+          </div>
         )}
 
         {viewMode === 'power' && visibleCharts.includes('2') && (
-          <Card size="small" style={{ marginBottom: '1rem' }}>
-            <UmapScatterPlot key={`${projectId}-${resultName}`} />
-          </Card>
+          <div style={{ marginBottom: '1rem' }}>
+            <Collapse
+              defaultActiveKey={['chart-2']}
+              items={[{
+                key: 'chart-2',
+                label: <span style={{ lineHeight: '22px' }}>UMAP Scatter Plot</span>,
+                children: <UmapScatterPlot key={`${projectId}-${resultName}`} />
+              }]}
+            />
+          </div>
         )}
 
         {viewMode === 'power' && visibleCharts.includes('3') && (
-          <Card size="small" style={{ marginBottom: '1rem' }}>
-            <PathwayCurveViewer key={`${projectId}-${resultName}`} projectId={projectId} resultName={resultName} />
-          </Card>
+          <div style={{ marginBottom: '1rem' }}>
+            <Collapse
+              defaultActiveKey={['chart-3']}
+              items={[{
+                key: 'chart-3',
+                label: <span style={{ lineHeight: '22px' }}>Curve Overlay</span>,
+                children: <PathwayCurveViewer key={`${projectId}-${resultName}`} projectId={projectId} resultName={resultName} />
+              }]}
+            />
+          </div>
         )}
 
         {viewMode === 'power' && visibleCharts.includes('4') && (
-          <Card size="small" style={{ marginBottom: '1rem' }}>
-            <RangePlot key={`${projectId}-${resultName}`} />
-          </Card>
+          <div style={{ marginBottom: '1rem' }}>
+            <Collapse
+              defaultActiveKey={['chart-4']}
+              items={[{
+                key: 'chart-4',
+                label: <span style={{ lineHeight: '22px' }}>Range Plot</span>,
+                children: <RangePlot key={`${projectId}-${resultName}`} />
+              }]}
+            />
+          </div>
         )}
 
         {viewMode === 'power' && visibleCharts.includes('5') && (
-          <Card size="small" style={{ marginBottom: '1rem' }}>
-            <BubbleChart key={`${projectId}-${resultName}`} />
-          </Card>
+          <div style={{ marginBottom: '1rem' }}>
+            <Collapse
+              defaultActiveKey={['chart-5']}
+              items={[{
+                key: 'chart-5',
+                label: <span style={{ lineHeight: '22px' }}>Bubble Chart</span>,
+                children: <BubbleChart key={`${projectId}-${resultName}`} />
+              }]}
+            />
+          </div>
         )}
 
         {viewMode === 'power' && visibleCharts.includes('6') && (
-          <Card size="small" style={{ marginBottom: '1rem' }}>
-            <BestModelsPieChart key={`${projectId}-${resultName}`} projectId={projectId} resultName={resultName} />
-          </Card>
+          <div style={{ marginBottom: '1rem' }}>
+            <Collapse
+              defaultActiveKey={['chart-6']}
+              items={[{
+                key: 'chart-6',
+                label: <span style={{ lineHeight: '22px' }}>Best Models Pie Chart</span>,
+                children: <BestModelsPieChart key={`${projectId}-${resultName}`} projectId={projectId} resultName={resultName} />
+              }]}
+            />
+          </div>
         )}
 
         {viewMode === 'power' && visibleCharts.includes('7') && (
-          <Card size="small" style={{ marginBottom: '1rem' }}>
-            <BarCharts key={`${projectId}-${resultName}`} />
-          </Card>
+          <div style={{ marginBottom: '1rem' }}>
+            <Collapse
+              defaultActiveKey={['chart-7']}
+              items={[{
+                key: 'chart-7',
+                label: <span style={{ lineHeight: '22px' }}>Bar Charts</span>,
+                children: <BarCharts key={`${projectId}-${resultName}`} />
+              }]}
+            />
+          </div>
         )}
 
         {viewMode === 'power' && visibleCharts.includes('8') && (
-          <Card size="small" style={{ marginBottom: '1rem' }}>
-            <AccumulationCharts key={`${projectId}-${resultName}`} />
-          </Card>
+          <div style={{ marginBottom: '1rem' }}>
+            <Collapse
+              defaultActiveKey={['chart-8']}
+              items={[{
+                key: 'chart-8',
+                label: <span style={{ lineHeight: '22px' }}>Accumulation Charts</span>,
+                children: <AccumulationCharts key={`${projectId}-${resultName}`} />
+              }]}
+            />
+          </div>
         )}
 
         {viewMode === 'power' && visibleCharts.includes('9') && (
-          <Card size="small" style={{ marginBottom: '1rem' }}>
-            <MeanHistograms key={`${projectId}-${resultName}`} />
-          </Card>
+          <div style={{ marginBottom: '1rem' }}>
+            <Collapse
+              defaultActiveKey={['chart-9']}
+              items={[{
+                key: 'chart-9',
+                label: <span style={{ lineHeight: '22px' }}>Mean Histograms</span>,
+                children: <MeanHistograms key={`${projectId}-${resultName}`} />
+              }]}
+            />
+          </div>
         )}
 
         {viewMode === 'power' && visibleCharts.includes('10') && (
-          <Card size="small" style={{ marginBottom: '1rem' }}>
-            <MedianHistograms key={`${projectId}-${resultName}`} />
-          </Card>
+          <div style={{ marginBottom: '1rem' }}>
+            <Collapse
+              defaultActiveKey={['chart-10']}
+              items={[{
+                key: 'chart-10',
+                label: <span style={{ lineHeight: '22px' }}>Median Histograms</span>,
+                children: <MedianHistograms key={`${projectId}-${resultName}`} />
+              }]}
+            />
+          </div>
         )}
 
         {viewMode === 'power' && visibleCharts.includes('11') && (
-          <Card size="small" style={{ marginBottom: '1rem' }}>
-            <BMDvsBMDLScatter key={`${projectId}-${resultName}`} />
-          </Card>
+          <div style={{ marginBottom: '1rem' }}>
+            <Collapse
+              defaultActiveKey={['chart-11']}
+              items={[{
+                key: 'chart-11',
+                label: <span style={{ lineHeight: '22px' }}>BMD vs BMDL Scatter</span>,
+                children: <BMDvsBMDLScatter key={`${projectId}-${resultName}`} />
+              }]}
+            />
+          </div>
         )}
 
         {viewMode === 'power' && visibleCharts.includes('12') && (
-          <Card size="small" style={{ marginBottom: '1rem' }}>
-            <ViolinPlotPerCategory key={`${projectId}-${resultName}`} />
-          </Card>
-        )}
-
-        {viewMode === 'power' && visibleCharts.includes('13') && (
-          <Card size="small" style={{ marginBottom: '1rem' }}>
-            <GlobalViolinComparison
-              key={`${projectId}-${resultName}`}
-              projectId={projectId}
-              availableResults={availableResults}
-              selectedResults={[resultName]}
+          <div style={{ marginBottom: '1rem' }}>
+            <Collapse
+              defaultActiveKey={['chart-12']}
+              items={[{
+                key: 'chart-12',
+                label: <span style={{ lineHeight: '22px' }}>Violin Plot Per Category</span>,
+                children: <ViolinPlotPerCategory key={`${projectId}-${resultName}`} />
+              }]}
             />
-          </Card>
+          </div>
         )}
 
         {viewMode === 'power' && visibleCharts.includes('14') && (
-          <Card size="small" style={{ marginBottom: '1rem' }}>
-            <ClusterHeatmap key={`${projectId}-${resultName}-cluster-heatmap`} />
-          </Card>
+          <div style={{ marginBottom: '1rem' }}>
+            <Collapse
+              defaultActiveKey={['chart-14']}
+              items={[{
+                key: 'chart-14',
+                label: <span style={{ lineHeight: '22px' }}>Gene Cluster Histogram</span>,
+                children: <ClusterHeatmap key={`${projectId}-${resultName}-cluster-heatmap`} />
+              }]}
+            />
+          </div>
         )}
 
         {viewMode === 'power' && visibleCharts.includes('15') && (
-          <Card size="small" style={{ marginBottom: '1rem' }}>
-            <ClusterScatterPlot key={`${projectId}-${resultName}-cluster-scatter`} />
-          </Card>
+          <div style={{ marginBottom: '1rem' }}>
+            <Collapse
+              defaultActiveKey={['chart-15']}
+              items={[{
+                key: 'chart-15',
+                label: <span style={{ lineHeight: '22px' }}>Gene Cluster Scatter</span>,
+                children: <ClusterScatterPlot key={`${projectId}-${resultName}-cluster-scatter`} />
+              }]}
+            />
+          </div>
         )}
 
         {/* Table */}

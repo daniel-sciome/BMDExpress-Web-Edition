@@ -178,14 +178,20 @@ public class AnalysisNameParser {
         // Search for analysis type by grepping full name
         String fullName = dto.getFullName();
 
+        // Check for specific GO types first, then GO_ALL as fallback
         if (fullName.contains("GO_BP")) {
             dto.setAnalysisType("GO_BP");
-        } else if (fullName.contains("GENE")) {
-            dto.setAnalysisType("GENE");
         } else if (fullName.contains("GO_CC")) {
             dto.setAnalysisType("GO_CC");
         } else if (fullName.contains("GO_MF")) {
             dto.setAnalysisType("GO_MF");
+        } else if (fullName.contains("GO_ALL")) {
+            // Combined GO analysis (all three: BP, CC, MF)
+            dto.setAnalysisType("GO_ALL");
+        } else if (fullName.contains("GENE")) {
+            dto.setAnalysisType("GENE");
+        } else if (fullName.contains("BioPlanet")) {
+            dto.setAnalysisType("BioPlanet");
         } else if (fullName.contains("Reactome")) {
             dto.setAnalysisType("Reactome");
         } else if (fullName.contains("KEGG")) {

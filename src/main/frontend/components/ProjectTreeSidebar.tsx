@@ -92,8 +92,10 @@ export default function ProjectTreeSidebar() {
       'GO_BP': 'GO Biological Process',
       'GO_MF': 'GO Molecular Function',
       'GO_CC': 'GO Cellular Component',
+      'GO_ALL': 'GO All Terms',
       'KEGG': 'KEGG Pathways',
       'Reactome': 'Reactome Pathways',
+      'BioPlanet': 'BioPlanet Pathways',
       'Pathway': 'Pathways',
       'GENE': 'Genes',
     };

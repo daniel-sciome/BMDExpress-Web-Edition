@@ -101,11 +101,12 @@ export default function ComparisonTable({
         // Load data for each selected result
         await Promise.all(
           selectedResults.map(async (resultName) => {
-            const data = await CategoryResultsService.getCategoryResults(projectId, resultName);
-            console.log(`[ComparisonTable] Loaded ${data?.length || 0} rows for ${resultName}`);
+            const containerData = await CategoryResultsService.getCategoryResults(projectId, resultName);
+            const data = containerData?.results || [];
+            console.log(`[ComparisonTable] Loaded ${data.length} rows for ${resultName}`);
 
             // Apply master filters to the loaded data
-            const filteredData = applyPrimaryFilters(data || [], filters, analysisType);
+            const filteredData = applyPrimaryFilters(data, filters, analysisType);
             console.log(`[ComparisonTable] After filtering: ${filteredData.length} rows for ${resultName}`);
 
             dataMap[resultName] = filteredData;

@@ -1,0 +1,206 @@
+/**
+ * Visibility Styles
+ *
+ * CSS classes for the two-layer reactivity architecture:
+ * - Hard Filter (Working Set): Controls what data exists
+ * - Visibility: Controls how data is displayed
+ *
+ * Visibility states: highlighted, normal, dimmed, hidden
+ */
+
+/* =============================================================================
+   TABLE ROW VISIBILITY STATES
+   ============================================================================= */
+
+/* Highlighted rows - full emphasis */
+.visibility-highlighted {
+  background-color: rgba(24, 144, 255, 0.08) !important;
+}
+
+.visibility-highlighted:hover {
+  background-color: rgba(24, 144, 255, 0.12) !important;
+}
+
+/* Normal rows - default state (no special styling needed) */
+.visibility-normal {
+  /* Default styling */
+}
+
+/* Dimmed rows - reduced emphasis */
+.visibility-dimmed {
+  opacity: 0.5;
+}
+
+.visibility-dimmed:hover {
+  opacity: 0.7;
+}
+
+/* Hidden rows - not displayed */
+.visibility-hidden {
+  display: none !important;
+}
+
+/* =============================================================================
+   CHART POINT VISIBILITY STATES
+   ============================================================================= */
+
+/* For scatter plots and other chart elements */
+.chart-point-highlighted {
+  opacity: 1;
+  stroke-width: 2px;
+  stroke: #1890ff;
+}
+
+.chart-point-normal {
+  opacity: 0.8;
+}
+
+.chart-point-dimmed {
+  opacity: 0.2;
+}
+
+.chart-point-hidden {
+  display: none;
+}
+
+/* =============================================================================
+   CLUSTER PICKER STATES
+   ============================================================================= */
+
+/* Tri-state checkbox indicators */
+.cluster-indicator {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 2px solid #d9d9d9;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cluster-indicator:hover {
+  border-color: #1890ff;
+}
+
+/* None selected */
+.cluster-indicator-none {
+  background-color: #fff;
+  border-color: #d9d9d9;
+}
+
+/* Partial selection - dash indicator */
+.cluster-indicator-partial {
+  background-color: #1890ff;
+  border-color: #1890ff;
+}
+
+.cluster-indicator-partial::after {
+  content: '';
+  width: 8px;
+  height: 2px;
+  background-color: #fff;
+}
+
+/* Full selection - checkmark */
+.cluster-indicator-full {
+  background-color: #1890ff;
+  border-color: #1890ff;
+}
+
+.cluster-indicator-full::after {
+  content: '';
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  margin-top: -2px;
+}
+
+/* =============================================================================
+   DISPLAY MODE TOGGLE
+   ============================================================================= */
+
+.display-mode-toggle {
+  display: inline-flex;
+  gap: 4px;
+  padding: 2px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+}
+
+.display-mode-button {
+  padding: 4px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #666;
+  transition: all 0.2s ease;
+}
+
+.display-mode-button:hover {
+  color: #1890ff;
+}
+
+.display-mode-button.active {
+  background-color: #fff;
+  color: #1890ff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* =============================================================================
+   PINNED ROWS
+   ============================================================================= */
+
+.visibility-pinned {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #fffbe6 !important;
+  border-left: 3px solid #faad14;
+}
+
+.visibility-pinned::before {
+  content: '\1F4CC'; /* Pin emoji */
+  position: absolute;
+  left: -20px;
+  font-size: 12px;
+}
+
+/* =============================================================================
+   TRANSITIONS
+   ============================================================================= */
+
+/* Smooth transitions for visibility changes */
+.visibility-transition {
+  transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+
+/* =============================================================================
+   ANT DESIGN TABLE OVERRIDES
+   ============================================================================= */
+
+/* Override Ant Design table row styles for visibility states */
+.ant-table-tbody > tr.visibility-highlighted > td {
+  background-color: rgba(24, 144, 255, 0.08);
+}
+
+.ant-table-tbody > tr.visibility-highlighted:hover > td {
+  background-color: rgba(24, 144, 255, 0.12);
+}
+
+.ant-table-tbody > tr.visibility-dimmed > td {
+  opacity: 0.5;
+}
+
+.ant-table-tbody > tr.visibility-hidden {
+  display: none;
+}
+
+.ant-table-tbody > tr.visibility-pinned > td {
+  background-color: #fffbe6;
+}

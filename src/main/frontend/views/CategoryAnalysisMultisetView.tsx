@@ -58,8 +58,10 @@ export default function CategoryAnalysisMultisetView({
       'GO_BP': 'GO Biological Process',
       'GO_MF': 'GO Molecular Function',
       'GO_CC': 'GO Cellular Component',
+      'GO_ALL': 'GO All Terms',
       'KEGG': 'KEGG Pathways',
       'Reactome': 'Reactome Pathways',
+      'BioPlanet': 'BioPlanet Pathways',
       'Pathway': 'Pathways',
       'GENE': 'Genes',
     };
@@ -122,12 +124,12 @@ export default function CategoryAnalysisMultisetView({
           filteredAnnotations.map(async (annotation) => {
             if (annotation.fullName) {
               try {
-                const resultData = await CategoryResultsService.getCategoryResults(
+                const containerData = await CategoryResultsService.getCategoryResults(
                   projectId,
                   annotation.fullName
                 );
-                if (resultData && resultData.length > 0 && resultData[0].experimentDescription) {
-                  const desc = resultData[0].experimentDescription;
+                if (containerData?.experimentDescription) {
+                  const desc = containerData.experimentDescription;
                   descMap[annotation.fullName] = desc;
 
                   // Check if description is incomplete

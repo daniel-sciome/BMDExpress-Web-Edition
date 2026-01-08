@@ -22,15 +22,33 @@ export interface ColumnGroup<T extends string> {
  * Advanced columns use ColumnGroup structure for individual column control.
  */
 export interface ColumnVisibility {
-  /** Gene Counts columns - individual selection */
-  geneCounts: ColumnGroup<
+  /**
+   * Primary Filter Columns - individual selection
+   *
+   * These columns vary by analysis type:
+   * - Multi-gene categories (GO, pathways, defined): genesPassed, allGenes, percentage
+   * - Single-gene analysis (GENE): bmdMean, bmdMedian
+   */
+  primaryFilters: ColumnGroup<
     | 'genesPassed'
     | 'allGenes'
     | 'percentage'
+    | 'bmdMean'
+    | 'bmdMedian'
   >;
 
-  /** Significant ANOVA count column */
-  significantANOVA: boolean;
+  /**
+   * Pre-Filter columns - individual selection
+   *
+   * Pre-filters are statistical tests applied before BMD analysis.
+   * Currently includes ANOVA; structured to accommodate Williams, Curve Fit, etc.
+   */
+  preFilters: ColumnGroup<
+    | 'anova'
+    // Future pre-filter types:
+    // | 'williams'
+    // | 'curveFit'
+  >;
 
   /** Fisher's Exact Test columns (7 columns: A, B, C, D, Left P, Right P, Two-Tail P) */
   fishersFull: boolean;
@@ -164,19 +182,30 @@ export interface ColumnVisibility {
 /**
  * Default column visibility settings
  *
- * By default, only show Gene Counts columns to avoid overwhelming users
+ * By default, only show Primary Filter Columns to avoid overwhelming users
  * with many columns. Users can expand column groups as needed.
+ *
+ * Primary filter columns vary by analysis type - multi-gene categories show
+ * gene counts, while single-gene analysis shows BMD statistics.
  */
 export const DEFAULT_COLUMN_VISIBILITY: ColumnVisibility = {
-  geneCounts: {
+  primaryFilters: {
     all: true,
     columns: {
       genesPassed: true,
       allGenes: true,
       percentage: true,
+      bmdMean: true,
+      bmdMedian: true,
     },
   },
-  significantANOVA: true,
+  preFilters: {
+    all: true,
+    columns: {
+      anova: true,
+      // Future pre-filter types will be added here
+    },
+  },
   fishersFull: false,
   bmdExtended: false,
   bmdConfidence: false,

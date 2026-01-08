@@ -8,7 +8,13 @@
 // Fixed columns (always visible)
 export { getFixedColumns } from './fixedColumns';
 
-// Gene count columns
+// Primary filter columns (analysis-type dependent)
+export { getPrimaryFilterColumns, getPrimaryFilterColumnKeys } from './primaryFilterColumns';
+
+// Pre-filter columns (ANOVA, Williams, Curve Fit, etc.)
+export { getPreFilterColumns } from './preFilterColumns';
+
+// Gene count columns (legacy - will be replaced by primary filter columns)
 export { getGeneCountsColumns, getSignificantANOVAColumn } from './geneCountColumns';
 
 // Fisher's exact test columns

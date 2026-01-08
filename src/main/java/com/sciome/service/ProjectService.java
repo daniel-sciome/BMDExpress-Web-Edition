@@ -78,6 +78,29 @@ public class ProjectService {
                     projects.put(projectId, holder);
                     log.info("Library project loaded: {} (ID: {})", filename, projectId);
 
+                    // Debug: Check if gene data is present in category results
+                    if (project.getCategoryAnalysisResults() != null) {
+                        for (var catResult : project.getCategoryAnalysisResults()) {
+                            String catName = catResult.getName();
+                            if (catName != null && catName.contains("GO_BP") && catName.contains("Kidney")) {
+                                var results = catResult.getCategoryAnalsyisResults();
+                                log.info("[GENE-DEBUG-LOAD] Category: {}", catName);
+                                log.info("[GENE-DEBUG-LOAD] Results count: {}", results != null ? results.size() : 0);
+                                if (results != null && !results.isEmpty()) {
+                                    var firstResult = results.get(0);
+                                    var refs = firstResult.getReferenceGeneProbeStatResults();
+                                    log.info("[GENE-DEBUG-LOAD] First result refs: {}", refs != null ? refs.size() : "NULL");
+                                    if (refs != null && !refs.isEmpty()) {
+                                        var firstRef = refs.get(0);
+                                        log.info("[GENE-DEBUG-LOAD] First gene: {}",
+                                            firstRef.getReferenceGene() != null ? firstRef.getReferenceGene().getId() : "null");
+                                    }
+                                }
+                                break; // Only log one GO_BP Kidney result
+                            }
+                        }
+                    }
+
                 } catch (Exception e) {
                     log.error("Failed to load library project: {}", resource.getFilename(), e);
                 }

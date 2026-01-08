@@ -5,15 +5,28 @@ This document serves as a navigation guide to all documentation in the project.
 ## Quick Start
 
 **New to the codebase?** Start here:
-1. Read: [CODEBASE_STRUCTURE.md](./CODEBASE_STRUCTURE.md) - Overview of architecture
-2. Read: [IMPLEMENTATION_PATTERNS.md](./IMPLEMENTATION_PATTERNS.md) - Code patterns & examples
-3. Explore: `src/main/frontend/` and `src/main/java/` directories
+1. Read: [ENGINEERING_DESIGN_GUIDE.md](./ENGINEERING_DESIGN_GUIDE.md) - Complete technical reference for new engineers
+2. Read: [CODEBASE_STRUCTURE.md](./CODEBASE_STRUCTURE.md) - Overview of architecture
+3. Read: [IMPLEMENTATION_PATTERNS.md](./IMPLEMENTATION_PATTERNS.md) - Code patterns & examples
+4. Explore: `src/main/frontend/` and `src/main/java/` directories
 
 ---
 
 ## Main Documentation Files
 
 ### Architecture & Structure
+- **[ENGINEERING_DESIGN_GUIDE.md](./ENGINEERING_DESIGN_GUIDE.md)** (60+ KB)
+  - **START HERE** - Complete technical reference for new engineers
+  - System overview and core workflow
+  - Technology stack with versions
+  - 6 Architecture patterns documented in detail
+  - Redux state management with full state shape
+  - Core abstractions (ReactiveType, useReactiveState, UMAP service)
+  - Component hierarchy and data flow
+  - Development patterns (adding charts, columns, selection dimensions)
+  - Quick reference for common tasks
+  - **Status**: Current (comprehensive onboarding guide)
+
 - **[CODEBASE_STRUCTURE.md](./CODEBASE_STRUCTURE.md)** (20 KB)
   - Complete architecture overview
   - Frontend/backend organization
@@ -30,51 +43,46 @@ This document serves as a navigation guide to all documentation in the project.
   - Error handling approaches
   - **Status**: Current (practical reference)
 
-### Feature Documentation
+- **[REACTIVE_VISUALIZATION_COMPONENTS.md](./REACTIVE_VISUALIZATION_COMPONENTS.md)** (50+ KB)
+  - Comprehensive guide for implementing reactive chart components
+  - 5 core principles for reactive charts
+  - Standard 9-section component architecture template
+  - 5 visualization patterns with full code examples
+  - Plotly integration details and best practices
+  - Selection mechanisms and visual feedback strategies
+  - Cluster coloring system (40-color palette)
+  - Performance optimization techniques
+  - 3 complete implementation examples
+  - Testing strategies and common pitfalls
+  - **Status**: Current (visualization implementation guide)
 
-#### Category Drilldown
-- **[CATEGORY_DRILLDOWN_ARCHITECTURE.md](./CATEGORY_DRILLDOWN_ARCHITECTURE.md)** (42 KB)
-  - Session 7 feature implementation
-  - Architecture for category filtering
-  - Visual filtering workflow
-  - Selection state management
-  - **Status**: Detailed design document
+- **[PREFILTER_IMPLEMENTATION_GUIDE.md](./PREFILTER_IMPLEMENTATION_GUIDE.md)** (50+ KB)
+  - Complete guide for porting prefiltering workflow from desktop app
+  - Four prefilter types: ANOVA, Williams Trend, Oriogen, Curve Fit
+  - Algorithm implementations with code examples
+  - Data structures (DTOs, Redux state, database schema)
+  - Backend service implementation (Java/Spring)
+  - Frontend components (React/Redux/Ant Design)
+  - WebSocket progress reporting
+  - 13-week implementation roadmap
+  - **Status**: Current (feature implementation guide)
 
-#### Venn Diagram
-- **[SESSION_7_VENN_DIAGRAM.md](./SESSION_7_VENN_DIAGRAM.md)** (5 KB)
-  - Venn diagram implementation
-  - Category overlap analysis
-  - Session 7 notes
-  - **Status**: Feature summary
+### Known Issues & Cross-Project References
+- **[EXPERIMENT_DESCRIPTION_OBJECT_REFERENCE_ISSUE.md](../BMDExpress-3/EXPERIMENT_DESCRIPTION_OBJECT_REFERENCE_ISSUE.md)** (BMDExpress-3 repo)
+  - Investigation of why `CategoryAnalysisResults.getExperimentDescription()` returns NULL
+  - Object identity issue between serialized references
+  - Workaround implemented in `CategoryResultsService.findExperimentDescriptionByName()`
+  - **Status**: Investigation required
 
-#### Pathway Curve Viewer
-- **[PATHWAY_CURVE_VIEWER_ANALYSIS.md](./PATHWAY_CURVE_VIEWER_ANALYSIS.md)** (27 KB)
-  - Detailed technical analysis
-  - Curve visualization logic
-  - Data transformation pipeline
-  - **Status**: Technical deep dive
-
-- **[PATHWAY_CURVE_VIEWER_README.md](./PATHWAY_CURVE_VIEWER_README.md)** (9 KB)
-  - User guide & features
-  - How to use the viewer
-  - **Status**: User documentation
-
-- **[PATHWAY_CURVE_VIEWER_CODE_SNIPPETS.md](./PATHWAY_CURVE_VIEWER_CODE_SNIPPETS.md)** (15 KB)
-  - Code examples & references
-  - Implementation details
-  - **Status**: Developer reference
-
-- **[PATHWAY_CURVE_VIEWER_INDEX.md](./PATHWAY_CURVE_VIEWER_INDEX.md)** (11 KB)
-  - Navigation guide for curve viewer docs
-  - **Status**: Index
-
-### Session Notes
-- **[SESSION_NOTES.md](./SESSION_NOTES.md)** (18 KB)
-  - Complete session history
-  - Features implemented per session
-  - Bugs fixed
-  - Performance improvements
-  - **Status**: Development log
+### Historical Documentation
+- **[archive/README.md](./archive/README.md)** (8 KB)
+  - Index of archived historical documentation
+  - Session notes timeline (Sessions 7-13 with 9 parts)
+  - Feature analysis documents
+  - Implementation plans
+  - Context for design decisions
+  - **Status**: Historical archive (Nov 21, 2025)
+  - **Contains**: 29 archived documents organized by category
 
 ### Deployment & Configuration
 - **[google-cloud-instructions.md](./google-cloud-instructions.md)** (6 KB)
@@ -94,41 +102,53 @@ This document serves as a navigation guide to all documentation in the project.
 
 ### I want to understand...
 
+**Everything as a new engineer (START HERE)**
+→ [ENGINEERING_DESIGN_GUIDE.md](./ENGINEERING_DESIGN_GUIDE.md) - Complete technical reference
+
 **The overall application architecture**
-→ Start with [CODEBASE_STRUCTURE.md](./CODEBASE_STRUCTURE.md) Section 1-3
+→ [ENGINEERING_DESIGN_GUIDE.md](./ENGINEERING_DESIGN_GUIDE.md) Section 1-3, then [CODEBASE_STRUCTURE.md](./CODEBASE_STRUCTURE.md)
 
 **How Redux state management works**
-→ [CODEBASE_STRUCTURE.md](./CODEBASE_STRUCTURE.md) Section 2, then [IMPLEMENTATION_PATTERNS.md](./IMPLEMENTATION_PATTERNS.md) Section 1
+→ [ENGINEERING_DESIGN_GUIDE.md](./ENGINEERING_DESIGN_GUIDE.md) Section 5, then [IMPLEMENTATION_PATTERNS.md](./IMPLEMENTATION_PATTERNS.md) Section 1
 
-**How to add a new chart**
+**How to add a new reactive visualization/chart**
+→ [REACTIVE_VISUALIZATION_COMPONENTS.md](./REACTIVE_VISUALIZATION_COMPONENTS.md) - Complete guide with patterns and examples
+
+**How to add a new chart (general)**
 → [IMPLEMENTATION_PATTERNS.md](./IMPLEMENTATION_PATTERNS.md) Section 5, then look at existing charts in `src/main/frontend/components/charts/`
 
+**How the reactive selection infrastructure works**
+→ [ENGINEERING_DESIGN_GUIDE.md](./ENGINEERING_DESIGN_GUIDE.md) Section 3 (Pattern 2), then [REACTIVE_VISUALIZATION_COMPONENTS.md](./REACTIVE_VISUALIZATION_COMPONENTS.md)
+
 **How category data flows through the app**
-→ [CODEBASE_STRUCTURE.md](./CODEBASE_STRUCTURE.md) Section 5
+→ [ENGINEERING_DESIGN_GUIDE.md](./ENGINEERING_DESIGN_GUIDE.md) Section 8, then [CODEBASE_STRUCTURE.md](./CODEBASE_STRUCTURE.md) Section 5
 
 **How to create a backend service**
-→ [IMPLEMENTATION_PATTERNS.md](./IMPLEMENTATION_PATTERNS.md) Section 3
+→ [ENGINEERING_DESIGN_GUIDE.md](./ENGINEERING_DESIGN_GUIDE.md) Section 9.2, then [IMPLEMENTATION_PATTERNS.md](./IMPLEMENTATION_PATTERNS.md) Section 3
 
 **How DTOs work**
 → [IMPLEMENTATION_PATTERNS.md](./IMPLEMENTATION_PATTERNS.md) Section 4
 
-**The Venn diagram implementation**
-→ [SESSION_7_VENN_DIAGRAM.md](./SESSION_7_VENN_DIAGRAM.md) and [CODEBASE_STRUCTURE.md](./CODEBASE_STRUCTURE.md) Section 5
+**How cluster coloring works**
+→ [REACTIVE_VISUALIZATION_COMPONENTS.md](./REACTIVE_VISUALIZATION_COMPONENTS.md) Section 8
 
-**The pathway curve viewer**
-→ [PATHWAY_CURVE_VIEWER_README.md](./PATHWAY_CURVE_VIEWER_README.md) (user) or [PATHWAY_CURVE_VIEWER_ANALYSIS.md](./PATHWAY_CURVE_VIEWER_ANALYSIS.md) (developer)
+**How to implement prefiltering (ANOVA, Williams, Oriogen, Curve Fit)**
+→ [PREFILTER_IMPLEMENTATION_GUIDE.md](./PREFILTER_IMPLEMENTATION_GUIDE.md) - Complete porting guide
 
-**Category drilldown filtering**
-→ [CATEGORY_DRILLDOWN_ARCHITECTURE.md](./CATEGORY_DRILLDOWN_ARCHITECTURE.md)
+**The prefiltering workflow and algorithms**
+→ [PREFILTER_IMPLEMENTATION_GUIDE.md](./PREFILTER_IMPLEMENTATION_GUIDE.md) Sections 2-6
 
-**What was done in each session**
-→ [SESSION_NOTES.md](./SESSION_NOTES.md)
+**The project's development history**
+→ [archive/README.md](./archive/README.md) for session notes timeline
+
+**Why ExperimentDescription is NULL in CategoryAnalysisResults**
+→ [EXPERIMENT_DESCRIPTION_OBJECT_REFERENCE_ISSUE.md](../BMDExpress-3/EXPERIMENT_DESCRIPTION_OBJECT_REFERENCE_ISSUE.md) in BMDExpress-3 repo
 
 **How to deploy to Google Cloud**
 → [google-cloud-instructions.md](./google-cloud-instructions.md)
 
 **What are common patterns in this codebase**
-→ [IMPLEMENTATION_PATTERNS.md](./IMPLEMENTATION_PATTERNS.md)
+→ [ENGINEERING_DESIGN_GUIDE.md](./ENGINEERING_DESIGN_GUIDE.md) Section 3, then [IMPLEMENTATION_PATTERNS.md](./IMPLEMENTATION_PATTERNS.md)
 
 ---
 
@@ -204,16 +224,19 @@ src/main/java/com/sciome/
 
 ## Quick Reference - Common Tasks
 
-### Add a new visualization
-1. Create component in `src/main/frontend/components/charts/MyChart.tsx`
-2. Follow pattern in [IMPLEMENTATION_PATTERNS.md](./IMPLEMENTATION_PATTERNS.md) Section 2
-3. Add to `CHART_TYPES` in `CategoryResultsView.tsx`
-4. Add conditional render: `{selectedChartType === CHART_TYPES.MY_CHART && <MyChart />}`
+### Add a new reactive visualization
+1. Read [REACTIVE_VISUALIZATION_COMPONENTS.md](./REACTIVE_VISUALIZATION_COMPONENTS.md) Section 3 for canonical structure
+2. Create component in `src/main/frontend/components/charts/MyChart.tsx`
+3. Follow the 9-section template with useReactiveState hooks
+4. Implement two-layer rendering (background + foreground)
+5. Add to `CHART_TYPES` in `CategoryResultsView.tsx`
+6. Add conditional render: `{selectedChartType === CHART_TYPES.MY_CHART && <MyChart />}`
+7. Verify with checklist in [REACTIVE_VISUALIZATION_COMPONENTS.md](./REACTIVE_VISUALIZATION_COMPONENTS.md) Section 3.10
 
 ### Add a new backend service method
 1. Add method to Java service with `@BrowserCallable`
 2. Return DTO objects (not internal models)
-3. Use pattern from [IMPLEMENTATION_PATTERNS.md](./IMPLEMENTATION_PATTERNS.md) Section 3
+3. Use pattern from [ENGINEERING_DESIGN_GUIDE.md](./ENGINEERING_DESIGN_GUIDE.md) Section 9.2
 4. Hilla auto-generates TypeScript client
 5. Use in React component with `await SomeService.methodName()`
 
@@ -223,9 +246,16 @@ src/main/java/com/sciome/
 3. Create React component for filter UI
 4. Dispatch `setFilters()` on user input
 5. Charts automatically subscribe to `selectChartData` which includes filters
+6. See [ENGINEERING_DESIGN_GUIDE.md](./ENGINEERING_DESIGN_GUIDE.md) Section 10.2
+
+### Add a new column to CategoryResultsGrid
+1. See [ENGINEERING_DESIGN_GUIDE.md](./ENGINEERING_DESIGN_GUIDE.md) Section 10.3
+2. Add column definition in appropriate file in `src/main/frontend/components/categoryTable/columns/`
+3. Update types and visibility configuration
+4. Test with different analysis types
 
 ### Understand data flow
-1. Start with [CODEBASE_STRUCTURE.md](./CODEBASE_STRUCTURE.md) Section 5 "Category Data Flow"
+1. Start with [ENGINEERING_DESIGN_GUIDE.md](./ENGINEERING_DESIGN_GUIDE.md) Section 8 "Key Data Flow Patterns"
 2. Look at specific component implementations
 3. Trace Redux actions and selectors
 
@@ -235,14 +265,15 @@ src/main/java/com/sciome/
 
 | Document | Purpose | Status | Size |
 |----------|---------|--------|------|
+| ENGINEERING_DESIGN_GUIDE.md | **Complete technical reference for new engineers** | Current | 60+ KB |
+| REACTIVE_VISUALIZATION_COMPONENTS.md | Reactive chart implementation guide | Current | 50+ KB |
+| PREFILTER_IMPLEMENTATION_GUIDE.md | Prefiltering workflow porting guide | Current | 50+ KB |
 | CODEBASE_STRUCTURE.md | Architecture overview | Current | 20 KB |
 | IMPLEMENTATION_PATTERNS.md | Code patterns & examples | Current | 17 KB |
-| SESSION_NOTES.md | Development history | Current | 18 KB |
-| CATEGORY_DRILLDOWN_ARCHITECTURE.md | Feature design | Current | 42 KB |
-| SESSION_7_VENN_DIAGRAM.md | Venn diagram feature | Current | 5 KB |
-| PATHWAY_CURVE_VIEWER_*.md | Curve viewer docs | Current | ~62 KB |
 | google-cloud-instructions.md | Deployment | Current | 6 KB |
 | README.md | Project overview | Current | 6 KB |
+| archive/README.md | Historical documentation index | Archived | 8 KB |
+| archive/* | Session notes, feature analysis, plans | Archived | ~150 KB |
 
 ---
 
@@ -253,14 +284,22 @@ When adding new documentation:
 2. Include code examples with syntax highlighting
 3. Link to related documentation
 4. Keep sections focused and digestible
-5. Update this index file
-6. Reference specific file paths with absolute paths (e.g., `/home/svobodadl/bmdexpress-web/src/...`)
+5. Update this index file (DOCUMENTATION_INDEX.md)
+6. Reference specific file paths with absolute paths
+7. Consider whether documentation should go in root (active) or archive/ (historical)
 
 When modifying code:
-1. Follow patterns in [IMPLEMENTATION_PATTERNS.md](./IMPLEMENTATION_PATTERNS.md)
-2. Keep documentation in sync with code changes
-3. Update SESSION_NOTES.md if making significant changes
+1. Follow patterns in [ENGINEERING_DESIGN_GUIDE.md](./ENGINEERING_DESIGN_GUIDE.md) and [IMPLEMENTATION_PATTERNS.md](./IMPLEMENTATION_PATTERNS.md)
+2. For reactive visualizations, follow [REACTIVE_VISUALIZATION_COMPONENTS.md](./REACTIVE_VISUALIZATION_COMPONENTS.md)
+3. Keep documentation in sync with code changes
 4. Reference existing patterns in code reviews
+
+When implementing new reactive charts:
+1. Use the canonical 9-section structure from [REACTIVE_VISUALIZATION_COMPONENTS.md](./REACTIVE_VISUALIZATION_COMPONENTS.md) Section 3
+2. Implement two-layer rendering (background + foreground)
+3. Use useReactiveState hooks for selection state
+4. Follow the quick reference checklist in Section 3.10
+5. Test selection mechanisms (click, box/lasso, double-click clear)
 
 ---
 
@@ -288,8 +327,9 @@ When modifying code:
 ## Contact & Support
 
 For questions about:
-- **Architecture**: See [CODEBASE_STRUCTURE.md](./CODEBASE_STRUCTURE.md)
+- **Getting Started**: See [ENGINEERING_DESIGN_GUIDE.md](./ENGINEERING_DESIGN_GUIDE.md) - Complete onboarding reference
+- **Architecture**: See [ENGINEERING_DESIGN_GUIDE.md](./ENGINEERING_DESIGN_GUIDE.md) or [CODEBASE_STRUCTURE.md](./CODEBASE_STRUCTURE.md)
 - **Implementation**: See [IMPLEMENTATION_PATTERNS.md](./IMPLEMENTATION_PATTERNS.md)
-- **Specific features**: See feature-specific documentation listed above
-- **Development history**: See [SESSION_NOTES.md](./SESSION_NOTES.md)
+- **Reactive Visualizations**: See [REACTIVE_VISUALIZATION_COMPONENTS.md](./REACTIVE_VISUALIZATION_COMPONENTS.md)
+- **Development History**: See [archive/README.md](./archive/README.md) for session notes timeline
 
