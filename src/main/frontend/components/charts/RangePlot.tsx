@@ -156,8 +156,7 @@ export default function RangePlot() {
           'BMDU: %{customdata[1]:.4f}<br>' +
           '<extra></extra>',
         customdata: visibleItems.map(item => [item.bmdl, item.bmdu]),
-        showlegend: true,
-        legendgroup: `cluster_${clusterId}`,
+        showlegend: false,
       });
     });
 
@@ -205,12 +204,7 @@ export default function RangePlot() {
     margin: { l: 300, r: 50, t: 80, b: 80 },
     hovermode: 'closest',
     ...DEFAULT_LAYOUT_STYLES,
-    showlegend: true,
-    legend: {
-      x: 1.02,
-      xanchor: 'left',
-      y: 1,
-    },
+    showlegend: false,
   };
 
   return (

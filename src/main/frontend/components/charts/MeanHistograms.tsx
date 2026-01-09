@@ -8,10 +8,13 @@
  * 4. BMD 5th Percentile
  * 5. BMD 10th Percentile
  *
- * Each histogram shows stacked bars by cluster type:
- * - Clustered (green): categories assigned to numbered clusters
- * - Unclassified (orange): categories in UMAP but not clustered
- * - Not in Reference (gray): categories not in UMAP reference
+ * Each histogram shows stacked bars colored by UMAP cluster assignment.
+ * Colors match the sidebar ClusterPicker for consistency.
+ *
+ * Responds to display modes:
+ * - highlight: Show all data at full opacity
+ * - dim: Show in-focus at full opacity, out-of-focus dimmed
+ * - isolate: Only show in-focus data
  *
  * This is a CATEGORY-LEVEL visualization - each data point is one category's aggregated mean value.
  */
@@ -19,60 +22,76 @@
 import React, { useMemo, useState } from 'react';
 import { Row, Col, Checkbox } from 'antd';
 import Plot from 'react-plotly.js';
-import { useClusterTypeSplit, CLUSTER_TYPE_COLORS, CLUSTER_TYPE_LABELS } from './hooks/useClusterTypeSplit';
+import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
+import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 export default function MeanHistograms() {
-  const { clustered, unclassified, notInReference, allData } = useClusterTypeSplit();
+  const { data: allData, displayMode } = useFocusAwareStyling();
+  const clusterColors = useClusterColors();
   const [useLogYAxis, setUseLogYAxis] = useState(false);
 
-  // Extract mean values from each cluster type
-  const meanData = useMemo(() => {
+  // Group data by cluster and focus state, extract values for each metric
+  const clusterData = useMemo(() => {
     if (!allData || allData.length === 0) return null;
 
-    const extractValues = (data: typeof clustered, field: string) => {
-      return data
-        .map(row => (row as any)[field])
-        .filter((v: number) => v !== undefined && v > 0 && !isNaN(v) && isFinite(v));
+    // Get unique cluster IDs and sort them (outliers last)
+    const clusterIds = new Set<number>();
+    allData.forEach(row => {
+      const clusterId = getClusterIdForCategory(row.categoryId);
+      clusterIds.add(clusterId);
+    });
+    const sortedClusterIds = Array.from(clusterIds).sort((a, b) => {
+      if (a < 0 && b >= 0) return 1;
+      if (a >= 0 && b < 0) return -1;
+      return a - b;
+    });
+
+    // Extract values by cluster AND focus state for each metric
+    // Returns { inFocus: Map<clusterId, values>, outOfFocus: Map<clusterId, values> }
+    const extractValuesByClusterAndFocus = (field: string) => {
+      const inFocus = new Map<number, number[]>();
+      const outOfFocus = new Map<number, number[]>();
+      sortedClusterIds.forEach(id => {
+        inFocus.set(id, []);
+        outOfFocus.set(id, []);
+      });
+
+      allData.forEach(row => {
+        const value = (row as any)[field];
+        const clusterId = getClusterIdForCategory(row.categoryId);
+        if (value !== undefined && value > 0 && !isNaN(value) && isFinite(value)) {
+          const targetMap = row.inFocus ? inFocus : outOfFocus;
+          const arr = targetMap.get(clusterId);
+          if (arr) arr.push(value);
+        }
+      });
+
+      return { inFocus, outOfFocus };
     };
 
     return {
-      bmdMeans: {
-        clustered: extractValues(clustered, 'bmdMean'),
-        unclassified: extractValues(unclassified, 'bmdMean'),
-        notInReference: extractValues(notInReference, 'bmdMean'),
-      },
-      bmdlMeans: {
-        clustered: extractValues(clustered, 'bmdlMean'),
-        unclassified: extractValues(unclassified, 'bmdlMean'),
-        notInReference: extractValues(notInReference, 'bmdlMean'),
-      },
-      bmduMeans: {
-        clustered: extractValues(clustered, 'bmduMean'),
-        unclassified: extractValues(unclassified, 'bmduMean'),
-        notInReference: extractValues(notInReference, 'bmduMean'),
-      },
-      bmdFifthMeans: {
-        clustered: extractValues(clustered, 'bmdFifthPercentileTotalGenes'),
-        unclassified: extractValues(unclassified, 'bmdFifthPercentileTotalGenes'),
-        notInReference: extractValues(notInReference, 'bmdFifthPercentileTotalGenes'),
-      },
-      bmdTenthMeans: {
-        clustered: extractValues(clustered, 'bmdTenthPercentileTotalGenes'),
-        unclassified: extractValues(unclassified, 'bmdTenthPercentileTotalGenes'),
-        notInReference: extractValues(notInReference, 'bmdTenthPercentileTotalGenes'),
-      },
+      clusterIds: sortedClusterIds,
+      bmdMeans: extractValuesByClusterAndFocus('bmdMean'),
+      bmdlMeans: extractValuesByClusterAndFocus('bmdlMean'),
+      bmduMeans: extractValuesByClusterAndFocus('bmduMean'),
+      bmdFifthMeans: extractValuesByClusterAndFocus('bmdFifthPercentileTotalGenes'),
+      bmdTenthMeans: extractValuesByClusterAndFocus('bmdTenthPercentileTotalGenes'),
     };
-  }, [clustered, unclassified, notInReference, allData]);
+  }, [allData]);
 
   // Check if any data exists
-  const hasAnyData = meanData && (
-    meanData.bmdMeans.clustered.length > 0 ||
-    meanData.bmdMeans.unclassified.length > 0 ||
-    meanData.bmdMeans.notInReference.length > 0 ||
-    meanData.bmdlMeans.clustered.length > 0 ||
-    meanData.bmduMeans.clustered.length > 0
-  );
+  const hasAnyData = useMemo(() => {
+    if (!clusterData) return false;
+    let total = 0;
+    clusterData.bmdMeans.inFocus.forEach(arr => total += arr.length);
+    clusterData.bmdMeans.outOfFocus.forEach(arr => total += arr.length);
+    clusterData.bmdlMeans.inFocus.forEach(arr => total += arr.length);
+    clusterData.bmdlMeans.outOfFocus.forEach(arr => total += arr.length);
+    clusterData.bmduMeans.inFocus.forEach(arr => total += arr.length);
+    clusterData.bmduMeans.outOfFocus.forEach(arr => total += arr.length);
+    return total > 0;
+  }, [clusterData]);
 
   if (!hasAnyData) {
     return (
@@ -84,7 +103,7 @@ export default function MeanHistograms() {
 
   const histogramConfig = {
     type: useLogYAxis ? 'log' : 'linear',
-    nbins: 20 // Default bucket size from JavaFX implementation
+    nbins: 20
   };
 
   const commonLayout = {
@@ -97,82 +116,74 @@ export default function MeanHistograms() {
       gridcolor: DEFAULT_GRID_COLOR,
     },
     margin: { l: 60, r: 50, t: 60, b: 60 },
-    showlegend: true,
-    legend: {
-      orientation: 'h' as const,
-      x: 0.5,
-      xanchor: 'center' as const,
-      y: -0.15,
-    },
+    showlegend: false,
   };
 
-  // Helper to create 3 stacked traces for a histogram
-  const createStackedTraces = (
-    data: { clustered: number[]; unclassified: number[]; notInReference: number[] },
-    showLegend: boolean = false
-  ) => {
+  // Helper to create stacked traces for a histogram with display mode support
+  // Creates traces for in-focus (full opacity) and out-of-focus (dimmed/hidden based on mode)
+  const createStackedTraces = (dataByClusterAndFocus: { inFocus: Map<number, number[]>; outOfFocus: Map<number, number[]> }) => {
     const traces: any[] = [];
 
-    if (data.clustered.length > 0) {
-      traces.push({
-        x: data.clustered,
-        type: 'histogram',
-        nbinsx: histogramConfig.nbins,
-        name: CLUSTER_TYPE_LABELS.clustered,
-        marker: {
-          color: CLUSTER_TYPE_COLORS.clustered,
-          line: { color: '#000000', width: 1 }
-        },
-        hovertemplate: 'Value: %{x:.4f}<br>Count: %{y}<extra>Clustered</extra>',
-        showlegend: showLegend,
-        legendgroup: 'clustered',
-      });
-    }
+    clusterData!.clusterIds.forEach(clusterId => {
+      const inFocusValues = dataByClusterAndFocus.inFocus.get(clusterId) || [];
+      const outOfFocusValues = dataByClusterAndFocus.outOfFocus.get(clusterId) || [];
+      const color = clusterColors[clusterId] || '#999999';
+      const label = getClusterLabel(clusterId);
 
-    if (data.unclassified.length > 0) {
-      traces.push({
-        x: data.unclassified,
-        type: 'histogram',
-        nbinsx: histogramConfig.nbins,
-        name: CLUSTER_TYPE_LABELS.unclassified,
-        marker: {
-          color: CLUSTER_TYPE_COLORS.unclassified,
-          line: { color: '#000000', width: 1 }
-        },
-        hovertemplate: 'Value: %{x:.4f}<br>Count: %{y}<extra>Unclassified</extra>',
-        showlegend: showLegend,
-        legendgroup: 'unclassified',
-      });
-    }
+      // In-focus trace (always full opacity when visible)
+      if (inFocusValues.length > 0) {
+        traces.push({
+          x: inFocusValues,
+          type: 'histogram',
+          nbinsx: histogramConfig.nbins,
+          name: `${label} (in focus)`,
+          marker: {
+            color: color,
+            opacity: 1.0,
+            line: { color: 'white', width: 1 }
+          },
+          hovertemplate: `Value: %{x:.4f}<br>Count: %{y}<extra>${label}</extra>`,
+          showlegend: false,
+        });
+      }
 
-    if (data.notInReference.length > 0) {
-      traces.push({
-        x: data.notInReference,
-        type: 'histogram',
-        nbinsx: histogramConfig.nbins,
-        name: CLUSTER_TYPE_LABELS.notInReference,
-        marker: {
-          color: CLUSTER_TYPE_COLORS.notInReference,
-          line: { color: '#000000', width: 1 }
-        },
-        hovertemplate: 'Value: %{x:.4f}<br>Count: %{y}<extra>Not in Reference</extra>',
-        showlegend: showLegend,
-        legendgroup: 'notInReference',
-      });
-    }
+      // Out-of-focus trace: shown in highlight mode (full), dimmed in dim mode, hidden in isolate mode
+      if (outOfFocusValues.length > 0 && displayMode !== 'isolate') {
+        const outOfFocusOpacity = displayMode === 'dim' ? 0.2 : 1.0;
+        traces.push({
+          x: outOfFocusValues,
+          type: 'histogram',
+          nbinsx: histogramConfig.nbins,
+          name: `${label} (out of focus)`,
+          marker: {
+            color: color,
+            opacity: outOfFocusOpacity,
+            line: { color: 'white', width: 1 }
+          },
+          hovertemplate: `Value: %{x:.4f}<br>Count: %{y}<extra>${label}</extra>`,
+          showlegend: false,
+        });
+      }
+    });
 
     return traces;
   };
 
-  // Check if any histogram has data
-  const hasBmdMeans = meanData.bmdMeans.clustered.length > 0 || meanData.bmdMeans.unclassified.length > 0 || meanData.bmdMeans.notInReference.length > 0;
-  const hasBmdlMeans = meanData.bmdlMeans.clustered.length > 0 || meanData.bmdlMeans.unclassified.length > 0 || meanData.bmdlMeans.notInReference.length > 0;
-  const hasBmduMeans = meanData.bmduMeans.clustered.length > 0 || meanData.bmduMeans.unclassified.length > 0 || meanData.bmduMeans.notInReference.length > 0;
-  const hasBmdFifthMeans = meanData.bmdFifthMeans.clustered.length > 0 || meanData.bmdFifthMeans.unclassified.length > 0 || meanData.bmdFifthMeans.notInReference.length > 0;
-  const hasBmdTenthMeans = meanData.bmdTenthMeans.clustered.length > 0 || meanData.bmdTenthMeans.unclassified.length > 0 || meanData.bmdTenthMeans.notInReference.length > 0;
+  // Check if each histogram has data (considering display mode)
+  const hasData = (dataByClusterAndFocus: { inFocus: Map<number, number[]>; outOfFocus: Map<number, number[]> }) => {
+    let total = 0;
+    dataByClusterAndFocus.inFocus.forEach(arr => total += arr.length);
+    if (displayMode !== 'isolate') {
+      dataByClusterAndFocus.outOfFocus.forEach(arr => total += arr.length);
+    }
+    return total > 0;
+  };
 
-  // First histogram shows the legend
-  const isFirstHistogram = hasBmdMeans;
+  const hasBmdMeans = hasData(clusterData!.bmdMeans);
+  const hasBmdlMeans = hasData(clusterData!.bmdlMeans);
+  const hasBmduMeans = hasData(clusterData!.bmduMeans);
+  const hasBmdFifthMeans = hasData(clusterData!.bmdFifthMeans);
+  const hasBmdTenthMeans = hasData(clusterData!.bmdTenthMeans);
 
   return (
     <div style={{ width: '100%' }}>
@@ -187,7 +198,7 @@ export default function MeanHistograms() {
         {hasBmdMeans && (
           <Col xs={24} lg={12}>
             <Plot
-              data={createStackedTraces(meanData.bmdMeans, true) as any}
+              data={createStackedTraces(clusterData!.bmdMeans) as any}
               layout={{
                 ...commonLayout,
                 title: { text: 'BMD Mean Histogram', font: { size: 14 } },
@@ -205,7 +216,7 @@ export default function MeanHistograms() {
         {hasBmdlMeans && (
           <Col xs={24} lg={12}>
             <Plot
-              data={createStackedTraces(meanData.bmdlMeans, !isFirstHistogram) as any}
+              data={createStackedTraces(clusterData!.bmdlMeans) as any}
               layout={{
                 ...commonLayout,
                 title: { text: 'BMDL Mean Histogram', font: { size: 14 } },
@@ -223,7 +234,7 @@ export default function MeanHistograms() {
         {hasBmduMeans && (
           <Col xs={24} lg={12}>
             <Plot
-              data={createStackedTraces(meanData.bmduMeans, false) as any}
+              data={createStackedTraces(clusterData!.bmduMeans) as any}
               layout={{
                 ...commonLayout,
                 title: { text: 'BMDU Mean Histogram', font: { size: 14 } },
@@ -241,7 +252,7 @@ export default function MeanHistograms() {
         {hasBmdFifthMeans && (
           <Col xs={24} lg={12}>
             <Plot
-              data={createStackedTraces(meanData.bmdFifthMeans, false) as any}
+              data={createStackedTraces(clusterData!.bmdFifthMeans) as any}
               layout={{
                 ...commonLayout,
                 title: { text: 'BMD 5th Percentile Mean Histogram', font: { size: 14 } },
@@ -259,7 +270,7 @@ export default function MeanHistograms() {
         {hasBmdTenthMeans && (
           <Col xs={24} lg={12}>
             <Plot
-              data={createStackedTraces(meanData.bmdTenthMeans, false) as any}
+              data={createStackedTraces(clusterData!.bmdTenthMeans) as any}
               layout={{
                 ...commonLayout,
                 title: { text: 'BMD 10th Percentile Mean Histogram', font: { size: 14 } },
@@ -277,10 +288,8 @@ export default function MeanHistograms() {
       <div style={{ marginTop: '1rem', fontSize: '0.9em', color: '#666' }}>
         <p><strong>About these histograms:</strong></p>
         <ul style={{ marginLeft: '1.5rem' }}>
-          <li>Each histogram shows the distribution of category-level mean values, split by cluster type</li>
-          <li><span style={{ color: CLUSTER_TYPE_COLORS.clustered }}>■</span> Clustered: categories assigned to numbered clusters in UMAP</li>
-          <li><span style={{ color: CLUSTER_TYPE_COLORS.unclassified }}>■</span> Unclassified: categories in UMAP reference but not clustered</li>
-          <li><span style={{ color: CLUSTER_TYPE_COLORS.notInReference }}>■</span> Not in Reference: categories not in UMAP reference data</li>
+          <li>Each histogram shows the distribution of category-level mean values</li>
+          <li>Colors correspond to UMAP cluster assignments (same as sidebar cluster picker)</li>
           <li>X-axis: Mean value range, Y-axis: Number of categories in that range</li>
           <li>Default bins: 20 equal-width buckets</li>
           <li>Toggle "Log Y-Axis" for better visibility with wide-ranging counts</li>

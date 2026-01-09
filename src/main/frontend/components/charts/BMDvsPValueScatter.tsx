@@ -160,8 +160,7 @@ export default function BMDvsPValueScatter() {
           `${getClusterLabel(clusterId)}<br>` +
           'BMD Mean: %{x:.4f}<br>' +
           '-log10(p): %{y:.4f}<extra></extra>',
-        showlegend: true,
-        legendgroup: `cluster_${clusterId}`,
+        showlegend: false,
       });
     });
 
@@ -213,13 +212,7 @@ export default function BMDvsPValueScatter() {
           hovermode: 'closest',
           ...DEFAULT_LAYOUT_STYLES,
           margin: { l: 60, r: 30, t: 50, b: 60 },
-          showlegend: true,
-          legend: {
-            x: 1.02,
-            y: 1,
-            xanchor: 'left',
-            yanchor: 'top',
-          },
+          showlegend: false,
         } as any}
         config={createPlotlyConfigWithExport('bmd_vs_pvalue_scatter')}
         onClick={handlePlotClick}

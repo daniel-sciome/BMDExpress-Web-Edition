@@ -169,40 +169,6 @@ export default function BMDBoxPlot() {
     addClusterPoints(allValues.bmdl, 1);
     addClusterPoints(allValues.bmdu, 2);
 
-    // Add cluster legend traces
-    const clustersInData = new Set<number>();
-    data.forEach(row => {
-      const clusterId = getClusterIdForCategory(row.categoryId);
-      clustersInData.add(clusterId);
-    });
-
-    const sortedLegendClusters = Array.from(clustersInData).sort((a, b) => {
-      if (a === -1) return 1;
-      if (b === -1) return -1;
-      return a - b;
-    });
-
-    sortedLegendClusters.forEach((clusterId, index) => {
-      const color = clusterColors[clusterId] || '#999999';
-      const isFirst = index === 0;
-
-      result.push({
-        x: [null],
-        y: [null],
-        type: 'scatter',
-        mode: 'markers',
-        marker: {
-          color: color,
-          size: 8,
-          symbol: 'circle',
-        },
-        name: getClusterLabel(clusterId),
-        showlegend: true,
-        legendgroup: 'clusters',
-        legendgrouptitle: isFirst ? { text: 'Cluster Colors' } : undefined,
-      });
-    });
-
     // Calculate y-axis range
     const allBMDValues = [
       ...allValues.bmd.map(v => v.value),
@@ -271,13 +237,7 @@ export default function BMDBoxPlot() {
             },
             ...DEFAULT_LAYOUT_STYLES,
             margin: { l: 60, r: 30, t: 80, b: 60 },
-            showlegend: true,
-            legend: {
-              x: 1.02,
-              y: 1,
-              xanchor: 'left',
-              yanchor: 'top',
-            },
+            showlegend: false,
             boxmode: 'overlay',
           } as any}
           config={createPlotlyConfigWithExport('bmd_box_plot')}

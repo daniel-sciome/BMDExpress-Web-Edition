@@ -147,8 +147,7 @@ export default function BubbleChart() {
           '-log10(p-value): %{y:.2f}<br>' +
           'Percentage: %{marker.size:.1f}%<br>' +
           '<extra></extra>',
-        showlegend: true,
-        legendgroup: `cluster_${clusterId}`,
+        showlegend: false,
       });
     });
 
@@ -205,12 +204,7 @@ export default function BubbleChart() {
     height: 600,
     hovermode: 'closest',
     ...DEFAULT_LAYOUT_STYLES,
-    showlegend: true,
-    legend: {
-      x: 1.02,
-      xanchor: 'left',
-      y: 1,
-    },
+    showlegend: false,
   };
 
   return (
