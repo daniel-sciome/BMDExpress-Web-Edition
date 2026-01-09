@@ -32,8 +32,8 @@ function deterministicJitter(key: string, salt: number = 0): number {
     hash = ((hash << 5) - hash) + key.charCodeAt(i);
     hash = hash & hash; // Convert to 32-bit integer
   }
-  // Normalize to range [-0.5, 0.5]
-  return ((hash % 1000) / 1000) - 0.5;
+  // Use Math.abs to handle negative hash values, normalize to [-0.5, 0.5]
+  return (Math.abs(hash % 1000) / 1000) - 0.5;
 }
 
 interface ClusterScatterPlotProps {
@@ -100,8 +100,8 @@ export default function ClusterScatterPlot({
 
       if (bmd != null && bmd > 0) {
         xValues.push(bmd);
-        // Y-axis is gene cluster ID with deterministic jitter (consistent across re-renders)
-        yValues.push(geneClusterId + deterministicJitter(categoryId, geneClusterId) * 0.6);
+        // Y-axis is gene cluster ID with small vertical jitter (consistent across re-renders)
+        yValues.push(geneClusterId + deterministicJitter(categoryId, geneClusterId) * 0.25);
 
         // Size based on gene count (clamped)
         const geneCount = cat.genesThatPassedAllFilters || 1;
