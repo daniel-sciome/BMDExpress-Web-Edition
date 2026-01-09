@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card, Radio, Button } from 'antd';
 import { FileTextOutlined, InfoCircleOutlined, LineChartOutlined, EyeOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { Icon } from '@vaadin/react-components';
@@ -117,7 +117,11 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
     setOpenChartCollapses([]);
   };
 
-  // When a chart is selected, ensure it's expanded by default
+  // Track previous visibleCharts to detect newly selected charts
+  const prevVisibleChartsRef = useRef<string[]>([]);
+
+  // When a NEW chart is selected (not previously visible), auto-expand it
+  // Charts that were already visible keep their current collapse state
   useEffect(() => {
     const chartKeyMap: Record<string, string> = {
       '1': 'chart-1', '2': 'chart-2', '3': 'chart-3', '4': 'chart-4',
@@ -125,12 +129,21 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
       '9': 'chart-9', '10': 'chart-10', '11': 'chart-11', '12': 'chart-12',
       '14': 'chart-14', '15': 'chart-15'
     };
-    const newKeys = visibleCharts
+
+    // Find charts that are newly selected (in current but not in previous)
+    const newlySelected = visibleCharts.filter(v => !prevVisibleChartsRef.current.includes(v));
+
+    // Only expand newly selected charts
+    const newKeys = newlySelected
       .map(v => chartKeyMap[v])
-      .filter(key => key && !openChartCollapses.includes(key));
+      .filter((key): key is string => key !== undefined);
+
     if (newKeys.length > 0) {
       setOpenChartCollapses(prev => [...prev, ...newKeys]);
     }
+
+    // Update ref for next comparison
+    prevVisibleChartsRef.current = visibleCharts;
   }, [visibleCharts]);
 
   // Handle display mode change
