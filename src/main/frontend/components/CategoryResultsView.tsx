@@ -560,7 +560,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
       }}>
         {/* Charts - Direct rendering based on checkbox selection (Power User mode only) */}
         {viewMode === 'power' && visibleCharts.includes('1') && (
-          <div style={{ marginBottom: '1rem' }}>
+          <div style={{ marginBottom: '4px' }}>
             <Collapse
               activeKey={openChartCollapses}
               onChange={handleChartCollapseChange('chart-1')}
@@ -583,7 +583,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         )}
 
         {viewMode === 'power' && visibleCharts.includes('2') && (
-          <div style={{ marginBottom: '1rem' }}>
+          <div style={{ marginBottom: '4px' }}>
             <Collapse
               activeKey={openChartCollapses}
               onChange={handleChartCollapseChange('chart-2')}
@@ -597,7 +597,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         )}
 
         {viewMode === 'power' && visibleCharts.includes('3') && (
-          <div style={{ marginBottom: '1rem' }}>
+          <div style={{ marginBottom: '4px' }}>
             <Collapse
               activeKey={openChartCollapses}
               onChange={handleChartCollapseChange('chart-3')}
@@ -611,7 +611,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         )}
 
         {viewMode === 'power' && visibleCharts.includes('4') && (
-          <div style={{ marginBottom: '1rem' }}>
+          <div style={{ marginBottom: '4px' }}>
             <Collapse
               activeKey={openChartCollapses}
               onChange={handleChartCollapseChange('chart-4')}
@@ -625,7 +625,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         )}
 
         {viewMode === 'power' && visibleCharts.includes('5') && (
-          <div style={{ marginBottom: '1rem' }}>
+          <div style={{ marginBottom: '4px' }}>
             <Collapse
               activeKey={openChartCollapses}
               onChange={handleChartCollapseChange('chart-5')}
@@ -639,7 +639,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         )}
 
         {viewMode === 'power' && visibleCharts.includes('6') && (
-          <div style={{ marginBottom: '1rem' }}>
+          <div style={{ marginBottom: '4px' }}>
             <Collapse
               activeKey={openChartCollapses}
               onChange={handleChartCollapseChange('chart-6')}
@@ -653,7 +653,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         )}
 
         {viewMode === 'power' && visibleCharts.includes('7') && (
-          <div style={{ marginBottom: '1rem' }}>
+          <div style={{ marginBottom: '4px' }}>
             <Collapse
               activeKey={openChartCollapses}
               onChange={handleChartCollapseChange('chart-7')}
@@ -667,7 +667,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         )}
 
         {viewMode === 'power' && visibleCharts.includes('8') && (
-          <div style={{ marginBottom: '1rem' }}>
+          <div style={{ marginBottom: '4px' }}>
             <Collapse
               activeKey={openChartCollapses}
               onChange={handleChartCollapseChange('chart-8')}
@@ -681,7 +681,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         )}
 
         {viewMode === 'power' && visibleCharts.includes('9') && (
-          <div style={{ marginBottom: '1rem' }}>
+          <div style={{ marginBottom: '4px' }}>
             <Collapse
               activeKey={openChartCollapses}
               onChange={handleChartCollapseChange('chart-9')}
@@ -695,7 +695,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         )}
 
         {viewMode === 'power' && visibleCharts.includes('10') && (
-          <div style={{ marginBottom: '1rem' }}>
+          <div style={{ marginBottom: '4px' }}>
             <Collapse
               activeKey={openChartCollapses}
               onChange={handleChartCollapseChange('chart-10')}
@@ -709,7 +709,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         )}
 
         {viewMode === 'power' && visibleCharts.includes('11') && (
-          <div style={{ marginBottom: '1rem' }}>
+          <div style={{ marginBottom: '4px' }}>
             <Collapse
               activeKey={openChartCollapses}
               onChange={handleChartCollapseChange('chart-11')}
@@ -723,7 +723,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         )}
 
         {viewMode === 'power' && visibleCharts.includes('12') && (
-          <div style={{ marginBottom: '1rem' }}>
+          <div style={{ marginBottom: '4px' }}>
             <Collapse
               activeKey={openChartCollapses}
               onChange={handleChartCollapseChange('chart-12')}
@@ -737,7 +737,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         )}
 
         {viewMode === 'power' && visibleCharts.includes('14') && (
-          <div style={{ marginBottom: '1rem' }}>
+          <div style={{ marginBottom: '4px' }}>
             <Collapse
               activeKey={openChartCollapses}
               onChange={handleChartCollapseChange('chart-14')}
@@ -751,7 +751,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         )}
 
         {viewMode === 'power' && visibleCharts.includes('15') && (
-          <div style={{ marginBottom: '1rem' }}>
+          <div style={{ marginBottom: '4px' }}>
             <Collapse
               activeKey={openChartCollapses}
               onChange={handleChartCollapseChange('chart-15')}
