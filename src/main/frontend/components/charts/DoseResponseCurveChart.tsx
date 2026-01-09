@@ -16,54 +16,38 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
   const clusterColors = useClusterColors();
   const categoryState = useReactiveState('categoryId');
 
-  // Track which categories are included in overlay (all by default)
-  const allCategories = useMemo(() =>
-    Array.from(new Set(curves.map(c => c.pathwayDescription || 'Unknown'))),
-    [curves]
-  );
-  const [includedInOverlay, setIncludedInOverlay] = useState<Set<string>>(() =>
-    new Set(allCategories)
-  );
+  // Get top 3 categories by lowest BMD for default overlay selection
+  const defaultOverlayCategories = useMemo(() => {
+    const sorted = [...selectedCategories]
+      .filter(cat => cat.bmdMedian != null && cat.bmdMedian > 0 && cat.categoryDescription)
+      .sort((a, b) => (a.bmdMedian ?? Infinity) - (b.bmdMedian ?? Infinity))
+      .slice(0, 3);
+    return new Set(sorted.map(cat => cat.categoryDescription!));
+  }, [selectedCategories]);
 
-  // Track revision to force Plotly to update overlay plot
-  const [overlayRevision, setOverlayRevision] = useState(0);
+  // Track which categories are included in overlay
+  const [includedInOverlay, setIncludedInOverlay] = useState<Set<string>>(defaultOverlayCategories);
 
-  // Sync includedInOverlay when allCategories changes (e.g., when new curves are loaded)
+  // Reset to defaults when selected categories change
   useEffect(() => {
-    console.log('[DoseResponseCurveChart] allCategories changed:', allCategories);
-    setIncludedInOverlay(prev => {
-      // Add any new categories, keep existing selections
-      const updated = new Set(prev);
-      allCategories.forEach(cat => updated.add(cat));
-      return updated;
-    });
-  }, [allCategories]);
-
-  if (!curves || curves.length === 0) {
-    return null;
-  }
+    setIncludedInOverlay(defaultOverlayCategories);
+  }, [defaultOverlayCategories]);
 
   const toggleCategoryInOverlay = useCallback((pathwayDesc: string) => {
-    console.log('[DoseResponseCurveChart] Toggling category:', pathwayDesc);
     setIncludedInOverlay(prev => {
       const newSet = new Set(prev);
       if (newSet.has(pathwayDesc)) {
         newSet.delete(pathwayDesc);
-        console.log('[DoseResponseCurveChart] Removed from overlay:', pathwayDesc);
       } else {
         newSet.add(pathwayDesc);
-        console.log('[DoseResponseCurveChart] Added to overlay:', pathwayDesc);
       }
-      console.log('[DoseResponseCurveChart] New includedInOverlay:', Array.from(newSet));
       return newSet;
     });
-    // Increment revision to force Plotly to update
-    setOverlayRevision(prev => {
-      const newRevision = prev + 1;
-      console.log('[DoseResponseCurveChart] Setting overlayRevision to', newRevision);
-      return newRevision;
-    });
   }, []);
+
+  if (!curves || curves.length === 0) {
+    return null;
+  }
 
   // Map pathway description to category and cluster
   const pathwayToCluster = useMemo(() => {
@@ -79,15 +63,11 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
     return map;
   }, [selectedCategories]);
 
-  // Filter curves for overlay based on includedInOverlay
+  // Filter curves for overlay based on checkbox selections
   const overlayCurves = useMemo(() => {
-    const filtered = curves.filter(curve => includedInOverlay.has(curve.pathwayDescription || 'Unknown'));
-    console.log('[DoseResponseCurveChart] Recalculating overlayCurves:', {
-      totalCurves: curves.length,
-      includedCategories: Array.from(includedInOverlay),
-      filteredCurves: filtered.length
-    });
-    return filtered;
+    return curves.filter(curve =>
+      includedInOverlay.has(curve.pathwayDescription || '')
+    );
   }, [curves, includedInOverlay]);
 
   // Group overlay curves by cluster
@@ -397,7 +377,6 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
       b: 60,
     },
     height: 500,
-    datarevision: overlayRevision, // Force Plotly to update when this changes
   };
 
   const config: any = {
@@ -447,7 +426,6 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
       {/* Overlay plot */}
       <div style={{ marginBottom: 24 }}>
         <Plot
-          key={`overlay-${overlayRevision}`}
           data={overlayPlotData}
           layout={overlayLayout}
           config={config}
@@ -455,13 +433,22 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
         />
       </div>
 
-      {/* Individual category plots */}
+      {/* Individual category plots - sorted by BMD median (low to high) */}
       <div>
         <h3 style={{ marginBottom: 16, fontSize: '16px', fontWeight: 600 }}>
           Individual Category Plots
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(600px, 1fr))', gap: '20px' }}>
-          {Array.from(curvesByCategory.entries()).map(([pathwayDesc, categoryCurves]) => {
+          {Array.from(curvesByCategory.entries())
+            .sort(([descA], [descB]) => {
+              // Look up BMD median for each category
+              const catA = selectedCategories.find(c => c.categoryDescription === descA);
+              const catB = selectedCategories.find(c => c.categoryDescription === descB);
+              const bmdA = catA?.bmdMedian ?? Infinity;
+              const bmdB = catB?.bmdMedian ?? Infinity;
+              return bmdA - bmdB;
+            })
+            .map(([pathwayDesc, categoryCurves]) => {
             const pathwayInfo = pathwayToCluster.get(pathwayDesc);
             const clusterId = pathwayInfo?.clusterId ?? -1;
             const clusterColor = clusterColors[clusterId] || '#999999';
@@ -598,12 +585,12 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
 
             return (
               <div key={pathwayDesc} style={{ border: '1px solid #e0e0e0', borderRadius: '8px', padding: '12px' }}>
-                <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ marginBottom: 8 }}>
                   <Checkbox
                     checked={includedInOverlay.has(pathwayDesc)}
                     onChange={() => toggleCategoryInOverlay(pathwayDesc)}
                   >
-                    <span style={{ fontWeight: 500, fontSize: '13px' }}>Include in overlay</span>
+                    <span style={{ fontSize: '13px' }}>Include in overlay</span>
                   </Checkbox>
                 </div>
                 <Plot

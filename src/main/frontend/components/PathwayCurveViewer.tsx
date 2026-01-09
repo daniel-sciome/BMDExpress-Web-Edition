@@ -112,22 +112,6 @@ export default function PathwayCurveViewer({ projectId, resultName }: PathwayCur
         />
       )}
 
-      {/* Selected Categories Display */}
-      {selectedCategories.length > 0 && (
-        <div style={{ marginBottom: '1rem' }}>
-          <div style={{ fontWeight: 500, marginBottom: '0.5rem' }}>
-            Selected Categories:
-          </div>
-          <Space wrap size="small">
-            {selectedCategories.map(cat => (
-              <Tag key={cat.categoryId} color="processing">
-                {cat.categoryDescription}
-              </Tag>
-            ))}
-          </Space>
-        </div>
-      )}
-
       {/* Loading State */}
       {loadingCurves && (
         <div style={{ textAlign: 'center', padding: '2rem' }}>
