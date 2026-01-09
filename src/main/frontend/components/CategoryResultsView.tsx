@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card, Radio } from 'antd';
+import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card, Radio, Button } from 'antd';
 import { FileTextOutlined, InfoCircleOutlined, LineChartOutlined, EyeOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { Icon } from '@vaadin/react-components';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -93,6 +93,45 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   const displayMode = useAppSelector(selectDisplayMode);
   const [annotation, setAnnotation] = useState<AnalysisAnnotationDto | null>(null);
   const [visibleCharts, setVisibleCharts] = useState<string[]>([]);
+  // Track which chart collapses are open (start with all expanded, including table)
+  const [openChartCollapses, setOpenChartCollapses] = useState<string[]>([
+    'chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5', 'chart-6',
+    'chart-7', 'chart-8', 'chart-9', 'chart-10', 'chart-11', 'chart-12',
+    'chart-14', 'chart-15', 'category-results-table'
+  ]);
+
+  // Handle toggling a single chart collapse (add or remove from open list)
+  const handleChartCollapseChange = (chartKey: string) => (keys: string | string[]) => {
+    const keysArray = Array.isArray(keys) ? keys : [keys];
+    if (keysArray.includes(chartKey)) {
+      // Opening this collapse - add to list if not present
+      setOpenChartCollapses(prev => prev.includes(chartKey) ? prev : [...prev, chartKey]);
+    } else {
+      // Closing this collapse - remove from list
+      setOpenChartCollapses(prev => prev.filter(k => k !== chartKey));
+    }
+  };
+
+  // Handle collapse all charts
+  const handleCollapseAll = () => {
+    setOpenChartCollapses([]);
+  };
+
+  // When a chart is selected, ensure it's expanded by default
+  useEffect(() => {
+    const chartKeyMap: Record<string, string> = {
+      '1': 'chart-1', '2': 'chart-2', '3': 'chart-3', '4': 'chart-4',
+      '5': 'chart-5', '6': 'chart-6', '7': 'chart-7', '8': 'chart-8',
+      '9': 'chart-9', '10': 'chart-10', '11': 'chart-11', '12': 'chart-12',
+      '14': 'chart-14', '15': 'chart-15'
+    };
+    const newKeys = visibleCharts
+      .map(v => chartKeyMap[v])
+      .filter(key => key && !openChartCollapses.includes(key));
+    if (newKeys.length > 0) {
+      setOpenChartCollapses(prev => [...prev, ...newKeys]);
+    }
+  }, [visibleCharts]);
 
   // Handle display mode change
   const handleDisplayModeChange = (mode: DisplayMode) => {
@@ -489,6 +528,11 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                 <Radio.Button value="isolate">Hide Others</Radio.Button>
               </Tooltip>
             </Radio.Group>
+            <Tooltip title="Collapse all expanded sections">
+              <Button size="small" onClick={handleCollapseAll}>
+                Collapse All
+              </Button>
+            </Tooltip>
           </Space>
         </div>
       </div>
@@ -505,7 +549,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {viewMode === 'power' && visibleCharts.includes('1') && (
           <div style={{ marginBottom: '1rem' }}>
             <Collapse
-              defaultActiveKey={['chart-1']}
+              activeKey={openChartCollapses}
+              onChange={handleChartCollapseChange('chart-1')}
               items={[{
                 key: 'chart-1',
                 label: <span style={{ lineHeight: '22px' }}>BMD Overview (Scatter & Box Plot)</span>,
@@ -527,7 +572,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {viewMode === 'power' && visibleCharts.includes('2') && (
           <div style={{ marginBottom: '1rem' }}>
             <Collapse
-              defaultActiveKey={['chart-2']}
+              activeKey={openChartCollapses}
+              onChange={handleChartCollapseChange('chart-2')}
               items={[{
                 key: 'chart-2',
                 label: <span style={{ lineHeight: '22px' }}>UMAP Scatter Plot</span>,
@@ -540,7 +586,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {viewMode === 'power' && visibleCharts.includes('3') && (
           <div style={{ marginBottom: '1rem' }}>
             <Collapse
-              defaultActiveKey={['chart-3']}
+              activeKey={openChartCollapses}
+              onChange={handleChartCollapseChange('chart-3')}
               items={[{
                 key: 'chart-3',
                 label: <span style={{ lineHeight: '22px' }}>Curve Overlay</span>,
@@ -553,7 +600,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {viewMode === 'power' && visibleCharts.includes('4') && (
           <div style={{ marginBottom: '1rem' }}>
             <Collapse
-              defaultActiveKey={['chart-4']}
+              activeKey={openChartCollapses}
+              onChange={handleChartCollapseChange('chart-4')}
               items={[{
                 key: 'chart-4',
                 label: <span style={{ lineHeight: '22px' }}>Range Plot</span>,
@@ -566,7 +614,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {viewMode === 'power' && visibleCharts.includes('5') && (
           <div style={{ marginBottom: '1rem' }}>
             <Collapse
-              defaultActiveKey={['chart-5']}
+              activeKey={openChartCollapses}
+              onChange={handleChartCollapseChange('chart-5')}
               items={[{
                 key: 'chart-5',
                 label: <span style={{ lineHeight: '22px' }}>Bubble Chart</span>,
@@ -579,7 +628,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {viewMode === 'power' && visibleCharts.includes('6') && (
           <div style={{ marginBottom: '1rem' }}>
             <Collapse
-              defaultActiveKey={['chart-6']}
+              activeKey={openChartCollapses}
+              onChange={handleChartCollapseChange('chart-6')}
               items={[{
                 key: 'chart-6',
                 label: <span style={{ lineHeight: '22px' }}>Best Models Pie Chart</span>,
@@ -592,7 +642,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {viewMode === 'power' && visibleCharts.includes('7') && (
           <div style={{ marginBottom: '1rem' }}>
             <Collapse
-              defaultActiveKey={['chart-7']}
+              activeKey={openChartCollapses}
+              onChange={handleChartCollapseChange('chart-7')}
               items={[{
                 key: 'chart-7',
                 label: <span style={{ lineHeight: '22px' }}>Bar Charts</span>,
@@ -605,7 +656,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {viewMode === 'power' && visibleCharts.includes('8') && (
           <div style={{ marginBottom: '1rem' }}>
             <Collapse
-              defaultActiveKey={['chart-8']}
+              activeKey={openChartCollapses}
+              onChange={handleChartCollapseChange('chart-8')}
               items={[{
                 key: 'chart-8',
                 label: <span style={{ lineHeight: '22px' }}>Accumulation Charts</span>,
@@ -618,7 +670,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {viewMode === 'power' && visibleCharts.includes('9') && (
           <div style={{ marginBottom: '1rem' }}>
             <Collapse
-              defaultActiveKey={['chart-9']}
+              activeKey={openChartCollapses}
+              onChange={handleChartCollapseChange('chart-9')}
               items={[{
                 key: 'chart-9',
                 label: <span style={{ lineHeight: '22px' }}>Mean Histograms</span>,
@@ -631,7 +684,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {viewMode === 'power' && visibleCharts.includes('10') && (
           <div style={{ marginBottom: '1rem' }}>
             <Collapse
-              defaultActiveKey={['chart-10']}
+              activeKey={openChartCollapses}
+              onChange={handleChartCollapseChange('chart-10')}
               items={[{
                 key: 'chart-10',
                 label: <span style={{ lineHeight: '22px' }}>Median Histograms</span>,
@@ -644,7 +698,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {viewMode === 'power' && visibleCharts.includes('11') && (
           <div style={{ marginBottom: '1rem' }}>
             <Collapse
-              defaultActiveKey={['chart-11']}
+              activeKey={openChartCollapses}
+              onChange={handleChartCollapseChange('chart-11')}
               items={[{
                 key: 'chart-11',
                 label: <span style={{ lineHeight: '22px' }}>BMD vs BMDL Scatter</span>,
@@ -657,7 +712,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {viewMode === 'power' && visibleCharts.includes('12') && (
           <div style={{ marginBottom: '1rem' }}>
             <Collapse
-              defaultActiveKey={['chart-12']}
+              activeKey={openChartCollapses}
+              onChange={handleChartCollapseChange('chart-12')}
               items={[{
                 key: 'chart-12',
                 label: <span style={{ lineHeight: '22px' }}>Violin Plot Per Category</span>,
@@ -670,7 +726,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {viewMode === 'power' && visibleCharts.includes('14') && (
           <div style={{ marginBottom: '1rem' }}>
             <Collapse
-              defaultActiveKey={['chart-14']}
+              activeKey={openChartCollapses}
+              onChange={handleChartCollapseChange('chart-14')}
               items={[{
                 key: 'chart-14',
                 label: <span style={{ lineHeight: '22px' }}>Gene Cluster Histogram</span>,
@@ -683,7 +740,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {viewMode === 'power' && visibleCharts.includes('15') && (
           <div style={{ marginBottom: '1rem' }}>
             <Collapse
-              defaultActiveKey={['chart-15']}
+              activeKey={openChartCollapses}
+              onChange={handleChartCollapseChange('chart-15')}
               items={[{
                 key: 'chart-15',
                 label: <span style={{ lineHeight: '22px' }}>Gene Cluster Scatter</span>,
@@ -694,7 +752,17 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         )}
 
         {/* Table */}
-        <CategoryResultsGrid key={`${projectId}-${resultName}`} />
+        <CategoryResultsGrid
+          key={`${projectId}-${resultName}`}
+          isExpanded={openChartCollapses.includes('category-results-table')}
+          onExpandChange={(expanded) => {
+            if (expanded) {
+              setOpenChartCollapses(prev => prev.includes('category-results-table') ? prev : [...prev, 'category-results-table']);
+            } else {
+              setOpenChartCollapses(prev => prev.filter(k => k !== 'category-results-table'));
+            }
+          }}
+        />
       </div>
     </div>
     </>
