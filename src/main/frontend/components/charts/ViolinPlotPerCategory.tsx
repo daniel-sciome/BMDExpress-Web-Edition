@@ -17,7 +17,6 @@ import Plot from 'react-plotly.js';
 import { Alert, Select } from 'antd';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useClusterColors, getClusterIdForCategory } from './utils/clusterColors';
-import ClusterLegend from './ClusterLegend';
 import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES } from './utils/plotlyConfig';
 import { parseSemicolonNumericList } from 'Frontend/utils/dtoParsingUtils';
 
@@ -26,23 +25,9 @@ const { Option } = Select;
 export default function ViolinPlotPerCategory() {
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
   const [selectedMetric, setSelectedMetric] = useState<'bmd' | 'bmdl' | 'bmdu'>('bmd');
-  const [hiddenClusters, setHiddenClusters] = useState<Set<string | number>>(new Set());
 
   // Get cluster colors using shared utility
   const clusterColors = useClusterColors();
-
-  // Toggle cluster visibility
-  const toggleCluster = (clusterId: string | number) => {
-    setHiddenClusters(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(clusterId)) {
-        newSet.delete(clusterId);
-      } else {
-        newSet.add(clusterId);
-      }
-      return newSet;
-    });
-  };
 
   // Parse BMD list and prepare violin plot data
   const { violinData, yAxisRange } = useMemo(() => {
@@ -75,17 +60,10 @@ export default function ViolinPlotPerCategory() {
       });
     });
 
-    // Filter out categories from hidden clusters and based on displayMode
+    // Filter based on displayMode
     const visibleData = data.filter((row) => {
-      const categoryId = row.categoryId || '';
-      const clusterId = getClusterIdForCategory(categoryId);
-
-      // Filter by hidden clusters
-      if (hiddenClusters.has(clusterId)) return false;
-
       // Filter by displayMode (isolate mode hides out-of-focus)
       if (shouldHidePoint(row.inFocus)) return false;
-
       return true;
     });
 
@@ -172,7 +150,7 @@ export default function ViolinPlotPerCategory() {
     }
 
     return { violinData: traces, yAxisRange: yRange };
-  }, [data, clusterColors, selectedMetric, hiddenClusters, displayMode, getPointStyle, shouldHidePoint]);
+  }, [data, clusterColors, selectedMetric, displayMode, getPointStyle, shouldHidePoint]);
 
   if (!data || data.length === 0) {
     return (
@@ -260,18 +238,11 @@ export default function ViolinPlotPerCategory() {
         useResizeHandler={true}
       />
 
-      {/* Cluster Color Legend */}
-      <ClusterLegend
-        clusterColors={clusterColors}
-        hiddenClusters={hiddenClusters}
-        onToggleCluster={toggleCluster}
-      />
-
       <div style={{ marginTop: '1rem', fontSize: '0.9em', color: '#666' }}>
         <p><strong>About this chart:</strong></p>
         <ul style={{ marginLeft: '1.5rem' }}>
           <li>Each violin shows the distribution of {metricLabel} values across genes within that category</li>
-          <li>Colors correspond to UMAP cluster assignments (see legend above)</li>
+          <li>Colors correspond to UMAP cluster assignments (same as sidebar cluster picker)</li>
           <li>Box plot inside each violin shows median and quartiles</li>
           <li>Mean line is displayed as a dashed line</li>
           <li>In-focus categories appear at full opacity; out-of-focus are dimmed/hidden based on display mode</li>

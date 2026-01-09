@@ -141,8 +141,7 @@ export default function BarCharts() {
           hovertemplate: '<b>%{y}</b><br>' +
             `${getClusterLabel(clusterId)}<br>` +
             'Value: %{x:.4f}<extra></extra>',
-          showlegend: true,
-          legendgroup: `cluster_${clusterId}`,
+          showlegend: false,
         });
       });
 
@@ -196,12 +195,7 @@ export default function BarCharts() {
                 barmode: 'stack',
                 height: 500,
                 margin: { l: 200, r: 50, t: 50, b: 50 },
-                showlegend: true,
-                legend: {
-                  x: 1.02,
-                  xanchor: 'left',
-                  y: 1,
-                },
+                showlegend: false,
                 ...DEFAULT_LAYOUT_STYLES,
               } as any}
               config={createPlotlyConfig() as any}

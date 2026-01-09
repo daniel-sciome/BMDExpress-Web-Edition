@@ -197,8 +197,7 @@ export default function BMDvsBMDLScatter() {
           `BMD ${metricLabel}: %{x:.4f}<br>` +
           `BMDL ${metricLabel}: %{y:.4f}<br>` +
           '<extra></extra>',
-        showlegend: true,
-        legendgroup: `cluster_${clusterId}`,
+        showlegend: false,
       });
     });
 
@@ -251,13 +250,7 @@ export default function BMDvsBMDLScatter() {
           height: 600,
           margin: { l: 80, r: 50, t: 80, b: 80 },
           hovermode: 'closest',
-          showlegend: true,
-          legend: {
-            x: 1.02,
-            xanchor: 'left',
-            y: 1,
-            yanchor: 'top',
-          },
+          showlegend: false,
         } as any}
         config={createPlotlyConfig() as any}
         style={{ width: '100%', height: '100%' }}

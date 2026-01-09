@@ -4,7 +4,7 @@
  * Stacked histogram showing BMD distribution by gene cluster:
  * - X-axis: BMD values (log scale)
  * - Y-axis: Count of categories
- * - Stacked bars colored by cluster membership
+ * - Bars colored by UMAP cluster (consistent with sidebar ClusterPicker)
  *
  * Uses inFocus-based display mode styling (highlight/dim/isolate).
  *
@@ -17,7 +17,7 @@ import Plot from 'react-plotly.js';
 import { Spin, Select, Space, Typography } from 'antd';
 import { useGeneClusteringData, LinkageMethod } from './hooks/useGeneClusteringData';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
-import { CLUSTER_COLOR_PALETTE, OUTLIER_COLOR } from './utils/clusterColors';
+import { getClusterIdForCategory, getClusterColor } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
 const { Text } = Typography;
@@ -34,7 +34,6 @@ export default function ClusterHeatmap({
 }: ClusterHeatmapProps) {
   const [linkageMethod, setLinkageMethod] = useState<LinkageMethod>(initialLinkageMethod);
   const [bmdMetric, setBmdMetric] = useState<BmdMetric>('median');
-  const [hiddenClusters, setHiddenClusters] = useState<Set<number>>(new Set());
 
   const {
     clusterAssignments,
@@ -59,15 +58,15 @@ export default function ClusterHeatmap({
     return map;
   }, [allDataWithFocus]);
 
-  // Build histogram traces (one per cluster, stacked)
+  // Build histogram traces - one trace per gene cluster, but colored by UMAP cluster
   const plotData = useMemo(() => {
     if (clusterAssignments.size === 0) return [];
 
-    // Group BMD values by cluster
-    const clusterBmdValues = new Map<number, number[]>();
-    uniqueClusterIds.forEach(id => clusterBmdValues.set(id, []));
+    // Group BMD values by gene cluster, but track UMAP cluster for coloring
+    const geneClusterData = new Map<number, Array<{ bmd: number; umapClusterId: number; categoryId: string }>>();
+    uniqueClusterIds.forEach(id => geneClusterData.set(id, []));
 
-    clusterAssignments.forEach((clusterId, categoryId) => {
+    clusterAssignments.forEach((geneClusterId, categoryId) => {
       const cat = categoryData.get(categoryId);
       if (!cat) return;
 
@@ -82,79 +81,44 @@ export default function ClusterHeatmap({
         : (cat.bmdMean ?? cat.bmdMedian);
 
       if (bmd != null && bmd > 0) {
-        const values = clusterBmdValues.get(clusterId);
-        if (values) {
-          values.push(bmd);
+        const data = geneClusterData.get(geneClusterId);
+        if (data) {
+          // Get UMAP cluster ID for coloring
+          const umapClusterId = getClusterIdForCategory(categoryId);
+          data.push({ bmd, umapClusterId, categoryId });
         }
       }
     });
 
-    // Create histogram trace for each cluster
+    // Create histogram trace for each gene cluster
     const traces: any[] = [];
 
-    uniqueClusterIds.forEach((clusterId, clusterIndex) => {
-      const bmdValues = clusterBmdValues.get(clusterId) || [];
-      if (bmdValues.length === 0) return;
+    uniqueClusterIds.forEach((geneClusterId) => {
+      const data = geneClusterData.get(geneClusterId) || [];
+      if (data.length === 0) return;
 
-      const isHidden = hiddenClusters.has(clusterId);
-      const baseColor = CLUSTER_COLOR_PALETTE[clusterIndex % CLUSTER_COLOR_PALETTE.length];
+      // Get colors based on UMAP cluster for each point
+      const colors = data.map(d => getClusterColor(d.umapClusterId));
 
       traces.push({
         type: 'histogram',
-        x: bmdValues,
-        name: `Cluster ${clusterId} (${bmdValues.length})`,
+        x: data.map(d => d.bmd),
+        name: `Gene Cluster ${geneClusterId}`,
         marker: {
-          color: baseColor,
+          color: colors,
           line: {
             color: 'white',
             width: 1,
           },
         },
         opacity: 0.8,
-        visible: isHidden ? 'legendonly' : true,
-        hovertemplate: `Cluster ${clusterId}<br>BMD: %{x}<br>Count: %{y}<extra></extra>`,
+        hovertemplate: `Gene Cluster ${geneClusterId}<br>BMD: %{x}<br>Count: %{y}<extra></extra>`,
+        showlegend: false,
       });
     });
 
     return traces;
-  }, [clusterAssignments, categoryData, uniqueClusterIds, focusMap, displayMode, shouldHidePoint, bmdMetric, hiddenClusters]);
-
-  // Toggle cluster visibility
-  const toggleCluster = (clusterId: number) => {
-    setHiddenClusters(prev => {
-      const next = new Set(prev);
-      if (next.has(clusterId)) {
-        next.delete(clusterId);
-      } else {
-        next.add(clusterId);
-      }
-      return next;
-    });
-  };
-
-  // Build cluster legend with counts
-  const clusterLegend = useMemo(() => {
-    const counts = new Map<number, number>();
-    clusterAssignments.forEach((clusterId, categoryId) => {
-      const inFocus = focusMap.get(categoryId) ?? true;
-      if (shouldHidePoint(inFocus)) return;
-
-      const cat = categoryData.get(categoryId);
-      const bmd = bmdMetric === 'median'
-        ? (cat?.bmdMedian ?? cat?.bmdMean)
-        : (cat?.bmdMean ?? cat?.bmdMedian);
-
-      if (bmd != null && bmd > 0) {
-        counts.set(clusterId, (counts.get(clusterId) || 0) + 1);
-      }
-    });
-
-    return uniqueClusterIds.map((clusterId, index) => ({
-      id: clusterId,
-      color: CLUSTER_COLOR_PALETTE[index % CLUSTER_COLOR_PALETTE.length],
-      count: counts.get(clusterId) || 0,
-    }));
-  }, [uniqueClusterIds, clusterAssignments, categoryData, focusMap, shouldHidePoint, bmdMetric]);
+  }, [clusterAssignments, categoryData, uniqueClusterIds, focusMap, displayMode, shouldHidePoint, bmdMetric]);
 
   if (loading) {
     return (
@@ -200,18 +164,10 @@ export default function ClusterHeatmap({
     },
     barmode: 'stack',
     height: 500,
-    margin: { l: 60, r: 100, t: 60, b: 60 },
+    margin: { l: 60, r: 50, t: 60, b: 60 },
     hovermode: 'closest',
     ...DEFAULT_LAYOUT_STYLES,
-    showlegend: true,
-    legend: {
-      orientation: 'v',
-      x: 1.02,
-      y: 1,
-      bgcolor: 'rgba(255,255,255,0.9)',
-      bordercolor: '#ddd',
-      borderwidth: 1,
-    },
+    showlegend: false,
   };
 
   const config = createPlotlyConfig();
@@ -245,55 +201,6 @@ export default function ClusterHeatmap({
               { value: 'ward', label: 'Ward' },
             ]}
           />
-        </Space>
-      </div>
-
-      {/* Interactive Cluster Legend */}
-      <div style={{
-        marginBottom: '1rem',
-        padding: '0.75rem',
-        background: '#f5f5f5',
-        borderRadius: '4px',
-        border: '1px solid #d9d9d9'
-      }}>
-        <Text strong style={{ marginRight: '12px' }}>Clusters (click to toggle):</Text>
-        <Space wrap>
-          {clusterLegend.map(({ id, color, count }) => {
-            const isHidden = hiddenClusters.has(id);
-
-            return (
-              <div
-                key={id}
-                onClick={() => toggleCluster(id)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  cursor: 'pointer',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  background: isHidden ? 'transparent' : 'white',
-                  border: isHidden ? '1px dashed #ccc' : '1px solid #d9d9d9',
-                  opacity: isHidden ? 0.5 : 1,
-                  transition: 'all 0.2s',
-                }}
-              >
-                <div style={{
-                  width: 12,
-                  height: 12,
-                  backgroundColor: isHidden ? 'transparent' : color,
-                  border: `2px solid ${color}`,
-                  borderRadius: 2,
-                }} />
-                <Text style={{
-                  fontSize: '12px',
-                  textDecoration: isHidden ? 'line-through' : 'none',
-                }}>
-                  Cluster {id} ({count})
-                </Text>
-              </div>
-            );
-          })}
         </Space>
       </div>
 

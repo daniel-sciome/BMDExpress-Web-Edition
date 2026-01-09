@@ -170,8 +170,7 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
             name: getClusterLabel(clusterId),
             line: { width: 2 },
             hovertemplate: `${curveName}<br>${getClusterLabel(clusterId)}<br>Dose: %{x}<br>Response: %{y:.3f}<extra></extra>`,
-            showlegend: isFirstCurveInCluster, // Only first curve in cluster shows in legend
-            legendgroup: `cluster_${clusterId}`,
+            showlegend: false,
             clusterId: clusterId,
             pathwayDescription: curve.pathwayDescription,
           });
@@ -390,13 +389,7 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
       gridcolor: '#e5e5e5',
     },
     hovermode: 'closest',
-    showlegend: true,
-    legend: {
-      x: 1.05,
-      y: 1,
-      xanchor: 'left',
-      yanchor: 'top',
-    },
+    showlegend: false,
     margin: {
       l: 60,
       r: 150,
@@ -439,16 +432,10 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
       gridcolor: '#e5e5e5',
     },
     hovermode: 'closest' as const,
-    showlegend: true,
-    legend: {
-      x: 1.05,
-      y: 1,
-      xanchor: 'left' as const,
-      yanchor: 'top' as const,
-    },
+    showlegend: false,
     margin: {
       l: 60,
-      r: 150,
+      r: 50,
       t: 60,
       b: 60,
     },
@@ -554,8 +541,7 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
                     mode: 'lines',
                     line: { color: '#00FF00', width: 2 },
                     name: 'BMD',
-                    showlegend: isFirstCurve,
-                    legendgroup: 'bmd',
+                    showlegend: false,
                     hovertemplate: `BMD<br>Dose: ${markers.bmd.toFixed(3)}<extra></extra>`,
                   });
                 }
@@ -568,8 +554,7 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
                     mode: 'lines',
                     line: { color: '#FF0000', width: 2 },
                     name: 'BMDL',
-                    showlegend: isFirstCurve,
-                    legendgroup: 'bmdl',
+                    showlegend: false,
                     hovertemplate: `BMDL<br>Dose: ${markers.bmdl.toFixed(3)}<extra></extra>`,
                   });
                 }
@@ -582,8 +567,7 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
                     mode: 'lines',
                     line: { color: '#0000FF', width: 2 },
                     name: 'BMDU',
-                    showlegend: isFirstCurve,
-                    legendgroup: 'bmdu',
+                    showlegend: false,
                     hovertemplate: `BMDU<br>Dose: ${markers.bmdu.toFixed(3)}<extra></extra>`,
                   });
                 }
@@ -609,13 +593,7 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
               height: 400,
               margin: { l: 60, r: 20, t: 60, b: 60 },
               hovermode: 'closest' as const,
-              showlegend: true,
-              legend: {
-                x: 1.02,
-                xanchor: 'left' as const,
-                y: 1,
-                yanchor: 'top' as const,
-              },
+              showlegend: false,
             };
 
             return (
