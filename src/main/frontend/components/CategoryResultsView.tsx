@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card, Radio } from 'antd';
-import { FileTextOutlined, InfoCircleOutlined, LineChartOutlined, EyeOutlined } from '@ant-design/icons';
+import { FileTextOutlined, InfoCircleOutlined, LineChartOutlined, EyeOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { Icon } from '@vaadin/react-components';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadCategoryResultsWithRenderState, loadAnalysisParameters, setAnalysisType } from '../store/slices/categoryResultsSlice';
@@ -77,7 +77,7 @@ function ChartSelectionTitle({ selectedCount }: { selectedCount: number }) {
 function ExperimentMetadataTitle() {
   return (
     <Space>
-      <span style={{ color: '#52c41a' }}>✓</span>
+      <CheckCircleOutlined style={{ color: '#52c41a' }} />
       <span>Experiment Metadata (from project)</span>
       <Tooltip title="Metadata about the experiment from the project file. Includes species, sex, organ, test article, and other experimental conditions.">
         <InfoCircleOutlined style={{ color: '#1890ff', cursor: 'help' }} />
@@ -212,9 +212,9 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
             border-radius: 0 !important;
           }
           .ant-collapse > .ant-collapse-item > .ant-collapse-header {
-            padding: 2px 12px !important;
-            line-height: 1.1 !important;
-            min-height: 24px !important;
+            padding: 4px 12px !important;
+            min-height: 28px !important;
+            align-items: center !important;
           }
           .ant-collapse > .ant-collapse-item {
             margin-bottom: 0 !important;
@@ -240,6 +240,17 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                   {annotation.analysisType}
                 </span>
               )}
+              <span style={{
+                marginLeft: '12px',
+                padding: '2px 8px',
+                border: '1px solid #888',
+                color: '#888',
+                borderRadius: '4px',
+                fontSize: '1rem',
+                fontWeight: 500,
+              }}>
+                {data.length} categories
+              </span>
             </h2>
 
             {/* Experiment Description from Project Metadata - Collapsible */}
@@ -293,8 +304,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                     </div>
                   ),
                 }]}
-                style={{ background: '#fafafa', border: 'none' }}
-                bordered={false}
+                style={{ background: '#fafafa' }}
               />
             </div>
 
@@ -316,19 +326,28 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                       </div>
                     ),
                   }]}
-                  style={{ background: '#fafafa', border: 'none' }}
-                  bordered={false}
+                  style={{ background: '#fafafa' }}
                 />
               </div>
             )}
 
-            <p style={{ margin: '0 0 0 0', color: '#888', fontSize: '12px' }}>
-              {data.length} categories | Project: {projectId}
-            </p>
           </div>
         ) : (
           <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
-            <h2 style={{ marginBottom: '0.5rem' }}>Category Results: {resultName}</h2>
+            <h2 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center' }}>
+              Category Results: {resultName}
+              <span style={{
+                marginLeft: '12px',
+                padding: '2px 8px',
+                border: '1px solid #888',
+                color: '#888',
+                borderRadius: '4px',
+                fontSize: '1rem',
+                fontWeight: 500,
+              }}>
+                {data.length} categories
+              </span>
+            </h2>
 
             {/* Experiment Description - Collapsible */}
             <div style={{ marginBottom: '4px' }}>
@@ -381,14 +400,9 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                     </div>
                   ),
                 }]}
-                style={{ background: '#fafafa', border: 'none' }}
-                bordered={false}
+                style={{ background: '#fafafa' }}
               />
             </div>
-
-            <p style={{ margin: '0 0 0 0', color: '#666' }}>
-              Project: {projectId} | {data.length} categories
-            </p>
           </div>
         )}
 
@@ -402,38 +416,10 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
               label: <PrimaryFilterTitle activeCount={activeFilterCount} />,
               children: <PrimaryFilter hideCard={true} />,
             }]}
-            style={{ marginBottom: '4px', border: 'none' }}
-            bordered={false}
+            style={{ marginBottom: '4px', background: '#fafafa' }}
           />
         </div>
       )}
-
-      {/* Display Mode Toggle */}
-      <div style={{ padding: '0 1rem 8px 1rem', flexShrink: 0 }}>
-        <Space size="middle" align="center">
-          <Space size="small">
-            <EyeOutlined style={{ color: '#666' }} />
-            <span style={{ fontSize: '12px', color: '#666' }}>Out-of-Focus:</span>
-          </Space>
-          <Radio.Group
-            value={displayMode}
-            onChange={(e) => handleDisplayModeChange(e.target.value as DisplayMode)}
-            size="small"
-            optionType="button"
-            buttonStyle="solid"
-          >
-            <Tooltip title="Show all categories (filtered + unfiltered) at full opacity">
-              <Radio.Button value="highlight">Show All</Radio.Button>
-            </Tooltip>
-            <Tooltip title="Dim categories that don't pass filter criteria">
-              <Radio.Button value="dim">Dim Others</Radio.Button>
-            </Tooltip>
-            <Tooltip title="Hide categories that don't pass filter criteria">
-              <Radio.Button value="isolate">Hide Others</Radio.Button>
-            </Tooltip>
-          </Radio.Group>
-        </Space>
-      </div>
 
       {/* Chart Selection - Collapsible (Power User mode only) */}
       {viewMode === 'power' && (
@@ -467,11 +453,45 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                 </Checkbox.Group>
               ),
             }]}
-            style={{ marginBottom: '4px', border: 'none' }}
-            bordered={false}
+            style={{ marginBottom: '4px', background: '#fafafa' }}
           />
         </div>
       )}
+
+      {/* Display Mode Toggle - with border to match collapses */}
+      <div style={{ padding: '0 1rem', flexShrink: 0 }}>
+        <div style={{
+          marginBottom: '4px',
+          padding: '8px 12px',
+          background: '#fafafa',
+          border: '1px solid #d9d9d9',
+          borderRadius: '8px',
+        }}>
+          <Space size="middle" align="center">
+            <Space size="small">
+              <EyeOutlined style={{ color: '#666' }} />
+              <span style={{ fontSize: '12px', color: '#666' }}>Visibility:</span>
+            </Space>
+            <Radio.Group
+              value={displayMode}
+              onChange={(e) => handleDisplayModeChange(e.target.value as DisplayMode)}
+              size="small"
+              optionType="button"
+              buttonStyle="solid"
+            >
+              <Tooltip title="Show all categories (filtered + unfiltered) at full opacity">
+                <Radio.Button value="highlight">Show All</Radio.Button>
+              </Tooltip>
+              <Tooltip title="Dim categories that don't pass filter criteria">
+                <Radio.Button value="dim">Dim Others</Radio.Button>
+              </Tooltip>
+              <Tooltip title="Hide categories that don't pass filter criteria">
+                <Radio.Button value="isolate">Hide Others</Radio.Button>
+              </Tooltip>
+            </Radio.Group>
+          </Space>
+        </div>
+      </div>
 
       {/* Single scrollable container for both charts and table */}
       <div style={{
