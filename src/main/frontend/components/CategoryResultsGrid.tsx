@@ -71,7 +71,12 @@ type CategoryResultWithFocusAndRank = CategoryAnalysisResultWithRank & {
   inFocus: boolean;
 };
 
-export default function CategoryResultsGrid() {
+interface CategoryResultsGridProps {
+  isExpanded?: boolean;
+  onExpandChange?: (expanded: boolean) => void;
+}
+
+export default function CategoryResultsGrid({ isExpanded, onExpandChange }: CategoryResultsGridProps) {
   const dispatch = useAppDispatch();
   // Now gets ALL data with inFocus boolean (not filtered)
   const allDataWithFocus = useAppSelector(selectSortedDataWithFocus);
@@ -1459,7 +1464,14 @@ export default function CategoryResultsGrid() {
         `}
       </style>
       <Collapse
-        defaultActiveKey={['1']}
+        activeKey={isExpanded !== undefined ? (isExpanded ? ['1'] : []) : undefined}
+        defaultActiveKey={isExpanded === undefined ? ['1'] : undefined}
+        onChange={(keys) => {
+          if (onExpandChange) {
+            const keysArray = Array.isArray(keys) ? keys : [keys];
+            onExpandChange(keysArray.includes('1'));
+          }
+        }}
         items={collapseItems}
       />
     </>
