@@ -63,8 +63,6 @@ interface Filters {
   genesPassedFiltersMin?: number;
   allGenesMin?: number;
   allGenesMax?: number;
-  // Cluster filter
-  excludeUnclassified?: boolean;  // Filter out cluster_id === -1 (unclassified categories)
 }
 
 // State interface
@@ -171,7 +169,6 @@ const DEFAULT_PRIMARY_FILTERS: Filters = {
   genesPassedFiltersMin: 3,
   allGenesMin: 40,
   allGenesMax: 500,
-  excludeUnclassified: false,  // Include cluster_id === -1 (unclassified) by default
 };
 
 /**
@@ -208,11 +205,6 @@ function applyPrimaryFilters(
     if (filters.genesPassedFiltersMin !== undefined && row.genesThatPassedAllFilters !== undefined && row.genesThatPassedAllFilters < filters.genesPassedFiltersMin) return false;
     if (filters.allGenesMin !== undefined && row.geneAllCount !== undefined && row.geneAllCount < filters.allGenesMin) return false;
     if (filters.allGenesMax !== undefined && row.geneAllCount !== undefined && row.geneAllCount > filters.allGenesMax) return false;
-
-    // Cluster filter: exclude unclassified categories if enabled
-    // Note: This uses the enriched clusterId from CategoryAnalysisResultWithCluster
-    const rowWithCluster = row as CategoryAnalysisResultWithCluster;
-    if (filters.excludeUnclassified && rowWithCluster.clusterId === CLUSTER_UNCLASSIFIED) return false;
 
     return true;
   });
@@ -571,9 +563,6 @@ function rowPassesFilters(
     if (filters.allGenesMax !== undefined && row.geneAllCount !== undefined && row.geneAllCount > filters.allGenesMax) return false;
   }
 
-  // Cluster filter: exclude unclassified categories if enabled
-  if (filters.excludeUnclassified && row.clusterId === CLUSTER_UNCLASSIFIED) return false;
-
   // Filter groups (custom filters) with AND logic
   if (filterGroups.length > 0) {
     if (!evaluateFilterGroups(filterGroups, row)) return false;
@@ -602,7 +591,6 @@ function debugFilterImpact(
     failGenesPassedFiltersMin: 0,
     failAllGenesMin: 0,
     failAllGenesMax: 0,
-    failExcludeUnclassified: 0,
   };
 
   data.forEach(row => {
@@ -618,8 +606,6 @@ function debugFilterImpact(
       if (filters.allGenesMin !== undefined && row.geneAllCount !== undefined && row.geneAllCount < filters.allGenesMin) counts.failAllGenesMin++;
       if (filters.allGenesMax !== undefined && row.geneAllCount !== undefined && row.geneAllCount > filters.allGenesMax) counts.failAllGenesMax++;
     }
-
-    if (filters.excludeUnclassified && row.clusterId === CLUSTER_UNCLASSIFIED) counts.failExcludeUnclassified++;
   });
 
   // Only log non-zero failures
@@ -682,8 +668,6 @@ export const selectDataWithFocus = createSelector(
       genesPassedFiltersMin: filters.genesPassedFiltersMin,
       allGenesMin: filters.allGenesMin,
       allGenesMax: filters.allGenesMax,
-      // Cluster filter
-      excludeUnclassified: filters.excludeUnclassified,
     });
 
     // Debug: analyze filter impact before computing inFocus
