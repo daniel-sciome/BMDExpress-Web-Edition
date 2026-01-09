@@ -25,8 +25,8 @@ function deterministicJitter(key: string, salt: number = 0): number {
     hash = ((hash << 5) - hash) + key.charCodeAt(i);
     hash = hash & hash; // Convert to 32-bit integer
   }
-  // Normalize to range [-0.5, 0.5]
-  return ((hash % 1000) / 1000) - 0.5;
+  // Use Math.abs to handle negative hash values, normalize to [-0.5, 0.5]
+  return (Math.abs(hash % 1000) / 1000) - 0.5;
 }
 
 export default function BMDBoxPlot() {
