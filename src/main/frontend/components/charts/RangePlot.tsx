@@ -98,12 +98,22 @@ export default function RangePlot() {
   // Truncated width for display (1/3 of full width)
   const truncatedDisplayLen = Math.ceil(maxDisplayNameLen / 3);
 
-  // Build display names for current selection (truncated for axis, full for hover)
+  // Filter categories for display - in isolate mode, hide out-of-focus rows entirely
+  const categoriesForDisplay = useMemo(() => {
+    if (displayMode === 'isolate') {
+      return topCategories.filter(row => row.inFocus);
+    }
+    return topCategories;
+  }, [topCategories, displayMode]);
+
+  // Build display names for visible categories (truncated for axis)
   const displayNamesList = useMemo(() => {
-    const maxIndexDigits = String(topCategories.length).length;
-    return topCategories.map((row, idx) => {
+    const maxIndexDigits = String(topCategories.length).length; // Use full count for consistent numbering
+    return categoriesForDisplay.map((row) => {
+      // Find original alphabetical index from topCategories
+      const originalIdx = topCategories.findIndex(tc => tc.categoryId === row.categoryId);
       const baseName = row.categoryDescription || row.categoryId || 'Unknown';
-      const indexStr = String(idx + 1).padStart(maxIndexDigits, ' ');
+      const indexStr = String(originalIdx + 1).padStart(maxIndexDigits, ' ');
       const fullName = `${indexStr}. ${baseName} (${row.pValueRank})`;
       // Truncate to 1/3 width, add ellipsis if needed
       if (fullName.length > truncatedDisplayLen) {
@@ -111,10 +121,11 @@ export default function RangePlot() {
       }
       return fullName.padEnd(truncatedDisplayLen, ' ');
     });
-  }, [topCategories, truncatedDisplayLen]);
+  }, [topCategories, categoriesForDisplay, truncatedDisplayLen]);
 
   // Group categories by cluster with inFocus state
   // Format display names with alphabetical index and p-value rank
+  // Uses categoriesForDisplay which is filtered in isolate mode
   const clusterData = useMemo(() => {
     const byCluster = new Map<number, Array<{
       categoryId: string;
@@ -131,14 +142,16 @@ export default function RangePlot() {
 
     const maxIndexDigits = String(topCategories.length).length;
 
-    topCategories.forEach((row, alphabeticalIndex) => {
+    categoriesForDisplay.forEach((row) => {
+      // Find original alphabetical index from topCategories
+      const originalIdx = topCategories.findIndex(tc => tc.categoryId === row.categoryId);
       const clusterId = getClusterIdForCategory(row.categoryId);
       if (!byCluster.has(clusterId)) {
         byCluster.set(clusterId, []);
       }
       const baseName = row.categoryDescription || row.categoryId || 'Unknown';
       // Format: "N. Category Name (R)" where N is alphabetical order, R is p-value rank
-      const indexStr = String(alphabeticalIndex + 1).padStart(maxIndexDigits, ' ');
+      const indexStr = String(originalIdx + 1).padStart(maxIndexDigits, ' ');
       const fullDisplayName = `${indexStr}. ${baseName} (${row.pValueRank})`;
 
       // Truncate for axis display (1/3 width)
@@ -158,13 +171,13 @@ export default function RangePlot() {
         bmdl: row.bmdlMedian!,
         bmdu: row.bmduMedian!,
         inFocus: row.inFocus,
-        alphabeticalIndex: alphabeticalIndex + 1,
+        alphabeticalIndex: originalIdx + 1,
         pValueRank: row.pValueRank
       });
     });
 
     return byCluster;
-  }, [topCategories, truncatedDisplayLen]);
+  }, [topCategories, categoriesForDisplay, truncatedDisplayLen]);
 
   // Create traces with inFocus-based per-point styling
   const plotData = useMemo(() => {
@@ -279,10 +292,11 @@ export default function RangePlot() {
     );
   }
 
-  // Calculate height based on topCategories count (not visible items) for consistent spacing
-  const plotHeight = Math.max(300, topCategories.length * 22 + 80);
+  // Calculate height based on visible categories (categoriesForDisplay)
+  const visibleCount = categoriesForDisplay.length;
+  const plotHeight = Math.max(300, visibleCount * 22 + 80);
 
-  // Get all display names for consistent y-axis (maintains spacing across display modes)
+  // Get display names for y-axis (based on visible categories)
   // Use truncated names padded to consistent width for left-justified appearance
   const paddedDisplayNames = displayNamesList.map(name => name.padEnd(truncatedDisplayLen, ' '));
   const reversedNames = [...paddedDisplayNames].reverse(); // A at top
@@ -322,24 +336,25 @@ export default function RangePlot() {
   const topMargin = 50; // Must match layout.margin.t
   const bottomMargin = 40; // Must match layout.margin.b
   const chartAreaHeight = plotHeight - topMargin - bottomMargin;
-  const rowHeight = chartAreaHeight / topCategories.length;
+  const rowHeight = chartAreaHeight / visibleCount;
 
   // Build labels to match chart order (A at top)
-  // Chart's categoryarray is reversedNames = [...alphabetical].reverse() = [Z...A]
-  // Plotly places categoryarray[0] at bottom, so A ends up at top
-  // HTML table: first row is at top, so we need [A...Z] order (don't reverse)
+  // Uses categoriesForDisplay which is filtered in isolate mode
+  // HTML table: first row is at top, matching alphabetical order
   const labelsForDisplay = useMemo(() => {
-    const maxIndexDigits = String(topCategories.length).length;
-    return topCategories.map((row, idx) => {
+    const maxIndexDigits = String(topCategories.length).length; // Use full count for consistent numbering
+    return categoriesForDisplay.map((row) => {
+      // Find original alphabetical index from topCategories
+      const originalIdx = topCategories.findIndex(tc => tc.categoryId === row.categoryId);
       const baseName = row.categoryDescription || row.categoryId || 'Unknown';
-      const indexStr = String(idx + 1).padStart(maxIndexDigits, ' ');
+      const indexStr = String(originalIdx + 1).padStart(maxIndexDigits, ' ');
       const fullName = `${indexStr}. ${baseName} (${row.pValueRank})`;
       const truncated = fullName.length > truncatedDisplayLen
         ? fullName.substring(0, truncatedDisplayLen - 3) + '...'
         : fullName;
       return { truncated, fullName };
     });
-  }, [topCategories, truncatedDisplayLen]);
+  }, [topCategories, categoriesForDisplay, truncatedDisplayLen]);
 
   return (
     <div style={{ width: '100%' }}>
