@@ -4,13 +4,9 @@ import { SettingOutlined, CheckSquareOutlined, CloseSquareOutlined, SwapOutlined
 import type { TableProps, ColumnsType } from 'antd/es/table';
 import type { SorterResult } from 'antd/es/table/interface';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { selectSortedDataWithFocus, setSortColumn } from '../store/slices/categoryResultsSlice';
-import {
-  selectHighlightedIds,
-  selectDisplayMode,
-  highlightCategories,
-  clearHighlights,
-} from '../store/slices/visibilitySlice';
+import { selectSortedDataWithFocus, setSortColumn, setReactiveSelection, clearReactiveSelection } from '../store/slices/categoryResultsSlice';
+import { selectDisplayMode } from '../store/slices/visibilitySlice';
+import { useReactiveState } from './charts/hooks/useReactiveState';
 import { getRowClassNameByFocus } from './charts/utils/displayModeStyles';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import type { CategoryWithFocus } from '../types/categoryTypes';
@@ -85,10 +81,10 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
   const analysisParameters = useAppSelector((state) => state.categoryResults.analysisParameters);
 
   // Visibility state - for selection highlighting
-  const highlightedIds = useAppSelector(selectHighlightedIds);
+  const categoryState = useReactiveState('categoryId');
   const displayMode = useAppSelector(selectDisplayMode);
-  const hasHighlights = highlightedIds.size > 0;
-  const selectedCount = highlightedIds.size;
+  const hasHighlights = categoryState.selectedIds.size > 0;
+  const selectedCount = categoryState.selectedIds.size;
 
   // Count in-focus vs out-of-focus for display
   const inFocusCount = useMemo(() =>
@@ -102,7 +98,7 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
       totalCount: allDataWithFocus.length,
       inFocusCount,
       outOfFocusCount: allDataWithFocus.length - inFocusCount,
-      highlightedCount: highlightedIds.size,
+      highlightedCount: categoryState.selectedIds.size,
       displayMode,
       firstCategory: allDataWithFocus[0]?.categoryDescription || 'none',
       firstCategoryId: allDataWithFocus[0]?.categoryId || 'none',
@@ -111,7 +107,7 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
     return () => {
       console.log('[CategoryResultsGrid] Component unmounting');
     };
-  }, [allDataWithFocus.length, inFocusCount, highlightedIds.size, displayMode]);
+  }, [allDataWithFocus.length, inFocusCount, categoryState.selectedIds.size, displayMode]);
 
   // Filter toggle state - default OFF (show all rows like desktop)
   const [hideRowsWithoutBMD, setHideRowsWithoutBMD] = useState(false);
@@ -203,52 +199,53 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
 
   // Convert Set to array for Ant Design Table
   const selectedKeys = useMemo(() => {
-    return Array.from(highlightedIds);
-  }, [highlightedIds]);
+    return Array.from(categoryState.selectedIds);
+  }, [categoryState.selectedIds]);
 
-  // Handle selection change from table checkboxes
+  // Handle selection change from table row clicks
   const handleSelectionChange = (selectedRowKeys: React.Key[]) => {
     const categoryIds = selectedRowKeys.map(key => String(key));
     if (categoryIds.length > 0) {
-      dispatch(highlightCategories({ categoryIds, exclusive: true }));
+      dispatch(setReactiveSelection({ type: 'category', ids: categoryIds, source: 'table' }));
     } else {
-      dispatch(clearHighlights());
+      dispatch(clearReactiveSelection('category'));
     }
   };
 
   // Bulk selection handlers (operate on filtered data only)
   const handleSelectAll = () => {
     const visibleIds = data.map(cat => cat.categoryId).filter(Boolean) as string[];
-    dispatch(highlightCategories({ categoryIds: visibleIds, exclusive: true }));
+    dispatch(setReactiveSelection({ type: 'category', ids: visibleIds, source: 'table' }));
   };
 
   const handleClearSelection = () => {
-    dispatch(clearHighlights());
+    dispatch(clearReactiveSelection('category'));
   };
 
   const handleInvertSelection = () => {
     // Invert within visible categories only
     const visibleIds = data.map(cat => cat.categoryId).filter(Boolean) as string[];
-    const invertedIds = visibleIds.filter(id => !highlightedIds.has(id));
+    const invertedIds = visibleIds.filter(id => !categoryState.selectedIds.has(id));
     if (invertedIds.length > 0) {
-      dispatch(highlightCategories({ categoryIds: invertedIds, exclusive: true }));
+      dispatch(setReactiveSelection({ type: 'category', ids: invertedIds, source: 'table' }));
     } else {
-      dispatch(clearHighlights());
+      dispatch(clearReactiveSelection('category'));
     }
   };
 
-  // Row selection configuration
-  const rowSelection: TableProps<CategoryResultWithFocusAndRank>['rowSelection'] = {
-    type: 'checkbox',
-    selectedRowKeys: selectedKeys,
-    onChange: handleSelectionChange,
-    preserveSelectedRowKeys: true,
-    // Hide the "master checkbox" in column header - we have bulk actions instead
-    columnTitle: <></>,
-    // Allow selection from the start - no restrictions
-    getCheckboxProps: () => ({
-      disabled: false,
-    }),
+  // Handle row click to toggle selection
+  const handleRowClick = (record: CategoryResultWithFocusAndRank) => {
+    // Don't allow selection of out-of-focus (dimmed) rows
+    if (!record.inFocus) return;
+
+    const categoryId = record.categoryId;
+    if (!categoryId) return;
+
+    const newSelectedKeys = selectedKeys.includes(categoryId)
+      ? selectedKeys.filter(key => key !== categoryId)
+      : [...selectedKeys, categoryId];
+
+    handleSelectionChange(newSelectedKeys);
   };
 
   // Build columns dynamically based on visibility state
@@ -380,7 +377,7 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
   // inFocus = passes filter criteria, displayMode controls how out-of-focus rows appear
   const getRowClassName = (record: CategoryResultWithFocusAndRank) => {
     const categoryId = record.categoryId || '';
-    const isHighlighted = highlightedIds.has(categoryId);
+    const isHighlighted = categoryState.selectedIds.has(categoryId);
 
     // Use inFocus-based styling for display mode
     const focusClass = getRowClassNameByFocus(record.inFocus, displayMode);
@@ -1272,10 +1269,23 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
         >
           <span>Category Results ({inFocusCount} in focus / {data.length} total{hideRowsWithoutBMD ? ` (${allDataWithFocus.length} before BMD filter)` : ''})</span>
 
+          {/* Page Size Selector */}
+          <Space size="small">
+            <span style={{ fontSize: '12px', color: '#666' }}>Show:</span>
+            <Select
+              value={pageSize}
+              onChange={(value) => setPageSize(value)}
+              onClick={(e) => e.stopPropagation()}
+              options={pageSizeOptions}
+              size="small"
+              style={{ width: 80 }}
+            />
+          </Space>
+
           {/* Visibility highlight counter */}
           {hasHighlights && (
             <Tag color="cyan">
-              Highlighted: {highlightedIds.size}
+              Highlighted: {categoryState.selectedIds.size}
             </Tag>
           )}
 
@@ -1351,31 +1361,16 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
       ),
       children: (
         <div>
-          {/* Page Size Selector - Top */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', padding: '0 8px' }}>
-            <Space size="small">
-              <span style={{ fontSize: '12px', color: '#666' }}>Show:</span>
-              <Select
-                value={pageSize}
-                onChange={(value) => setPageSize(value)}
-                options={pageSizeOptions}
-                size="small"
-                style={{ width: 80 }}
-              />
-              <span style={{ fontSize: '12px', color: '#666' }}>rows per page</span>
-            </Space>
-            <span style={{ fontSize: '12px', color: '#666' }}>
-              {data.length} total categories
-            </span>
-          </div>
-
           <Table<CategoryResultWithFocusAndRank>
             columns={columns}
             dataSource={data}
             rowKey="categoryId"
-            rowSelection={rowSelection}
             rowClassName={getRowClassName}
             onChange={handleTableChange}
+            onRow={(record) => ({
+              onClick: () => handleRowClick(record),
+              style: { cursor: record.inFocus ? 'pointer' : 'default' },
+            })}
             pagination={pageSize === 0 ? false : {
               pageSize: pageSize,
               showSizeChanger: false, // We use our own selector
@@ -1460,6 +1455,19 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
             font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
             font-variant-numeric: normal;
             font-size: 14px;
+          }
+
+          /* Reduce padding between collapse border and table headers */
+          .ant-collapse-content-box {
+            padding-top: 0 !important;
+            padding-left: 4px !important;
+            padding-right: 4px !important;
+          }
+
+          /* Reduce left padding on table cells */
+          .ant-table-tbody > tr > td:first-child,
+          .ant-table-thead > tr > th:first-child {
+            padding-left: 4px !important;
           }
         `}
       </style>

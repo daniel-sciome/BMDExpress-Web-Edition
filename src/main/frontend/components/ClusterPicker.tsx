@@ -1,18 +1,15 @@
 // ClusterPicker.tsx
 // Cluster picker component for the sidebar
 // Shows all cluster colors with tri-state checkboxes
-// Integrates with visibilitySlice for highlighting categories
+// Integrates with reactive selection for highlighting categories
 
 import React, { useCallback, useMemo } from 'react';
 import { Collapse, Checkbox, Tag, Typography, Tooltip } from 'antd';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { selectCategorySetsByType } from '../store/slices/renderStateSlice';
 import { CategorySetType } from '../types/renderState';
-import {
-  highlightCategories,
-  clearHighlights,
-  selectHighlightedIds,
-} from '../store/slices/visibilitySlice';
+import { setReactiveSelection, clearReactiveSelection } from '../store/slices/categoryResultsSlice';
+import { useReactiveState } from './charts/hooks/useReactiveState';
 import type { GroupSelectionState } from '../types/visibilityTypes';
 
 const { Text } = Typography;
@@ -45,7 +42,9 @@ function getClusterSelectionState(
 
 export default function ClusterPicker() {
   const dispatch = useAppDispatch();
-  const highlightedIds = useAppSelector(selectHighlightedIds);
+  const categoryState = useReactiveState('categoryId');
+  // Category IDs are always strings, cast for type safety
+  const highlightedIds = categoryState.selectedIds as Set<string>;
 
   // Get all cluster sets from renderStateSlice
   const clusterSets = useAppSelector(state => selectCategorySetsByType(CategorySetType.CLUSTER)(state));
@@ -85,10 +84,10 @@ export default function ClusterPicker() {
         // Add to existing highlights
         const currentHighlights = Array.from(highlightedIds);
         const merged = [...new Set([...currentHighlights, ...categoryIds])];
-        dispatch(highlightCategories({ categoryIds: merged, exclusive: true }));
+        dispatch(setReactiveSelection({ type: 'category', ids: merged, source: 'cluster-picker' }));
       } else {
         // Replace selection with this cluster
-        dispatch(highlightCategories({ categoryIds, exclusive: true }));
+        dispatch(setReactiveSelection({ type: 'category', ids: categoryIds, source: 'cluster-picker' }));
       }
     } else {
       // Deselect this cluster
@@ -98,13 +97,13 @@ export default function ClusterPicker() {
           id => !categoryIds.includes(id)
         );
         if (remaining.length > 0) {
-          dispatch(highlightCategories({ categoryIds: remaining, exclusive: true }));
+          dispatch(setReactiveSelection({ type: 'category', ids: remaining, source: 'cluster-picker' }));
         } else {
-          dispatch(clearHighlights());
+          dispatch(clearReactiveSelection('category'));
         }
       } else {
         // Clear all highlights
-        dispatch(clearHighlights());
+        dispatch(clearReactiveSelection('category'));
       }
     }
   }, [dispatch, highlightedIds]);

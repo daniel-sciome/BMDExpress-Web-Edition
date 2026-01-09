@@ -109,18 +109,27 @@ export default function BarCharts() {
 
         visibleItems.forEach(item => {
           const isSelected = categoryState.selectedIds.has(item.categoryId);
-          const style = getPointStyle(item.inFocus, baseColor);
+          const focusStyle = getPointStyle(item.inFocus, baseColor);
 
+          // Styling priority: selection > focus
           if (isSelected && hasSelection) {
-            barColors.push(style.color);
+            // Selected: full opacity, white border
+            barColors.push(focusStyle.color);
             barOpacities.push(1.0);
             barLineWidths.push(2);
             barLineColors.push('white');
+          } else if (hasSelection) {
+            // Not selected but something is: dim this bar
+            barColors.push(focusStyle.color);
+            barOpacities.push(0.2);
+            barLineWidths.push(0);
+            barLineColors.push('white');
           } else {
-            barColors.push(style.color);
-            barOpacities.push(style.opacity);
-            barLineWidths.push(style.lineWidth);
-            barLineColors.push(style.lineColor);
+            // No selection at all: use focus-based styling
+            barColors.push(focusStyle.color);
+            barOpacities.push(focusStyle.opacity);
+            barLineWidths.push(focusStyle.lineWidth);
+            barLineColors.push(focusStyle.lineColor);
           }
         });
 

@@ -11,13 +11,30 @@ import React, { useMemo, useState } from 'react';
 import Plot from 'react-plotly.js';
 import { Button } from 'antd';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
+import { useReactiveState } from './hooks/useReactiveState';
 import { useClusterColors, getClusterIdForCategory, getClusterLabel } from './utils/clusterColors';
 import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES } from './utils/plotlyConfig';
 
+/**
+ * Generate deterministic jitter based on a string key.
+ * Returns a value between -0.5 and 0.5 that is consistent for the same input.
+ */
+function deterministicJitter(key: string, salt: number = 0): number {
+  let hash = salt;
+  for (let i = 0; i < key.length; i++) {
+    hash = ((hash << 5) - hash) + key.charCodeAt(i);
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  // Normalize to range [-0.5, 0.5]
+  return ((hash % 1000) / 1000) - 0.5;
+}
+
 export default function BMDBoxPlot() {
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
+  const categoryState = useReactiveState('categoryId');
   const [useFixedScale, setUseFixedScale] = useState(true);
   const clusterColors = useClusterColors();
+  const hasSelection = categoryState.selectedIds.size > 0;
 
   // Build traces with inFocus-based styling
   const { traces, yAxisRange, bmdStats } = useMemo(() => {
@@ -131,16 +148,38 @@ export default function BMDBoxPlot() {
         const markerLineColors: string[] = [];
 
         visibleItems.forEach(item => {
-          const style = getPointStyle(item.inFocus, baseColor);
-          markerColors.push(style.color);
-          markerSizes.push(6);
-          markerOpacities.push(style.opacity);
-          markerLineWidths.push(style.lineWidth);
-          markerLineColors.push(style.lineColor);
+          const isSelected = categoryState.selectedIds.has(item.categoryId);
+          const focusStyle = getPointStyle(item.inFocus, baseColor);
+
+          // Styling priority: selection > focus
+          if (isSelected && hasSelection) {
+            // Selected: larger, full opacity, white border
+            markerColors.push(focusStyle.color);
+            markerSizes.push(10);
+            markerOpacities.push(1.0);
+            markerLineWidths.push(2);
+            markerLineColors.push('white');
+          } else if (hasSelection) {
+            // Not selected but something is: dim this point
+            markerColors.push(focusStyle.color);
+            markerSizes.push(6);
+            markerOpacities.push(0.2);
+            markerLineWidths.push(0);
+            markerLineColors.push('white');
+          } else {
+            // No selection at all: use focus-based styling
+            markerColors.push(focusStyle.color);
+            markerSizes.push(6);
+            markerOpacities.push(focusStyle.opacity);
+            markerLineWidths.push(focusStyle.lineWidth);
+            markerLineColors.push(focusStyle.lineColor);
+          }
         });
 
-        // Add random jitter to x positions
-        const jitteredX = visibleItems.map(() => xPosition + (Math.random() - 0.5) * 0.3);
+        // Add deterministic jitter to x positions (consistent across re-renders)
+        const jitteredX = visibleItems.map(item =>
+          xPosition + deterministicJitter(item.categoryId, xPosition) * 0.3
+        );
 
         result.push({
           x: jitteredX,
@@ -195,7 +234,7 @@ export default function BMDBoxPlot() {
     }
 
     return { traces: result, yAxisRange: yRange, bmdStats: stats };
-  }, [data, clusterColors, displayMode, getPointStyle, shouldHidePoint]);
+  }, [data, clusterColors, displayMode, getPointStyle, shouldHidePoint, categoryState.selectedIds, hasSelection]);
 
   if (!data || data.length === 0) {
     return (

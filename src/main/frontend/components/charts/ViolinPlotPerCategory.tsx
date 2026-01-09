@@ -16,6 +16,7 @@ import React, { useMemo, useState } from 'react';
 import Plot from 'react-plotly.js';
 import { Alert, Select } from 'antd';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
+import { useReactiveState } from './hooks/useReactiveState';
 import { useClusterColors, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES } from './utils/plotlyConfig';
 import { parseSemicolonNumericList } from 'Frontend/utils/dtoParsingUtils';
@@ -24,10 +25,12 @@ const { Option } = Select;
 
 export default function ViolinPlotPerCategory() {
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
+  const categoryState = useReactiveState('categoryId');
   const [selectedMetric, setSelectedMetric] = useState<'bmd' | 'bmdl' | 'bmdu'>('bmd');
 
   // Get cluster colors using shared utility
   const clusterColors = useClusterColors();
+  const hasSelection = categoryState.selectedIds.size > 0;
 
   // Parse BMD list and prepare violin plot data
   const { violinData, yAxisRange } = useMemo(() => {
@@ -101,10 +104,21 @@ export default function ViolinPlotPerCategory() {
 
       if (values.length === 0) return;
 
-      // Get cluster color and apply inFocus-based styling
+      // Get cluster color and apply styling
       const clusterId = getClusterIdForCategory(categoryId);
       const baseColor = clusterColors[clusterId] || '#999999';
-      const style = getPointStyle(row.inFocus, baseColor);
+      const focusStyle = getPointStyle(row.inFocus, baseColor);
+      const isSelected = categoryState.selectedIds.has(categoryId);
+
+      // Determine opacity based on selection state
+      let opacity: number;
+      if (isSelected && hasSelection) {
+        opacity = 1.0;
+      } else if (hasSelection) {
+        opacity = 0.2; // Dim non-selected when something is selected
+      } else {
+        opacity = focusStyle.opacity;
+      }
 
       // Truncate category description to 20 characters for x-axis label
       const truncatedDesc = categoryDesc.length > 20 ? categoryDesc.substring(0, 20) + '...' : categoryDesc;
@@ -122,13 +136,14 @@ export default function ViolinPlotPerCategory() {
           visible: true
         },
         marker: {
-          color: style.color
+          color: focusStyle.color
         },
         line: {
-          color: style.color
+          color: focusStyle.color,
+          width: isSelected && hasSelection ? 3 : 1, // Thicker line for selected
         },
-        fillcolor: style.color,
-        opacity: style.opacity,
+        fillcolor: focusStyle.color,
+        opacity: opacity,
         hoverinfo: 'y+name',
         hovertemplate: `<b>${categoryDesc}</b><br>Value: %{y:.4f}<extra></extra>`,
       });
@@ -150,7 +165,7 @@ export default function ViolinPlotPerCategory() {
     }
 
     return { violinData: traces, yAxisRange: yRange };
-  }, [data, clusterColors, selectedMetric, displayMode, getPointStyle, shouldHidePoint]);
+  }, [data, clusterColors, selectedMetric, displayMode, getPointStyle, shouldHidePoint, categoryState.selectedIds, hasSelection]);
 
   if (!data || data.length === 0) {
     return (

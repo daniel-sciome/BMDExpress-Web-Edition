@@ -22,6 +22,20 @@ import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from '.
 
 const { Text } = Typography;
 
+/**
+ * Generate deterministic jitter based on a string key.
+ * Returns a value between -0.5 and 0.5 that is consistent for the same input.
+ */
+function deterministicJitter(key: string, salt: number = 0): number {
+  let hash = salt;
+  for (let i = 0; i < key.length; i++) {
+    hash = ((hash << 5) - hash) + key.charCodeAt(i);
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  // Normalize to range [-0.5, 0.5]
+  return ((hash % 1000) / 1000) - 0.5;
+}
+
 interface ClusterScatterPlotProps {
   /** Initial linkage method */
   initialLinkageMethod?: LinkageMethod;
@@ -86,8 +100,8 @@ export default function ClusterScatterPlot({
 
       if (bmd != null && bmd > 0) {
         xValues.push(bmd);
-        // Y-axis is gene cluster ID with jitter to avoid overlap
-        yValues.push(geneClusterId + (Math.random() - 0.5) * 0.6);
+        // Y-axis is gene cluster ID with deterministic jitter (consistent across re-renders)
+        yValues.push(geneClusterId + deterministicJitter(categoryId, geneClusterId) * 0.6);
 
         // Size based on gene count (clamped)
         const geneCount = cat.genesThatPassedAllFilters || 1;
