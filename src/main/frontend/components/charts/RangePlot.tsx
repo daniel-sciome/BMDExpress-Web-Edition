@@ -210,8 +210,9 @@ export default function RangePlot() {
 
       visibleItems.forEach(item => {
         const isSelected = categoryState.selectedIds.has(item.categoryId);
-        const style = getPointStyle(item.inFocus, baseColor);
+        const focusStyle = getPointStyle(item.inFocus, baseColor);
 
+        // Styling priority: selection > focus
         if (isSelected && hasSelection) {
           // Selected: full opacity with white border
           markerColors.push(baseColor);
@@ -219,13 +220,20 @@ export default function RangePlot() {
           markerLineWidths.push(2);
           markerLineColors.push('white');
           errorBarColors.push(baseColor);
+        } else if (hasSelection) {
+          // Not selected but something is: dim this point
+          markerColors.push(hexToRgba(baseColor, 0.2));
+          markerSizes.push(focusStyle.size);
+          markerLineWidths.push(0);
+          markerLineColors.push('white');
+          errorBarColors.push(hexToRgba(baseColor, 0.2));
         } else {
-          // Use RGBA to embed opacity directly in color
-          markerColors.push(hexToRgba(baseColor, style.opacity));
-          markerSizes.push(style.size);
-          markerLineWidths.push(style.lineWidth);
-          markerLineColors.push(style.lineColor);
-          errorBarColors.push(hexToRgba(baseColor, style.opacity));
+          // No selection at all: use focus-based styling
+          markerColors.push(hexToRgba(baseColor, focusStyle.opacity));
+          markerSizes.push(focusStyle.size);
+          markerLineWidths.push(focusStyle.lineWidth);
+          markerLineColors.push(focusStyle.lineColor);
+          errorBarColors.push(hexToRgba(baseColor, focusStyle.opacity));
         }
       });
 

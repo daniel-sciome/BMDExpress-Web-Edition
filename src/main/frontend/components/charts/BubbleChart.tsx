@@ -107,18 +107,27 @@ export default function BubbleChart() {
 
       visibleItems.forEach(item => {
         const isSelected = categoryState.selectedIds.has(item.categoryId);
-        const style = getPointStyle(item.inFocus, baseColor);
+        const focusStyle = getPointStyle(item.inFocus, baseColor);
 
+        // Styling priority: selection > focus
         if (isSelected && hasSelection) {
-          markerColors.push(style.color);
+          // Selected: full opacity, white border
+          markerColors.push(focusStyle.color);
           markerOpacities.push(1.0);
           markerLineWidths.push(2);
           markerLineColors.push('white');
+        } else if (hasSelection) {
+          // Not selected but something is: dim this point
+          markerColors.push(focusStyle.color);
+          markerOpacities.push(0.2);
+          markerLineWidths.push(0);
+          markerLineColors.push('white');
         } else {
-          markerColors.push(style.color);
-          markerOpacities.push(style.opacity);
-          markerLineWidths.push(style.lineWidth);
-          markerLineColors.push(style.lineColor);
+          // No selection at all: use focus-based styling
+          markerColors.push(focusStyle.color);
+          markerOpacities.push(focusStyle.opacity);
+          markerLineWidths.push(focusStyle.lineWidth);
+          markerLineColors.push(focusStyle.lineColor);
         }
       });
 

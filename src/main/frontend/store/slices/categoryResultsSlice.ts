@@ -6,7 +6,8 @@ import type { RootState, AppDispatch } from '../store';
 import type { ReactiveSelectionMap, SelectionSource } from 'Frontend/types/reactiveTypes';
 import { initializeCategories, upsertCategorySet } from './renderStateSlice';
 import { createClusterSets, createPrimaryFilterSet } from '../utils/initializeRenderState';
-import { highlightCategories, selectHighlightedIds } from './visibilitySlice';
+// Note: highlightCategories/selectHighlightedIds from visibilitySlice are deprecated
+// Use reactiveSelection.category.selectedIds instead
 import { applyFilterGroups, evaluateFilterGroups } from '../../utils/filterEvaluation';
 import type { CategoryWithFocus } from '../../types/categoryTypes';
 import { selectEnabledFilterGroups } from './filterSlice';
@@ -277,10 +278,14 @@ export const loadCategoryResultsWithRenderState = createAsyncThunk<
         .map(cat => cat.categoryId)
         .filter((id): id is string => id !== undefined && id !== null);
 
-      console.log('[Redux] Initializing filtered categories as highlighted:', filteredCategoryIds.length);
+      console.log('[Redux] Initializing filtered categories as selected:', filteredCategoryIds.length);
 
-      // Dispatch to visibilitySlice (for row highlighting and table checkbox state)
-      dispatch(highlightCategories({ categoryIds: filteredCategoryIds, exclusive: true }));
+      // Dispatch to reactive selection (used by both table and charts)
+      dispatch(categoryResultsSlice.actions.setReactiveSelection({
+        type: 'category',
+        ids: filteredCategoryIds,
+        source: null
+      }));
 
       console.log('[Redux] Render state initialization complete');
     }
@@ -371,7 +376,7 @@ const categoryResultsSlice = createSlice({
     },
 
     // Reactive selection actions (used by charts via useReactiveState hook)
-    // Note: Table/ClusterPicker use visibilitySlice.highlightCategories instead
+    // Note: Table/ClusterPicker now use setReactiveSelection (integrated selection)
     setReactiveSelection: (
       state,
       action: PayloadAction<{ type: 'category' | 'cluster'; ids: any[]; source: SelectionSource }>
@@ -811,13 +816,17 @@ export const selectPaginatedData = createSelector(
   }
 );
 
+// Selector for reactive category selection (integrated selection state)
+export const selectCategorySelectedIds = (state: RootState): Set<string> =>
+  state.categoryResults.reactiveSelection.category.selectedIds;
+
 // Selector for chart data - returns highlighted categories for visualization
 export const selectChartData = createSelector(
-  [selectSortedData, selectHighlightedIds],
-  (allData, highlightedIds) => {
-    // If categories are highlighted (from ClusterPicker or table selection), filter to those
-    if (highlightedIds.size > 0) {
-      return allData.filter(row => highlightedIds.has(row.categoryId || ''));
+  [selectSortedData, selectCategorySelectedIds],
+  (allData, selectedIds) => {
+    // If categories are selected (from ClusterPicker or table selection), filter to those
+    if (selectedIds.size > 0) {
+      return allData.filter(row => selectedIds.has(row.categoryId || ''));
     }
 
     // Default: return all data (no filtering)
@@ -827,13 +836,13 @@ export const selectChartData = createSelector(
 
 // Phase 3: Derived selection selectors
 export const selectIsAnythingSelected = createSelector(
-  [selectHighlightedIds],
-  (highlightedIds) => highlightedIds.size > 0
+  [selectCategorySelectedIds],
+  (selectedIds) => selectedIds.size > 0
 );
 
 export const selectSelectedCount = createSelector(
-  [selectHighlightedIds],
-  (highlightedIds) => highlightedIds.size
+  [selectCategorySelectedIds],
+  (selectedIds) => selectedIds.size
 );
 
 export const selectUnselectedCount = createSelector(

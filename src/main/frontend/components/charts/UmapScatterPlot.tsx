@@ -142,21 +142,30 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
         includedPoints.push(point);
 
         // Get base style from inFocus state
-        const style = getPointStyle(inFocus, baseColor);
+        const focusStyle = getPointStyle(inFocus, baseColor);
 
-        // If selected, enhance with selection highlighting (additive)
+        // Styling priority: selection > focus
         if (isSelected && hasSelection) {
-          markerColors.push(style.color);
-          markerSizes.push(12); // Larger for selected
+          // Selected: larger, full opacity, white border
+          markerColors.push(focusStyle.color);
+          markerSizes.push(12);
           markerOpacities.push(1.0);
           markerLineWidths.push(2);
-          markerLineColors.push('white'); // White border for selected
+          markerLineColors.push('white');
+        } else if (hasSelection) {
+          // Not selected but something is: dim this point
+          markerColors.push(focusStyle.color);
+          markerSizes.push(focusStyle.size);
+          markerOpacities.push(0.2); // Dim non-selected when there's a selection
+          markerLineWidths.push(0);
+          markerLineColors.push('white');
         } else {
-          markerColors.push(style.color);
-          markerSizes.push(style.size);
-          markerOpacities.push(style.opacity);
-          markerLineWidths.push(style.lineWidth);
-          markerLineColors.push(style.lineColor);
+          // No selection at all: use focus-based styling
+          markerColors.push(focusStyle.color);
+          markerSizes.push(focusStyle.size);
+          markerOpacities.push(focusStyle.opacity);
+          markerLineWidths.push(focusStyle.lineWidth);
+          markerLineColors.push(focusStyle.lineColor);
         }
       });
 
