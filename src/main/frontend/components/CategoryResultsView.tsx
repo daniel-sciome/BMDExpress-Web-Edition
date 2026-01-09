@@ -70,6 +70,22 @@ function ChartSelectionTitle({ selectedCount }: { selectedCount: number }) {
   );
 }
 
+/**
+ * Experiment Metadata Title Component
+ * Styled header for Experiment Metadata collapse section
+ */
+function ExperimentMetadataTitle() {
+  return (
+    <Space>
+      <span style={{ color: '#52c41a' }}>✓</span>
+      <span>Experiment Metadata (from project)</span>
+      <Tooltip title="Metadata about the experiment from the project file. Includes species, sex, organ, test article, and other experimental conditions.">
+        <InfoCircleOutlined style={{ color: '#1890ff', cursor: 'help' }} />
+      </Tooltip>
+    </Space>
+  );
+}
+
 export default function CategoryResultsView({ projectId, resultName }: CategoryResultsViewProps) {
   const dispatch = useAppDispatch();
   const { loading, error, data, experimentDescription, analysisParameters, filters, viewMode } = useAppSelector((state) => state.categoryResults);
@@ -209,64 +225,77 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {/* Formatted header with annotation metadata */}
         {annotation && annotation.parseSuccess ? (
           <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
-            <h2 style={{ marginBottom: '0.5rem' }}>{annotation.chemical || 'Unknown Chemical'}</h2>
-
-            {/* Experiment Description from Project Metadata - Always present at this point */}
-            <div style={{ marginBottom: '8px' }}>
-              <div style={{ fontSize: '11px', color: '#52c41a', marginBottom: '4px', fontWeight: 500 }}>
-                ✓ Experiment Metadata (from project):
-              </div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {experimentDescription.subjectType && (
-                  <Tag color="default" style={{ fontSize: '13px' }}>Type: {experimentDescription.subjectType}</Tag>
-                )}
-                {experimentDescription.testArticle && (
-                  <Tag color="blue" style={{ fontSize: '13px' }}>Test Article: {experimentDescription.testArticle}</Tag>
-                )}
-                {experimentDescription.casrn && (
-                  <Tag color="geekblue" style={{ fontSize: '13px' }}>CASRN: {experimentDescription.casrn}</Tag>
-                )}
-                {experimentDescription.dsstox && (
-                  <Tag color="geekblue" style={{ fontSize: '13px' }}>DSSTOX: {experimentDescription.dsstox}</Tag>
-                )}
-                <Tag color="orange" style={{ fontSize: '13px' }}>Species: {experimentDescription.species}</Tag>
-                {experimentDescription.strain && (
-                  <Tag color="gold" style={{ fontSize: '13px' }}>Strain: {experimentDescription.strain}</Tag>
-                )}
-                <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {experimentDescription.sex}</Tag>
-                <Tag color="green" style={{ fontSize: '13px' }}>Organ: {experimentDescription.organ}</Tag>
-                {experimentDescription.cellLine && (
-                  <Tag color="lime" style={{ fontSize: '13px' }}>Cell Line: {experimentDescription.cellLine}</Tag>
-                )}
-                {experimentDescription.studyDuration && (
-                  <Tag color="volcano" style={{ fontSize: '13px' }}>Duration: {experimentDescription.studyDuration}</Tag>
-                )}
-                {experimentDescription.articleRoute && (
-                  <Tag color="red" style={{ fontSize: '13px' }}>Route: {experimentDescription.articleRoute}</Tag>
-                )}
-                {experimentDescription.articleVehicle && (
-                  <Tag color="magenta" style={{ fontSize: '13px' }}>Vehicle: {experimentDescription.articleVehicle}</Tag>
-                )}
-                {experimentDescription.administrationMeans && (
-                  <Tag color="pink" style={{ fontSize: '13px' }}>Means: {experimentDescription.administrationMeans}</Tag>
-                )}
-                {experimentDescription.platform && (
-                  <Tag color="cyan" style={{ fontSize: '13px' }}>Platform: {experimentDescription.platform}</Tag>
-                )}
-                {experimentDescription.provider && (
-                  <Tag color="processing" style={{ fontSize: '13px' }}>Provider: {experimentDescription.provider}</Tag>
-                )}
-              </div>
-            </div>
-
-            {/* Additional Analysis Metadata */}
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
-              {annotation.platform && (
-                <Tag color="cyan" style={{ fontSize: '13px' }}>Platform: {annotation.platform}</Tag>
-              )}
+            <h2 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center' }}>
+              {annotation.chemical || 'Unknown Chemical'}
               {annotation.analysisType && (
-                <Tag color="magenta" style={{ fontSize: '13px' }}>Analysis: {annotation.analysisType}</Tag>
+                <span style={{
+                  marginLeft: '12px',
+                  padding: '2px 8px',
+                  border: '1px solid #722ed1',
+                  color: '#722ed1',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  fontWeight: 500,
+                }}>
+                  {annotation.analysisType}
+                </span>
               )}
+            </h2>
+
+            {/* Experiment Description from Project Metadata - Collapsible */}
+            <div style={{ marginBottom: '4px' }}>
+              <Collapse
+                size="small"
+                items={[{
+                  key: 'experiment-metadata',
+                  label: <ExperimentMetadataTitle />,
+                  children: (
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {experimentDescription.subjectType && (
+                        <Tag color="default" style={{ fontSize: '13px' }}>Type: {experimentDescription.subjectType}</Tag>
+                      )}
+                      {experimentDescription.testArticle && (
+                        <Tag color="blue" style={{ fontSize: '13px' }}>Test Article: {experimentDescription.testArticle}</Tag>
+                      )}
+                      {experimentDescription.casrn && (
+                        <Tag color="geekblue" style={{ fontSize: '13px' }}>CASRN: {experimentDescription.casrn}</Tag>
+                      )}
+                      {experimentDescription.dsstox && (
+                        <Tag color="geekblue" style={{ fontSize: '13px' }}>DSSTOX: {experimentDescription.dsstox}</Tag>
+                      )}
+                      <Tag color="orange" style={{ fontSize: '13px' }}>Species: {experimentDescription.species}</Tag>
+                      {experimentDescription.strain && (
+                        <Tag color="gold" style={{ fontSize: '13px' }}>Strain: {experimentDescription.strain}</Tag>
+                      )}
+                      <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {experimentDescription.sex}</Tag>
+                      <Tag color="green" style={{ fontSize: '13px' }}>Organ: {experimentDescription.organ}</Tag>
+                      {experimentDescription.cellLine && (
+                        <Tag color="lime" style={{ fontSize: '13px' }}>Cell Line: {experimentDescription.cellLine}</Tag>
+                      )}
+                      {experimentDescription.studyDuration && (
+                        <Tag color="volcano" style={{ fontSize: '13px' }}>Duration: {experimentDescription.studyDuration}</Tag>
+                      )}
+                      {experimentDescription.articleRoute && (
+                        <Tag color="red" style={{ fontSize: '13px' }}>Route: {experimentDescription.articleRoute}</Tag>
+                      )}
+                      {experimentDescription.articleVehicle && (
+                        <Tag color="magenta" style={{ fontSize: '13px' }}>Vehicle: {experimentDescription.articleVehicle}</Tag>
+                      )}
+                      {experimentDescription.administrationMeans && (
+                        <Tag color="pink" style={{ fontSize: '13px' }}>Means: {experimentDescription.administrationMeans}</Tag>
+                      )}
+                      {experimentDescription.platform && (
+                        <Tag color="cyan" style={{ fontSize: '13px' }}>Platform: {experimentDescription.platform}</Tag>
+                      )}
+                      {experimentDescription.provider && (
+                        <Tag color="processing" style={{ fontSize: '13px' }}>Provider: {experimentDescription.provider}</Tag>
+                      )}
+                    </div>
+                  ),
+                }]}
+                style={{ background: '#fafafa', border: 'none' }}
+                bordered={false}
+              />
             </div>
 
             {/* Analysis Parameters - Collapsible */}
@@ -301,52 +330,60 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
             <h2 style={{ marginBottom: '0.5rem' }}>Category Results: {resultName}</h2>
 
-            {/* Experiment Description - Always present at this point */}
-            <div style={{ marginBottom: '8px' }}>
-              <div style={{ fontSize: '11px', color: '#52c41a', marginBottom: '4px', fontWeight: 500 }}>
-                ✓ Experiment Metadata (from project):
-              </div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {experimentDescription.subjectType && (
-                  <Tag color="default" style={{ fontSize: '13px' }}>Type: {experimentDescription.subjectType}</Tag>
-                )}
-                {experimentDescription.testArticle && (
-                  <Tag color="blue" style={{ fontSize: '13px' }}>Test Article: {experimentDescription.testArticle}</Tag>
-                )}
-                {experimentDescription.casrn && (
-                  <Tag color="geekblue" style={{ fontSize: '13px' }}>CASRN: {experimentDescription.casrn}</Tag>
-                )}
-                {experimentDescription.dsstox && (
-                  <Tag color="geekblue" style={{ fontSize: '13px' }}>DSSTOX: {experimentDescription.dsstox}</Tag>
-                )}
-                <Tag color="orange" style={{ fontSize: '13px' }}>Species: {experimentDescription.species}</Tag>
-                {experimentDescription.strain && (
-                  <Tag color="gold" style={{ fontSize: '13px' }}>Strain: {experimentDescription.strain}</Tag>
-                )}
-                <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {experimentDescription.sex}</Tag>
-                <Tag color="green" style={{ fontSize: '13px' }}>Organ: {experimentDescription.organ}</Tag>
-                {experimentDescription.cellLine && (
-                  <Tag color="lime" style={{ fontSize: '13px' }}>Cell Line: {experimentDescription.cellLine}</Tag>
-                )}
-                {experimentDescription.studyDuration && (
-                  <Tag color="volcano" style={{ fontSize: '13px' }}>Duration: {experimentDescription.studyDuration}</Tag>
-                )}
-                {experimentDescription.articleRoute && (
-                  <Tag color="red" style={{ fontSize: '13px' }}>Route: {experimentDescription.articleRoute}</Tag>
-                )}
-                {experimentDescription.articleVehicle && (
-                  <Tag color="magenta" style={{ fontSize: '13px' }}>Vehicle: {experimentDescription.articleVehicle}</Tag>
-                )}
-                {experimentDescription.administrationMeans && (
-                  <Tag color="pink" style={{ fontSize: '13px' }}>Means: {experimentDescription.administrationMeans}</Tag>
-                )}
-                {experimentDescription.platform && (
-                  <Tag color="cyan" style={{ fontSize: '13px' }}>Platform: {experimentDescription.platform}</Tag>
-                )}
-                {experimentDescription.provider && (
-                  <Tag color="processing" style={{ fontSize: '13px' }}>Provider: {experimentDescription.provider}</Tag>
-                )}
-              </div>
+            {/* Experiment Description - Collapsible */}
+            <div style={{ marginBottom: '4px' }}>
+              <Collapse
+                size="small"
+                items={[{
+                  key: 'experiment-metadata',
+                  label: <ExperimentMetadataTitle />,
+                  children: (
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {experimentDescription.subjectType && (
+                        <Tag color="default" style={{ fontSize: '13px' }}>Type: {experimentDescription.subjectType}</Tag>
+                      )}
+                      {experimentDescription.testArticle && (
+                        <Tag color="blue" style={{ fontSize: '13px' }}>Test Article: {experimentDescription.testArticle}</Tag>
+                      )}
+                      {experimentDescription.casrn && (
+                        <Tag color="geekblue" style={{ fontSize: '13px' }}>CASRN: {experimentDescription.casrn}</Tag>
+                      )}
+                      {experimentDescription.dsstox && (
+                        <Tag color="geekblue" style={{ fontSize: '13px' }}>DSSTOX: {experimentDescription.dsstox}</Tag>
+                      )}
+                      <Tag color="orange" style={{ fontSize: '13px' }}>Species: {experimentDescription.species}</Tag>
+                      {experimentDescription.strain && (
+                        <Tag color="gold" style={{ fontSize: '13px' }}>Strain: {experimentDescription.strain}</Tag>
+                      )}
+                      <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {experimentDescription.sex}</Tag>
+                      <Tag color="green" style={{ fontSize: '13px' }}>Organ: {experimentDescription.organ}</Tag>
+                      {experimentDescription.cellLine && (
+                        <Tag color="lime" style={{ fontSize: '13px' }}>Cell Line: {experimentDescription.cellLine}</Tag>
+                      )}
+                      {experimentDescription.studyDuration && (
+                        <Tag color="volcano" style={{ fontSize: '13px' }}>Duration: {experimentDescription.studyDuration}</Tag>
+                      )}
+                      {experimentDescription.articleRoute && (
+                        <Tag color="red" style={{ fontSize: '13px' }}>Route: {experimentDescription.articleRoute}</Tag>
+                      )}
+                      {experimentDescription.articleVehicle && (
+                        <Tag color="magenta" style={{ fontSize: '13px' }}>Vehicle: {experimentDescription.articleVehicle}</Tag>
+                      )}
+                      {experimentDescription.administrationMeans && (
+                        <Tag color="pink" style={{ fontSize: '13px' }}>Means: {experimentDescription.administrationMeans}</Tag>
+                      )}
+                      {experimentDescription.platform && (
+                        <Tag color="cyan" style={{ fontSize: '13px' }}>Platform: {experimentDescription.platform}</Tag>
+                      )}
+                      {experimentDescription.provider && (
+                        <Tag color="processing" style={{ fontSize: '13px' }}>Provider: {experimentDescription.provider}</Tag>
+                      )}
+                    </div>
+                  ),
+                }]}
+                style={{ background: '#fafafa', border: 'none' }}
+                bordered={false}
+              />
             </div>
 
             <p style={{ margin: '0 0 0 0', color: '#666' }}>
