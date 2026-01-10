@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card, Radio, Button, Tree, Typography } from 'antd';
-import type { TreeDataNode } from 'antd';
+import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card, Radio, Button, Typography } from 'antd';
 import { FileTextOutlined, InfoCircleOutlined, LineChartOutlined, EyeOutlined, DatabaseOutlined } from '@ant-design/icons';
 import { Icon } from '@vaadin/react-components';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -110,7 +109,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
 
   // Datasets state
   const [allAnnotations, setAllAnnotations] = useState<AnalysisAnnotationDto[]>([]);
-  const [datasetsTreeExpanded, setDatasetsTreeExpanded] = useState<React.Key[]>([]);
+  const [comparatorDatasets, setComparatorDatasets] = useState<string[]>([]);
 
   // Load all annotations for the project
   useEffect(() => {
@@ -144,44 +143,42 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
     return typeMap[analysisType] || analysisType;
   };
 
-  // Build datasets tree
-  const buildDatasetsTree = (): TreeDataNode[] => {
-    const grouped = allAnnotations.reduce((acc, ann) => {
-      const type = ann.analysisType || 'Other';
-      if (!acc[type]) acc[type] = [];
-      acc[type].push(ann);
-      return acc;
-    }, {} as Record<string, AnalysisAnnotationDto[]>);
+  // Group annotations by analysis type
+  const groupedAnnotations = allAnnotations.reduce((acc, ann) => {
+    const type = ann.analysisType || 'Other';
+    if (!acc[type]) acc[type] = [];
+    acc[type].push(ann);
+    return acc;
+  }, {} as Record<string, AnalysisAnnotationDto[]>);
 
-    return Object.entries(grouped).map(([analysisType, items]) => ({
-      title: (
-        <span>
-          {getAnalysisTypeDisplayName(analysisType)}
-          <Tag color="blue" style={{ marginLeft: 8, fontSize: '11px' }}>{items.length}</Tag>
-        </span>
-      ),
-      key: `type::${analysisType}`,
-      icon: <span style={{ fontSize: '12px' }}>📂</span>,
-      children: items.map(ann => ({
-        title: ann.displayName || ann.fullName || 'Unknown',
-        key: ann.fullName || '',
-        icon: <span style={{ fontSize: '12px' }}>📊</span>,
-        isLeaf: true,
-      })),
-    })).sort((a, b) => String(a.key).localeCompare(String(b.key)));
+  // Handle dataset chip click
+  const handleDatasetClick = (datasetKey: string, event: React.MouseEvent) => {
+    const isModifierClick = event.ctrlKey || event.metaKey;
+
+    if (isModifierClick) {
+      // Toggle comparator
+      setComparatorDatasets(prev => {
+        if (prev.includes(datasetKey)) {
+          return prev.filter(d => d !== datasetKey);
+        } else {
+          // Can't be both primary and comparator
+          if (datasetKey === resultName) return prev;
+          return [...prev, datasetKey];
+        }
+      });
+    } else {
+      // Set as primary (navigate to it)
+      if (datasetKey !== resultName) {
+        // Remove from comparators if it was one
+        setComparatorDatasets(prev => prev.filter(d => d !== datasetKey));
+        dispatch(setSelectedCategoryResult(datasetKey));
+      }
+    }
   };
 
-  // Handle dataset tree selection
-  const handleDatasetSelect = (selectedKeys: React.Key[]) => {
-    if (selectedKeys.length === 0) return;
-    const key = selectedKeys[0] as string;
-
-    if (key.startsWith('type::')) {
-      const analysisType = key.replace('type::', '');
-      dispatch(setSelectedAnalysisType(analysisType));
-    } else {
-      dispatch(setSelectedCategoryResult(key));
-    }
+  // Handle analysis type click (group header)
+  const handleAnalysisTypeClick = (analysisType: string) => {
+    dispatch(setSelectedAnalysisType(analysisType));
   };
 
   // Handle toggling a single chart collapse (add or remove from open list)
@@ -408,31 +405,93 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
 
             {/* Datasets - Collapsible */}
             <div style={{ marginBottom: '4px' }}>
-              <style>{`
-                .datasets-tree .ant-tree-node-selected {
-                  background-color: #e6f7ff !important;
-                  font-weight: 600 !important;
-                }
-                .datasets-tree .ant-tree-node-selected .ant-tree-title {
-                  color: #1890ff !important;
-                }
-              `}</style>
               <Collapse
                 size="small"
                 items={[{
                   key: 'datasets',
                   label: <DatasetsTitle count={allAnnotations.length} />,
                   children: (
-                    <Tree
-                      className="datasets-tree"
-                      showIcon
-                      treeData={buildDatasetsTree()}
-                      expandedKeys={datasetsTreeExpanded}
-                      onExpand={(keys) => setDatasetsTreeExpanded(keys)}
-                      onSelect={handleDatasetSelect}
-                      selectedKeys={[resultName]}
-                      style={{ background: 'transparent' }}
-                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {Object.entries(groupedAnnotations).sort((a, b) => a[0].localeCompare(b[0])).map(([analysisType, items]) => (
+                        <div key={analysisType}>
+                          {/* Analysis type header */}
+                          <div
+                            onClick={() => handleAnalysisTypeClick(analysisType)}
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              color: '#666',
+                              marginBottom: '4px',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            <span>📂</span>
+                            {getAnalysisTypeDisplayName(analysisType)}
+                            <Tag color="blue" style={{ fontSize: '10px', marginLeft: '4px' }}>{items.length}</Tag>
+                          </div>
+                          {/* Dataset chips */}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {items.map(ann => {
+                              const datasetKey = ann.fullName || '';
+                              const isPrimary = datasetKey === resultName;
+                              const isComparator = comparatorDatasets.includes(datasetKey);
+
+                              return (
+                                <Tooltip
+                                  key={datasetKey}
+                                  title={
+                                    isPrimary ? 'Primary dataset (Cmd/Ctrl+click to compare others)' :
+                                    isComparator ? 'Comparator (click to set as primary, Cmd/Ctrl+click to remove)' :
+                                    'Click to set as primary, Cmd/Ctrl+click to add as comparator'
+                                  }
+                                >
+                                  <div
+                                    onClick={(e) => handleDatasetClick(datasetKey, e)}
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      padding: '3px 8px',
+                                      borderRadius: '4px',
+                                      cursor: 'pointer',
+                                      fontSize: '11px',
+                                      fontWeight: isPrimary ? 600 : 400,
+                                      backgroundColor: isPrimary ? '#1890ff' : isComparator ? '#e6f7ff' : '#fff',
+                                      color: isPrimary ? '#fff' : '#333',
+                                      border: isPrimary ? '1px solid #1890ff' : isComparator ? '1px solid #91d5ff' : '1px solid #d9d9d9',
+                                      transition: 'all 0.2s',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (!isPrimary && !isComparator) {
+                                        e.currentTarget.style.backgroundColor = '#f5f5f5';
+                                        e.currentTarget.style.borderColor = '#bfbfbf';
+                                      }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      if (!isPrimary && !isComparator) {
+                                        e.currentTarget.style.backgroundColor = '#fff';
+                                        e.currentTarget.style.borderColor = '#d9d9d9';
+                                      }
+                                    }}
+                                  >
+                                    {isPrimary && <span>★</span>}
+                                    {isComparator && <span>◇</span>}
+                                    {ann.displayName || ann.fullName}
+                                  </div>
+                                </Tooltip>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                      {/* Hint text */}
+                      <div style={{ fontSize: '11px', color: '#8c8c8c', fontStyle: 'italic', marginTop: '4px' }}>
+                        Click = set primary, Cmd/Ctrl+click = toggle comparator
+                      </div>
+                    </div>
                   ),
                 }]}
                 style={{ background: '#fafafa' }}
@@ -505,31 +564,93 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
 
             {/* Datasets - Collapsible */}
             <div style={{ marginBottom: '4px' }}>
-              <style>{`
-                .datasets-tree .ant-tree-node-selected {
-                  background-color: #e6f7ff !important;
-                  font-weight: 600 !important;
-                }
-                .datasets-tree .ant-tree-node-selected .ant-tree-title {
-                  color: #1890ff !important;
-                }
-              `}</style>
               <Collapse
                 size="small"
                 items={[{
                   key: 'datasets',
                   label: <DatasetsTitle count={allAnnotations.length} />,
                   children: (
-                    <Tree
-                      className="datasets-tree"
-                      showIcon
-                      treeData={buildDatasetsTree()}
-                      expandedKeys={datasetsTreeExpanded}
-                      onExpand={(keys) => setDatasetsTreeExpanded(keys)}
-                      onSelect={handleDatasetSelect}
-                      selectedKeys={[resultName]}
-                      style={{ background: 'transparent' }}
-                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {Object.entries(groupedAnnotations).sort((a, b) => a[0].localeCompare(b[0])).map(([analysisType, items]) => (
+                        <div key={analysisType}>
+                          {/* Analysis type header */}
+                          <div
+                            onClick={() => handleAnalysisTypeClick(analysisType)}
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              color: '#666',
+                              marginBottom: '4px',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            <span>📂</span>
+                            {getAnalysisTypeDisplayName(analysisType)}
+                            <Tag color="blue" style={{ fontSize: '10px', marginLeft: '4px' }}>{items.length}</Tag>
+                          </div>
+                          {/* Dataset chips */}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {items.map(ann => {
+                              const datasetKey = ann.fullName || '';
+                              const isPrimary = datasetKey === resultName;
+                              const isComparator = comparatorDatasets.includes(datasetKey);
+
+                              return (
+                                <Tooltip
+                                  key={datasetKey}
+                                  title={
+                                    isPrimary ? 'Primary dataset (Cmd/Ctrl+click to compare others)' :
+                                    isComparator ? 'Comparator (click to set as primary, Cmd/Ctrl+click to remove)' :
+                                    'Click to set as primary, Cmd/Ctrl+click to add as comparator'
+                                  }
+                                >
+                                  <div
+                                    onClick={(e) => handleDatasetClick(datasetKey, e)}
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      padding: '3px 8px',
+                                      borderRadius: '4px',
+                                      cursor: 'pointer',
+                                      fontSize: '11px',
+                                      fontWeight: isPrimary ? 600 : 400,
+                                      backgroundColor: isPrimary ? '#1890ff' : isComparator ? '#e6f7ff' : '#fff',
+                                      color: isPrimary ? '#fff' : '#333',
+                                      border: isPrimary ? '1px solid #1890ff' : isComparator ? '1px solid #91d5ff' : '1px solid #d9d9d9',
+                                      transition: 'all 0.2s',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (!isPrimary && !isComparator) {
+                                        e.currentTarget.style.backgroundColor = '#f5f5f5';
+                                        e.currentTarget.style.borderColor = '#bfbfbf';
+                                      }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      if (!isPrimary && !isComparator) {
+                                        e.currentTarget.style.backgroundColor = '#fff';
+                                        e.currentTarget.style.borderColor = '#d9d9d9';
+                                      }
+                                    }}
+                                  >
+                                    {isPrimary && <span>★</span>}
+                                    {isComparator && <span>◇</span>}
+                                    {ann.displayName || ann.fullName}
+                                  </div>
+                                </Tooltip>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                      {/* Hint text */}
+                      <div style={{ fontSize: '11px', color: '#8c8c8c', fontStyle: 'italic', marginTop: '4px' }}>
+                        Click = set primary, Cmd/Ctrl+click = toggle comparator
+                      </div>
+                    </div>
                   ),
                 }]}
                 style={{ background: '#fafafa' }}
