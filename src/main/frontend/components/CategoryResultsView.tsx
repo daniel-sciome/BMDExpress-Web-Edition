@@ -277,11 +277,34 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {/* Formatted header with annotation metadata */}
         {annotation && annotation.parseSuccess ? (
           <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
-            <h2 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center' }}>
-              {annotation.chemical || 'Unknown Chemical'}
+            <h2 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              {experimentDescription.testArticle || annotation.chemical || 'Unknown Test Article'}
+              {experimentDescription.sex && (
+                <span style={{
+                  padding: '2px 8px',
+                  border: '1px solid #722ed1',
+                  color: '#722ed1',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  fontWeight: 500,
+                }}>
+                  {experimentDescription.sex}
+                </span>
+              )}
+              {experimentDescription.organ && (
+                <span style={{
+                  padding: '2px 8px',
+                  border: '1px solid #52c41a',
+                  color: '#52c41a',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  fontWeight: 500,
+                }}>
+                  {experimentDescription.organ}
+                </span>
+              )}
               {annotation.analysisType && (
                 <span style={{
-                  marginLeft: '12px',
                   padding: '2px 8px',
                   border: '1px solid #722ed1',
                   color: '#722ed1',
@@ -293,7 +316,6 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                 </span>
               )}
               <span style={{
-                marginLeft: '12px',
                 padding: '2px 8px',
                 border: '1px solid #888',
                 color: '#888',
@@ -386,10 +408,33 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           </div>
         ) : (
           <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
-            <h2 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center' }}>
-              Category Results: {resultName}
+            <h2 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              {experimentDescription.testArticle || resultName}
+              {experimentDescription.sex && (
+                <span style={{
+                  padding: '2px 8px',
+                  border: '1px solid #722ed1',
+                  color: '#722ed1',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  fontWeight: 500,
+                }}>
+                  {experimentDescription.sex}
+                </span>
+              )}
+              {experimentDescription.organ && (
+                <span style={{
+                  padding: '2px 8px',
+                  border: '1px solid #52c41a',
+                  color: '#52c41a',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  fontWeight: 500,
+                }}>
+                  {experimentDescription.organ}
+                </span>
+              )}
               <span style={{
-                marginLeft: '12px',
                 padding: '2px 8px',
                 border: '1px solid #888',
                 color: '#888',
