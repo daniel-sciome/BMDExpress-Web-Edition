@@ -6,8 +6,7 @@ import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/Analys
 import CategoryResultsView from '../components/CategoryResultsView';
 import CategoryAnalysisMultisetView from './CategoryAnalysisMultisetView';
 import { Icon } from '@vaadin/react-components';
-import { Collapse, Tree, Typography, Tag } from 'antd';
-import type { TreeDataNode } from 'antd';
+import { Collapse, Typography, Tag, Tooltip } from 'antd';
 
 const { Text } = Typography;
 
@@ -23,7 +22,6 @@ export default function LibraryView() {
 
   const [annotations, setAnnotations] = useState<AnalysisAnnotationDto[]>([]);
   const [loading, setLoading] = useState(false);
-  const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
 
   // Load category results when project changes
   useEffect(() => {
@@ -66,47 +64,22 @@ export default function LibraryView() {
     return typeMap[analysisType] || analysisType;
   };
 
-  // Build tree data from annotations
-  const buildDatasetsTree = (): TreeDataNode[] => {
-    // Group by analysisType
-    const grouped = annotations.reduce((acc, annotation) => {
-      const type = annotation.analysisType || 'Other';
-      if (!acc[type]) acc[type] = [];
-      acc[type].push(annotation);
-      return acc;
-    }, {} as Record<string, AnalysisAnnotationDto[]>);
+  // Group annotations by analysis type
+  const groupedAnnotations = annotations.reduce((acc, annotation) => {
+    const type = annotation.analysisType || 'Other';
+    if (!acc[type]) acc[type] = [];
+    acc[type].push(annotation);
+    return acc;
+  }, {} as Record<string, AnalysisAnnotationDto[]>);
 
-    return Object.entries(grouped).map(([analysisType, items]) => ({
-      title: (
-        <span>
-          {getAnalysisTypeDisplayName(analysisType)}
-          <Tag color="blue" style={{ marginLeft: 8, fontSize: '11px' }}>{items.length}</Tag>
-        </span>
-      ),
-      key: `type::${analysisType}`,
-      icon: <span style={{ fontSize: '12px' }}>📂</span>,
-      children: items.map(annotation => ({
-        title: annotation.displayName || annotation.fullName || 'Unknown',
-        key: annotation.fullName || '',
-        icon: <span style={{ fontSize: '12px' }}>📊</span>,
-        isLeaf: true,
-      })),
-    })).sort((a, b) => String(a.title).localeCompare(String(b.title)));
+  // Handle dataset chip click
+  const handleDatasetClick = (datasetKey: string) => {
+    dispatch(setSelectedCategoryResult(datasetKey));
   };
 
-  // Handle tree selection
-  const handleTreeSelect = (selectedKeys: React.Key[]) => {
-    if (selectedKeys.length === 0) return;
-    const key = selectedKeys[0] as string;
-
-    if (key.startsWith('type::')) {
-      // Analysis type selected
-      const analysisType = key.replace('type::', '');
-      dispatch(setSelectedAnalysisType(analysisType));
-    } else {
-      // Individual result selected
-      dispatch(setSelectedCategoryResult(key));
-    }
+  // Handle analysis type click (group header)
+  const handleAnalysisTypeClick = (analysisType: string) => {
+    dispatch(setSelectedAnalysisType(analysisType));
   };
 
   // No selection - show welcome message
@@ -177,7 +150,6 @@ export default function LibraryView() {
     }
 
     // Show datasets collapse for user to select
-    const datasetsTree = buildDatasetsTree();
     return (
       <div style={{ padding: '1rem', maxWidth: '800px', margin: '0 auto' }}>
         <h2 className="text-2xl font-bold mb-m">
@@ -195,21 +167,75 @@ export default function LibraryView() {
               </div>
             ),
             children: (
-              <Tree
-                showIcon
-                treeData={datasetsTree}
-                expandedKeys={expandedKeys}
-                onExpand={(keys) => setExpandedKeys(keys)}
-                onSelect={handleTreeSelect}
-                style={{ background: 'transparent' }}
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {Object.entries(groupedAnnotations).sort((a, b) => a[0].localeCompare(b[0])).map(([analysisType, items]) => (
+                  <div key={analysisType}>
+                    {/* Analysis type header */}
+                    <div
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: '#666',
+                        marginBottom: '4px',
+                        marginLeft: '4px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      <span>🧬</span>
+                      {getAnalysisTypeDisplayName(analysisType)}
+                      <Tag color="blue" style={{ fontSize: '10px', marginLeft: '4px' }}>{items.length}</Tag>
+                    </div>
+                    {/* Dataset chips */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginLeft: '4px' }}>
+                      {items.map(ann => {
+                        const datasetKey = ann.fullName || '';
+                        return (
+                          <Tooltip
+                            key={datasetKey}
+                            title="Click to select this dataset"
+                          >
+                            <div
+                              onClick={() => handleDatasetClick(datasetKey)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '11px',
+                                backgroundColor: '#fff',
+                                color: '#333',
+                                border: '1px solid #d9d9d9',
+                                transition: 'all 0.2s',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#e6f7ff';
+                                e.currentTarget.style.borderColor = '#91d5ff';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#fff';
+                                e.currentTarget.style.borderColor = '#d9d9d9';
+                              }}
+                            >
+                              {ann.displayName || ann.fullName}
+                            </div>
+                          </Tooltip>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                {/* Hint text */}
+                <div style={{ fontSize: '11px', color: '#8c8c8c', fontStyle: 'italic', marginTop: '4px' }}>
+                  Click a dataset to view it, or click a group header to compare all in that category
+                </div>
+              </div>
             ),
           }]}
         />
-        <div style={{ marginTop: '1rem', color: '#666', fontSize: '13px' }}>
-          <p><strong>📂 Analysis Type Groups</strong> - Click to compare multiple results</p>
-          <p style={{ marginTop: '4px' }}><strong>📊 Individual Results</strong> - Click to analyze a single dataset</p>
-        </div>
       </div>
     );
   }

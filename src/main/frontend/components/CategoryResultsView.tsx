@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card, Radio, Button, Typography } from 'antd';
+import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card, Radio, Button, Typography, Tabs } from 'antd';
 import { FileTextOutlined, InfoCircleOutlined, LineChartOutlined, EyeOutlined, DatabaseOutlined } from '@ant-design/icons';
 import { Icon } from '@vaadin/react-components';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -27,6 +27,10 @@ import ClusterHeatmap from './charts/ClusterHeatmap';
 import ClusterScatterPlot from './charts/ClusterScatterPlot';
 import ClusterPicker from './ClusterPicker';
 import ExperimentDescriptionRequired from './ExperimentDescriptionRequired';
+import VennDiagram from './charts/VennDiagram';
+import AccumulationChartsComparison from './charts/AccumulationChartsComparison';
+import GlobalViolinComparison from './charts/GlobalViolinComparison';
+import ComparisonTable from './charts/ComparisonTable';
 
 const { Text } = Typography;
 
@@ -110,6 +114,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   // Datasets state
   const [allAnnotations, setAllAnnotations] = useState<AnalysisAnnotationDto[]>([]);
   const [comparatorDatasets, setComparatorDatasets] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<string>('single');
 
   // Load all annotations for the project
   useEffect(() => {
@@ -125,6 +130,13 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
     };
     loadAnnotations();
   }, [projectId]);
+
+  // Auto-switch to comparison tab when comparators are added
+  useEffect(() => {
+    if (comparatorDatasets.length > 0) {
+      setActiveTab('comparison');
+    }
+  }, [comparatorDatasets.length]);
 
   // Helper function to get friendly name for analysis type
   const getAnalysisTypeDisplayName = (analysisType: string | undefined): string => {
@@ -416,24 +428,23 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                         <div key={analysisType}>
                           {/* Analysis type header */}
                           <div
-                            onClick={() => handleAnalysisTypeClick(analysisType)}
                             style={{
                               fontSize: '11px',
                               fontWeight: 600,
                               color: '#666',
                               marginBottom: '4px',
-                              cursor: 'pointer',
+                              marginLeft: '4px',
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: '4px',
                             }}
                           >
-                            <span>📂</span>
+                            <span>🧬</span>
                             {getAnalysisTypeDisplayName(analysisType)}
                             <Tag color="blue" style={{ fontSize: '10px', marginLeft: '4px' }}>{items.length}</Tag>
                           </div>
                           {/* Dataset chips */}
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginLeft: '4px' }}>
                             {items.map(ann => {
                               const datasetKey = ann.fullName || '';
                               const isPrimary = datasetKey === resultName;
@@ -575,24 +586,23 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                         <div key={analysisType}>
                           {/* Analysis type header */}
                           <div
-                            onClick={() => handleAnalysisTypeClick(analysisType)}
                             style={{
                               fontSize: '11px',
                               fontWeight: 600,
                               color: '#666',
                               marginBottom: '4px',
-                              cursor: 'pointer',
+                              marginLeft: '4px',
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: '4px',
                             }}
                           >
-                            <span>📂</span>
+                            <span>🧬</span>
                             {getAnalysisTypeDisplayName(analysisType)}
                             <Tag color="blue" style={{ fontSize: '10px', marginLeft: '4px' }}>{items.length}</Tag>
                           </div>
                           {/* Dataset chips */}
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginLeft: '4px' }}>
                             {items.map(ann => {
                               const datasetKey = ann.fullName || '';
                               const isPrimary = datasetKey === resultName;
@@ -744,14 +754,321 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         </div>
       )}
 
-      {/* Single scrollable container for both charts and table */}
-      <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        minHeight: 0,
-        padding: '1rem'
-      }}>
+      {/* Main content - tabbed when comparators are selected */}
+      {comparatorDatasets.length > 0 ? (
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+          items={[
+            {
+              key: 'single',
+              label: 'Single Dataset',
+              children: (
+                <div style={{
+                  flex: 1,
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
+                  minHeight: 0,
+                  padding: '1rem'
+                }}>
+                  {/* Charts - Direct rendering based on checkbox selection (Power User mode only) */}
+                  {viewMode === 'power' && visibleCharts.includes('1') && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <Collapse
+                        activeKey={openChartCollapses}
+                        onChange={handleChartCollapseChange('chart-1')}
+                        items={[{
+                          key: 'chart-1',
+                          label: <span style={{ lineHeight: '22px' }}>BMD Overview (Scatter & Box Plot)</span>,
+                          children: (
+                            <Row gutter={16} key={`${projectId}-${resultName}`}>
+                              <Col xs={24} xl={12}>
+                                <BMDvsPValueScatter key={`${projectId}-${resultName}-scatter`} />
+                              </Col>
+                              <Col xs={24} xl={12}>
+                                <BMDBoxPlot key={`${projectId}-${resultName}-box`} />
+                              </Col>
+                            </Row>
+                          )
+                        }]}
+                      />
+                    </div>
+                  )}
+
+                  {viewMode === 'power' && visibleCharts.includes('2') && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <Collapse
+                        activeKey={openChartCollapses}
+                        onChange={handleChartCollapseChange('chart-2')}
+                        items={[{
+                          key: 'chart-2',
+                          label: <span style={{ lineHeight: '22px' }}>UMAP Scatter Plot</span>,
+                          children: <UmapScatterPlot key={`${projectId}-${resultName}`} />
+                        }]}
+                      />
+                    </div>
+                  )}
+
+                  {viewMode === 'power' && visibleCharts.includes('3') && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <Collapse
+                        activeKey={openChartCollapses}
+                        onChange={handleChartCollapseChange('chart-3')}
+                        items={[{
+                          key: 'chart-3',
+                          label: <span style={{ lineHeight: '22px' }}>Curve Overlay</span>,
+                          children: <PathwayCurveViewer key={`${projectId}-${resultName}`} projectId={projectId} resultName={resultName} />
+                        }]}
+                      />
+                    </div>
+                  )}
+
+                  {viewMode === 'power' && visibleCharts.includes('4') && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <Collapse
+                        activeKey={openChartCollapses}
+                        onChange={handleChartCollapseChange('chart-4')}
+                        items={[{
+                          key: 'chart-4',
+                          label: <span style={{ lineHeight: '22px' }}>Range Plot</span>,
+                          children: <RangePlot key={`${projectId}-${resultName}`} />
+                        }]}
+                      />
+                    </div>
+                  )}
+
+                  {viewMode === 'power' && visibleCharts.includes('5') && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <Collapse
+                        activeKey={openChartCollapses}
+                        onChange={handleChartCollapseChange('chart-5')}
+                        items={[{
+                          key: 'chart-5',
+                          label: <span style={{ lineHeight: '22px' }}>Bubble Chart</span>,
+                          children: <BubbleChart key={`${projectId}-${resultName}`} />
+                        }]}
+                      />
+                    </div>
+                  )}
+
+                  {viewMode === 'power' && visibleCharts.includes('6') && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <Collapse
+                        activeKey={openChartCollapses}
+                        onChange={handleChartCollapseChange('chart-6')}
+                        items={[{
+                          key: 'chart-6',
+                          label: <span style={{ lineHeight: '22px' }}>Best Models Pie Chart</span>,
+                          children: <BestModelsPieChart key={`${projectId}-${resultName}`} projectId={projectId} resultName={resultName} />
+                        }]}
+                      />
+                    </div>
+                  )}
+
+                  {viewMode === 'power' && visibleCharts.includes('7') && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <Collapse
+                        activeKey={openChartCollapses}
+                        onChange={handleChartCollapseChange('chart-7')}
+                        items={[{
+                          key: 'chart-7',
+                          label: <span style={{ lineHeight: '22px' }}>Bar Charts</span>,
+                          children: <BarCharts key={`${projectId}-${resultName}`} />
+                        }]}
+                      />
+                    </div>
+                  )}
+
+                  {viewMode === 'power' && visibleCharts.includes('8') && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <Collapse
+                        activeKey={openChartCollapses}
+                        onChange={handleChartCollapseChange('chart-8')}
+                        items={[{
+                          key: 'chart-8',
+                          label: <span style={{ lineHeight: '22px' }}>Accumulation Charts</span>,
+                          children: <AccumulationCharts key={`${projectId}-${resultName}`} />
+                        }]}
+                      />
+                    </div>
+                  )}
+
+                  {viewMode === 'power' && visibleCharts.includes('9') && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <Collapse
+                        activeKey={openChartCollapses}
+                        onChange={handleChartCollapseChange('chart-9')}
+                        items={[{
+                          key: 'chart-9',
+                          label: <span style={{ lineHeight: '22px' }}>Mean Histograms</span>,
+                          children: <MeanHistograms key={`${projectId}-${resultName}`} />
+                        }]}
+                      />
+                    </div>
+                  )}
+
+                  {viewMode === 'power' && visibleCharts.includes('10') && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <Collapse
+                        activeKey={openChartCollapses}
+                        onChange={handleChartCollapseChange('chart-10')}
+                        items={[{
+                          key: 'chart-10',
+                          label: <span style={{ lineHeight: '22px' }}>Median Histograms</span>,
+                          children: <MedianHistograms key={`${projectId}-${resultName}`} />
+                        }]}
+                      />
+                    </div>
+                  )}
+
+                  {viewMode === 'power' && visibleCharts.includes('11') && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <Collapse
+                        activeKey={openChartCollapses}
+                        onChange={handleChartCollapseChange('chart-11')}
+                        items={[{
+                          key: 'chart-11',
+                          label: <span style={{ lineHeight: '22px' }}>BMD vs BMDL Scatter</span>,
+                          children: <BMDvsBMDLScatter key={`${projectId}-${resultName}`} />
+                        }]}
+                      />
+                    </div>
+                  )}
+
+                  {viewMode === 'power' && visibleCharts.includes('12') && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <Collapse
+                        activeKey={openChartCollapses}
+                        onChange={handleChartCollapseChange('chart-12')}
+                        items={[{
+                          key: 'chart-12',
+                          label: <span style={{ lineHeight: '22px' }}>Violin Plot Per Category</span>,
+                          children: <ViolinPlotPerCategory key={`${projectId}-${resultName}`} />
+                        }]}
+                      />
+                    </div>
+                  )}
+
+                  {viewMode === 'power' && visibleCharts.includes('14') && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <Collapse
+                        activeKey={openChartCollapses}
+                        onChange={handleChartCollapseChange('chart-14')}
+                        items={[{
+                          key: 'chart-14',
+                          label: <span style={{ lineHeight: '22px' }}>Gene Cluster Histogram</span>,
+                          children: <ClusterHeatmap key={`${projectId}-${resultName}-cluster-heatmap`} />
+                        }]}
+                      />
+                    </div>
+                  )}
+
+                  {viewMode === 'power' && visibleCharts.includes('15') && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <Collapse
+                        activeKey={openChartCollapses}
+                        onChange={handleChartCollapseChange('chart-15')}
+                        items={[{
+                          key: 'chart-15',
+                          label: <span style={{ lineHeight: '22px' }}>Gene Cluster Scatter</span>,
+                          children: <ClusterScatterPlot key={`${projectId}-${resultName}-cluster-scatter`} />
+                        }]}
+                      />
+                    </div>
+                  )}
+
+                  {/* Table */}
+                  <CategoryResultsGrid
+                    key={`${projectId}-${resultName}`}
+                    isExpanded={openChartCollapses.includes('category-results-table')}
+                    onExpandChange={(expanded) => {
+                      if (expanded) {
+                        setOpenChartCollapses(prev => prev.includes('category-results-table') ? prev : [...prev, 'category-results-table']);
+                      } else {
+                        setOpenChartCollapses(prev => prev.filter(k => k !== 'category-results-table'));
+                      }
+                    }}
+                  />
+                </div>
+              ),
+            },
+            {
+              key: 'comparison',
+              label: `Comparison (${comparatorDatasets.length + 1} datasets)`,
+              children: (
+                <div style={{
+                  flex: 1,
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
+                  minHeight: 0,
+                  padding: '1rem'
+                }}>
+                  <Collapse
+                    defaultActiveKey={['comparisonTable', 'venn', 'accumulation', 'globalViolin']}
+                    items={[
+                      {
+                        key: 'comparisonTable',
+                        label: 'Comparison Table',
+                        children: (
+                          <ComparisonTable
+                            projectId={projectId}
+                            selectedResults={[resultName, ...comparatorDatasets]}
+                            resultDisplayNames={{}}
+                            analysisType={annotation?.analysisType || ''}
+                          />
+                        ),
+                      },
+                      {
+                        key: 'venn',
+                        label: 'Venn Diagram',
+                        children: (
+                          <VennDiagram
+                            projectId={projectId}
+                            availableResults={[resultName, ...comparatorDatasets]}
+                            selectedResults={[resultName, ...comparatorDatasets]}
+                          />
+                        ),
+                      },
+                      {
+                        key: 'accumulation',
+                        label: 'Accumulation Charts',
+                        children: (
+                          <AccumulationChartsComparison
+                            projectId={projectId}
+                            availableResults={[resultName, ...comparatorDatasets]}
+                            selectedResults={[resultName, ...comparatorDatasets]}
+                            analysisType={annotation?.analysisType || ''}
+                          />
+                        ),
+                      },
+                      {
+                        key: 'globalViolin',
+                        label: 'Global Violin Plot',
+                        children: (
+                          <GlobalViolinComparison
+                            projectId={projectId}
+                            availableResults={[resultName, ...comparatorDatasets]}
+                            selectedResults={[resultName, ...comparatorDatasets]}
+                            analysisType={annotation?.analysisType || ''}
+                          />
+                        ),
+                      },
+                    ]}
+                  />
+                </div>
+              ),
+            },
+          ]}
+        />
+      ) : (
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          minHeight: 0,
+          padding: '1rem'
+        }}>
         {/* Charts - Direct rendering based on checkbox selection (Power User mode only) */}
         {viewMode === 'power' && visibleCharts.includes('1') && (
           <div style={{ marginBottom: '4px' }}>
@@ -971,6 +1288,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           }}
         />
       </div>
+      )}
     </div>
     </>
   );
