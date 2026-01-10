@@ -93,13 +93,10 @@ export default function LibraryView() {
             className="mb-m"
           />
           <h1 className="text-3xl font-bold mb-m">
-            Welcome to BMDExpress Web
+            Welcome to BMD Express Web
           </h1>
           <p className="text-secondary text-l">
             Select a project from the sidebar to get started.
-          </p>
-          <p className="text-secondary mt-m">
-            Expand a project to view and analyze category results.
           </p>
         </div>
       </div>
@@ -151,7 +148,7 @@ export default function LibraryView() {
 
     // Show datasets collapse for user to select
     return (
-      <div style={{ padding: '1rem', maxWidth: '800px', margin: '0 auto' }}>
+      <div style={{ padding: '1rem' }}>
         <h2 className="text-2xl font-bold mb-m">
           Project: {selectedProject}
         </h2>
