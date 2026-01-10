@@ -6,7 +6,6 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { setSelectedProject, setSelectedAnalysisType, setSelectedCategoryResult } from '../store/slices/navigationSlice';
 import { setViewMode } from '../store/slices/categoryResultsSlice';
 import { selectAllFilterGroups } from '../store/slices/filterSlice';
-import ClusterPicker from './ClusterPicker';
 import FilterGroupList from './filters/FilterGroupList';
 import FilterGroupEditor from './filters/FilterGroupEditor';
 
@@ -358,10 +357,9 @@ export default function ProjectTreeSidebar() {
         </>
       )}
 
-      {/* Power User mode: Cluster picker and Filter groups */}
+      {/* Power User mode: Filter groups */}
       {viewMode === 'power' && (
         <>
-          <ClusterPicker />
           <FilterGroupList />
         </>
       )}

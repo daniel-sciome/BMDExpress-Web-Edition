@@ -122,7 +122,7 @@ export default function ClusterPicker() {
           onClick={(e) => e.stopPropagation()}
         >
           <Text strong style={{ fontSize: '13px', color: '#262626' }}>
-            Clusters
+            Category Clusters
           </Text>
           <Tag color="default" style={{ fontSize: '11px' }}>
             {clusterSets.length}
@@ -135,88 +135,110 @@ export default function ClusterPicker() {
         </div>
       ),
       children: (
-        <div style={{ fontSize: '13px' }}>
-          {/* Cluster list */}
-          {clusterSets.map(set => {
-            const { state, selectedCount, totalCount } = getClusterSelectionState(
-              set.categoryIds,
-              highlightedIds
-            );
+        <div style={{ fontSize: '13px', paddingTop: '8px' }}>
+          {/* Cluster rows - 21 items per row, last row centered */}
+          {(() => {
+            const ITEMS_PER_ROW = 21;
+            const rows: typeof clusterSets[] = [];
+            for (let i = 0; i < clusterSets.length; i += ITEMS_PER_ROW) {
+              rows.push(clusterSets.slice(i, i + ITEMS_PER_ROW));
+            }
 
-            return (
-              <div
-                key={set.setId}
-                onClick={(e) => handleClusterClick(set.categoryIds, state, e)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  marginBottom: 4,
-                  cursor: 'pointer',
-                  padding: '4px 6px',
-                  borderRadius: 4,
-                  transition: 'background-color 0.2s',
-                  backgroundColor: state !== 'none' ? '#e6f7ff' : 'transparent',
-                  border: state !== 'none' ? '1px solid #91d5ff' : '1px solid transparent',
-                }}
-                onMouseEnter={(e) => {
-                  if (state === 'none') {
-                    e.currentTarget.style.backgroundColor = '#f5f5f5';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = state !== 'none' ? '#e6f7ff' : 'transparent';
-                }}
-              >
-                {/* Tri-state checkbox */}
-                <Checkbox
-                  checked={state === 'full'}
-                  indeterminate={state === 'partial'}
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={() => {
-                    // Handled by parent div click
-                  }}
-                  style={{ marginRight: 0 }}
-                />
+            return rows.map((row, rowIndex) => {
+              const isLastRow = rowIndex === rows.length - 1;
+              const isIncompleteRow = row.length < ITEMS_PER_ROW;
 
-                {/* Color swatch */}
+              return (
                 <div
+                  key={rowIndex}
                   style={{
-                    width: 12,
-                    height: 12,
-                    background: set.color,
-                    borderRadius: 2,
-                    border: '1px solid rgba(0,0,0,0.1)',
-                    flexShrink: 0,
+                    display: 'flex',
+                    gap: '4px',
+                    marginBottom: rowIndex < rows.length - 1 ? '4px' : 0,
+                    justifyContent: isLastRow && isIncompleteRow ? 'center' : 'flex-start',
+                    alignItems: 'center',
                   }}
-                />
+                >
+                  {row.map(set => {
+                    const { state, selectedCount, totalCount } = getClusterSelectionState(
+                      set.categoryIds,
+                      highlightedIds
+                    );
 
-                {/* Label */}
-                <span style={{
-                  color: '#595959',
-                  fontWeight: state !== 'none' ? 600 : 400,
-                  flex: 1,
-                }}>
-                  {set.label}
-                </span>
+                    // Remove "Cluster " prefix from label
+                    const shortLabel = set.label.replace(/^Cluster\s*/i, '');
 
-                {/* Selection count */}
-                <Tooltip title={`${selectedCount} of ${totalCount} categories selected`}>
-                  <span style={{
-                    color: state !== 'none' ? '#1890ff' : '#bfbfbf',
-                    fontSize: '11px',
-                    fontFamily: 'monospace',
-                  }}>
-                    {selectedCount}/{totalCount}
-                  </span>
-                </Tooltip>
-              </div>
-            );
-          })}
+                    // Calculate width based on label length
+                    const baseWidth = 32; // Base width for short labels
+                    const charWidth = 7; // Approximate width per character
+                    const minWidth = shortLabel.length <= 2 ? baseWidth :
+                                     Math.max(baseWidth, shortLabel.length * charWidth + 20);
+
+                    return (
+                      <Tooltip
+                        key={set.setId}
+                        title={`${set.label}: ${selectedCount}/${totalCount} selected`}
+                      >
+                        <div
+                          onClick={(e) => handleClusterClick(set.categoryIds, state, e)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 4,
+                            cursor: 'pointer',
+                            padding: '4px',
+                            borderRadius: 4,
+                            transition: 'background-color 0.2s',
+                            backgroundColor: state !== 'none' ? '#e6f7ff' : '#ffffff',
+                            border: state !== 'none' ? '1px solid #91d5ff' : '0.7px solid #91d5ff',
+                            minWidth: minWidth,
+                            flex: shortLabel.length <= 2 ? '1 1 0' : '0 0 auto',
+                            maxWidth: shortLabel.length <= 2 ? undefined : 'fit-content',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (state === 'none') {
+                              e.currentTarget.style.backgroundColor = '#f5f5f5';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = state !== 'none' ? '#e6f7ff' : '#ffffff';
+                          }}
+                        >
+                          {/* Color swatch */}
+                          <div
+                            style={{
+                              width: 10,
+                              height: 10,
+                              background: set.color,
+                              borderRadius: 2,
+                              border: '1px solid rgba(0,0,0,0.1)',
+                              flexShrink: 0,
+                            }}
+                          />
+
+                          {/* Short label */}
+                          <span style={{
+                            color: '#595959',
+                            fontWeight: state !== 'none' ? 600 : 400,
+                            fontSize: '11px',
+                            whiteSpace: 'nowrap',
+                          }}>
+                            {shortLabel}
+                          </span>
+                        </div>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              );
+            });
+          })()}
 
           {/* Hint text */}
           <div style={{
-            marginTop: '8px',
+            marginTop: '4px',
+            marginBottom: '-4px',
             fontSize: '11px',
             color: '#8c8c8c',
             fontStyle: 'italic',

@@ -25,6 +25,7 @@ import MedianHistograms from './charts/MedianHistograms';
 import BMDvsBMDLScatter from './charts/BMDvsBMDLScatter';
 import ClusterHeatmap from './charts/ClusterHeatmap';
 import ClusterScatterPlot from './charts/ClusterScatterPlot';
+import ClusterPicker from './ClusterPicker';
 import ExperimentDescriptionRequired from './ExperimentDescriptionRequired';
 
 interface CategoryResultsViewProps {
@@ -594,6 +595,13 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           </Space>
         </div>
       </div>
+
+      {/* Cluster Picker - Power User mode only */}
+      {viewMode === 'power' && (
+        <div style={{ padding: '0 1rem', flexShrink: 0 }}>
+          <ClusterPicker />
+        </div>
+      )}
 
       {/* Single scrollable container for both charts and table */}
       <div style={{
