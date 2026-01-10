@@ -28,6 +28,7 @@ const DEFAULT_FILTERS: PrimaryFilterState = {
 interface PrimaryFilterProps {
   hideCard?: boolean; // When true, renders content without Card wrapper
   showComparisonMode?: boolean; // When true, shows Multi-Dataset Comparison Mode controls
+  vertical?: boolean; // When true, renders fields in a vertical stack for sidebar
 }
 
 /**
@@ -49,7 +50,7 @@ export function PrimaryFilterTitle({ activeCount }: { activeCount: number }) {
   );
 }
 
-export default function PrimaryFilter({ hideCard = false, showComparisonMode = false }: PrimaryFilterProps) {
+export default function PrimaryFilter({ hideCard = false, showComparisonMode = false, vertical = false }: PrimaryFilterProps) {
   const dispatch = useAppDispatch();
   const currentFilters = useAppSelector(state => state.categoryResults.filters);
   const comparisonMode = useAppSelector(state => state.categoryResults.comparisonMode);
@@ -130,80 +131,149 @@ export default function PrimaryFilter({ hideCard = false, showComparisonMode = f
 
   const filterContent = (
       <>
-      <Row gutter={[16, 16]} align="middle">
+      <Row gutter={[16, vertical ? 8 : 16]} align="middle">
         {/* Percentage Min */}
-        <Col xs={24} sm={12} md={6}>
-          <div style={{ marginBottom: 4, fontWeight: 500, fontSize: '13px' }}>
-            Percentage (Min %)
-          </div>
-          <InputNumber
-            style={{ width: '100%' }}
-            placeholder="No minimum"
-            value={localFilters.percentageMin}
-            onChange={(value) => updateFilter('percentageMin', value)}
-            min={0}
-            max={100}
-            step={1}
-            precision={1}
-          />
+        <Col xs={24} sm={vertical ? 24 : 12} md={vertical ? 24 : 6}>
+          {vertical ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontWeight: 500, fontSize: '13px', whiteSpace: 'nowrap' }}>Percentage (Min %):</span>
+              <InputNumber
+                style={{ flex: 1 }}
+                placeholder="No minimum"
+                value={localFilters.percentageMin}
+                onChange={(value) => updateFilter('percentageMin', value)}
+                min={0}
+                max={100}
+                step={1}
+                precision={1}
+              />
+            </div>
+          ) : (
+            <>
+              <div style={{ marginBottom: 4, fontWeight: 500, fontSize: '13px' }}>
+                Percentage (Min %)
+              </div>
+              <InputNumber
+                style={{ width: '100%' }}
+                placeholder="No minimum"
+                value={localFilters.percentageMin}
+                onChange={(value) => updateFilter('percentageMin', value)}
+                min={0}
+                max={100}
+                step={1}
+                precision={1}
+              />
+            </>
+          )}
         </Col>
 
         {/* Genes Passed Filters Min */}
-        <Col xs={24} sm={12} md={6}>
-          <div style={{ marginBottom: 4, fontWeight: 500, fontSize: '13px' }}>
-            Genes Passed Filters (Min)
-          </div>
-          <InputNumber
-            style={{ width: '100%' }}
-            placeholder="No minimum"
-            value={localFilters.genesPassedFiltersMin}
-            onChange={(value) => updateFilter('genesPassedFiltersMin', value)}
-            min={0}
-            step={1}
-            precision={0}
-          />
+        <Col xs={24} sm={vertical ? 24 : 12} md={vertical ? 24 : 6}>
+          {vertical ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontWeight: 500, fontSize: '13px', whiteSpace: 'nowrap' }}>Genes Passed (Min):</span>
+              <InputNumber
+                style={{ flex: 1 }}
+                placeholder="No minimum"
+                value={localFilters.genesPassedFiltersMin}
+                onChange={(value) => updateFilter('genesPassedFiltersMin', value)}
+                min={0}
+                step={1}
+                precision={0}
+              />
+            </div>
+          ) : (
+            <>
+              <div style={{ marginBottom: 4, fontWeight: 500, fontSize: '13px' }}>
+                Genes Passed Filters (Min)
+              </div>
+              <InputNumber
+                style={{ width: '100%' }}
+                placeholder="No minimum"
+                value={localFilters.genesPassedFiltersMin}
+                onChange={(value) => updateFilter('genesPassedFiltersMin', value)}
+                min={0}
+                step={1}
+                precision={0}
+              />
+            </>
+          )}
         </Col>
 
         {/* All Genes Min */}
-        <Col xs={24} sm={12} md={5}>
-          <div style={{ marginBottom: 4, fontWeight: 500, fontSize: '13px' }}>
-            All Genes (Min)
-          </div>
-          <InputNumber
-            style={{ width: '100%' }}
-            placeholder="No minimum"
-            value={localFilters.allGenesMin}
-            onChange={(value) => updateFilter('allGenesMin', value)}
-            min={0}
-            step={1}
-            precision={0}
-          />
+        <Col xs={24} sm={vertical ? 24 : 12} md={vertical ? 24 : 5}>
+          {vertical ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontWeight: 500, fontSize: '13px', whiteSpace: 'nowrap' }}>All Genes (Min):</span>
+              <InputNumber
+                style={{ flex: 1 }}
+                placeholder="No minimum"
+                value={localFilters.allGenesMin}
+                onChange={(value) => updateFilter('allGenesMin', value)}
+                min={0}
+                step={1}
+                precision={0}
+              />
+            </div>
+          ) : (
+            <>
+              <div style={{ marginBottom: 4, fontWeight: 500, fontSize: '13px' }}>
+                All Genes (Min)
+              </div>
+              <InputNumber
+                style={{ width: '100%' }}
+                placeholder="No minimum"
+                value={localFilters.allGenesMin}
+                onChange={(value) => updateFilter('allGenesMin', value)}
+                min={0}
+                step={1}
+                precision={0}
+              />
+            </>
+          )}
         </Col>
 
         {/* All Genes Max */}
-        <Col xs={24} sm={12} md={5}>
-          <div style={{ marginBottom: 4, fontWeight: 500, fontSize: '13px' }}>
-            All Genes (Max)
-          </div>
-          <InputNumber
-            style={{ width: '100%' }}
-            placeholder="No maximum"
-            value={localFilters.allGenesMax}
-            onChange={(value) => updateFilter('allGenesMax', value)}
-            min={0}
-            step={1}
-            precision={0}
-          />
+        <Col xs={24} sm={vertical ? 24 : 12} md={vertical ? 24 : 5}>
+          {vertical ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontWeight: 500, fontSize: '13px', whiteSpace: 'nowrap' }}>All Genes (Max):</span>
+              <InputNumber
+                style={{ flex: 1 }}
+                placeholder="No maximum"
+                value={localFilters.allGenesMax}
+                onChange={(value) => updateFilter('allGenesMax', value)}
+                min={0}
+                step={1}
+                precision={0}
+              />
+            </div>
+          ) : (
+            <>
+              <div style={{ marginBottom: 4, fontWeight: 500, fontSize: '13px' }}>
+                All Genes (Max)
+              </div>
+              <InputNumber
+                style={{ width: '100%' }}
+                placeholder="No maximum"
+                value={localFilters.allGenesMax}
+                onChange={(value) => updateFilter('allGenesMax', value)}
+                min={0}
+                step={1}
+                precision={0}
+              />
+            </>
+          )}
         </Col>
 
         {/* Action Buttons */}
-        <Col xs={24} md={2}>
-          <Space direction="vertical" style={{ width: '100%' }}>
+        <Col xs={24} md={vertical ? 24 : 2}>
+          <Space direction={vertical ? 'horizontal' : 'vertical'} style={{ width: '100%' }}>
             <Button
               type="primary"
               icon={<FilterOutlined />}
               onClick={handleApply}
-              block
+              block={!vertical}
               size="small"
             >
               Apply
@@ -211,14 +281,14 @@ export default function PrimaryFilter({ hideCard = false, showComparisonMode = f
             <Button
               icon={<ClearOutlined />}
               onClick={handleReset}
-              block
+              block={!vertical}
               size="small"
             >
               Reset
             </Button>
             <Button
               onClick={handleShowAll}
-              block
+              block={!vertical}
               size="small"
               danger
             >

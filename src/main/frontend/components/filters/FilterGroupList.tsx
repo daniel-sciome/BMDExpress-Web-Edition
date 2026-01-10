@@ -16,7 +16,6 @@ import {
   EditOutlined,
   EyeOutlined,
   EyeInvisibleOutlined,
-  DownOutlined,
 } from '@ant-design/icons';
 import type { DataNode } from 'antd/es/tree';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -25,6 +24,7 @@ import { selectFilteredData } from '../../store/slices/categoryResultsSlice';
 import { getCategoryIdsForFilterGroup } from '../../utils/filterEvaluation';
 import { FIELD_METADATA } from '../../utils/filterMetadata';
 import FilterGroupEditor from './FilterGroupEditor';
+import PrimaryFilter, { PrimaryFilterTitle } from '../PrimaryFilter';
 import type { FilterGroup, Filter } from '../../types/filterTypes';
 import { getRememberFiltersPreference, setRememberFiltersPreference } from '../../utils/filterGroupPersistence';
 
@@ -35,6 +35,12 @@ export default function FilterGroupList() {
   const filterGroups = useAppSelector(selectAllFilterGroups);
   const allData = useAppSelector(selectFilteredData);
   const selectedProject = useAppSelector((state) => state.navigation.selectedProject);
+  const filters = useAppSelector((state) => state.categoryResults.filters);
+
+  // Calculate active filter count for Primary Filter title
+  const activeFilterCount = Object.entries(filters).filter(
+    ([_, value]) => value !== undefined && value !== null
+  ).length;
 
   const [editorVisible, setEditorVisible] = useState(false);
   const [editingGroup, setEditingGroup] = useState<FilterGroup | undefined>(undefined);
@@ -123,8 +129,39 @@ export default function FilterGroupList() {
     return `${field.label} ${symbol} ${valueStr}`;
   };
 
-  // Build tree data from filter groups
-  const treeData: DataNode[] = filterGroups.map((group) => {
+  // Build tree data from filter groups (with Primary Filter as first node)
+  const primaryFilterNode: DataNode = {
+    key: 'primary-filters',
+    title: (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '4px 0',
+        }}
+      >
+        <Space size="small">
+          <Text strong>Primary Filters</Text>
+          {activeFilterCount > 0 && (
+            <Tag color="green" style={{ fontSize: '11px' }}>
+              {activeFilterCount} active
+            </Tag>
+          )}
+        </Space>
+      </div>
+    ),
+    children: [
+      {
+        key: 'primary-filters-content',
+        title: <PrimaryFilter hideCard={true} vertical={true} />,
+        isLeaf: true,
+        selectable: false,
+      },
+    ],
+  };
+
+  const treeData: DataNode[] = [primaryFilterNode, ...filterGroups.map((group) => {
     const matchingCount = getCategoryIdsForFilterGroup(allData, group).length;
 
     return {
@@ -227,7 +264,7 @@ export default function FilterGroupList() {
         })),
       ],
     };
-  });
+  })];
 
   // Build collapse items
   const collapseItems = [
@@ -261,30 +298,30 @@ export default function FilterGroupList() {
       ),
       children: (
         <>
-          {/* Filter groups tree */}
-          {filterGroups.length === 0 ? (
-            <div
-              style={{
-                padding: '16px 8px',
-                textAlign: 'center',
-                color: '#999',
-                fontSize: '12px',
-              }}
-            >
-              No filter groups yet.
-              <br />
-              Click + to create one.
-            </div>
-          ) : (
-            <Tree
-              treeData={treeData}
-              expandedKeys={expandedKeys}
-              onExpand={(keys) => setExpandedKeys(keys)}
-              showLine
-              switcherIcon={<DownOutlined />}
-              selectable={false}
-            />
-          )}
+          {/* Filter tree (includes Primary Filter as first node) */}
+          <style>{`
+            .filter-tree .ant-tree-switcher {
+              width: 16px !important;
+              display: flex !important;
+              align-items: flex-start !important;
+              padding-top: 11px !important;
+            }
+            .filter-tree .ant-tree-treenode {
+              align-items: flex-start !important;
+            }
+          `}</style>
+          <Tree
+            className="filter-tree"
+            showIcon
+            treeData={treeData}
+            expandedKeys={expandedKeys}
+            onExpand={(keys) => setExpandedKeys(keys)}
+            selectable={false}
+            style={{
+              background: 'transparent',
+              paddingLeft: 10,
+            }}
+          />
 
           {/* Remember Filters checkbox */}
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f0f0f0' }}>
