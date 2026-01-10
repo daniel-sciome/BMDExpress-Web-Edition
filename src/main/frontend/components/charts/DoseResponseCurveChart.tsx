@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
-import { Checkbox } from 'antd';
+import { Checkbox, Collapse } from 'antd';
 import Plot from 'react-plotly.js';
 import type CurveDataDto from 'Frontend/generated/com/sciome/dto/CurveDataDto';
 import { useReactiveState } from './hooks/useReactiveState';
@@ -562,10 +562,6 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
             });
 
             const categoryLayout = {
-              title: {
-                text: pathwayDesc,
-                font: { size: 14, weight: 600 },
-              },
               xaxis: {
                 title: { text: 'Dose' },
                 type: 'log' as const,
@@ -577,29 +573,39 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
                 showgrid: true,
                 gridcolor: '#e5e5e5',
               },
-              height: 400,
-              margin: { l: 60, r: 20, t: 60, b: 60 },
+              height: 350,
+              margin: { l: 60, r: 20, t: 20, b: 60 },
               hovermode: 'closest' as const,
               showlegend: false,
             };
 
             return (
-              <div key={pathwayDesc} style={{ border: '1px solid #e0e0e0', borderRadius: '8px', padding: '12px' }}>
-                <div style={{ marginBottom: 8 }}>
-                  <Checkbox
-                    checked={includedInOverlay.has(pathwayDesc)}
-                    onChange={() => toggleCategoryInOverlay(pathwayDesc)}
-                  >
-                    <span style={{ fontSize: '13px' }}>Include in overlay</span>
-                  </Checkbox>
-                </div>
-                <Plot
-                  data={categoryTraces}
-                  layout={categoryLayout}
-                  config={config}
-                  style={{ width: '100%' }}
-                />
-              </div>
+              <Collapse
+                key={pathwayDesc}
+                size="small"
+                defaultActiveKey={includedInOverlay.has(pathwayDesc) ? ['1'] : []}
+                items={[{
+                  key: '1',
+                  label: (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <Checkbox
+                        checked={includedInOverlay.has(pathwayDesc)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => toggleCategoryInOverlay(pathwayDesc)}
+                      />
+                      <span style={{ fontWeight: 500, fontSize: '13px' }}>{pathwayDesc}</span>
+                    </div>
+                  ),
+                  children: (
+                    <Plot
+                      data={categoryTraces}
+                      layout={categoryLayout}
+                      config={config}
+                      style={{ width: '100%' }}
+                    />
+                  ),
+                }]}
+              />
             );
           })}
         </div>
