@@ -279,28 +279,20 @@ export default function ProjectTreeSidebar() {
         borderRadius: '4px',
         border: '1px solid #adc6ff'
       }}>
-        <Space direction="vertical" size="small" style={{ width: '100%' }}>
-          <Text strong style={{ fontSize: '12px', color: '#262626' }}>
-            View Mode
+        <Space align="center">
+          <Text strong style={{ fontSize: '13px', color: '#262626' }}>
+            View:
           </Text>
-          <Space align="center" style={{ width: '100%', justifyContent: 'space-between' }}>
-            <Text style={{ fontSize: '13px', color: viewMode === 'simple' ? '#1890ff' : '#666' }}>
-              Simple
-            </Text>
+          <Text style={{ fontSize: '13px', color: viewMode === 'simple' ? '#1890ff' : '#666' }}>
+            Simple
+          </Text>
             <Switch
               checked={viewMode === 'power'}
               onChange={(checked) => dispatch(setViewMode(checked ? 'power' : 'simple'))}
               size="small"
             />
-            <Text style={{ fontSize: '13px', color: viewMode === 'power' ? '#1890ff' : '#666' }}>
-              Power User
-            </Text>
-          </Space>
-          <Text type="secondary" style={{ fontSize: '11px' }}>
-            {viewMode === 'simple'
-              ? 'Simple view with table and filters'
-              : 'Advanced view with charts and visualizations'
-            }
+          <Text style={{ fontSize: '13px', color: viewMode === 'power' ? '#1890ff' : '#666' }}>
+            Advanced
           </Text>
         </Space>
       </div>
