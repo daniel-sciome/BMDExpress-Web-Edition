@@ -278,11 +278,9 @@ export default function FilterGroupList() {
           <Text strong style={{ fontSize: '13px', color: '#262626' }}>
             Filters
           </Text>
-          {filterGroups.length > 0 && (
-            <Tag color="default" style={{ fontSize: '11px' }}>
-              {filterGroups.length} {filterGroups.length === 1 ? 'group' : 'groups'}
-            </Tag>
-          )}
+          <Tag color="default" style={{ fontSize: '11px' }}>
+            {filterGroups.length + 1} groups
+          </Tag>
           <Tooltip title="Create filter group">
             <Button
               type="primary"
