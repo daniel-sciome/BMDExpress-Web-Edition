@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card, Radio, Button } from 'antd';
-import { FileTextOutlined, InfoCircleOutlined, LineChartOutlined, EyeOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card, Radio, Button, Tree, Typography } from 'antd';
+import type { TreeDataNode } from 'antd';
+import { FileTextOutlined, InfoCircleOutlined, LineChartOutlined, EyeOutlined, DatabaseOutlined } from '@ant-design/icons';
 import { Icon } from '@vaadin/react-components';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadCategoryResultsWithRenderState, loadAnalysisParameters, setAnalysisType } from '../store/slices/categoryResultsSlice';
+import { setSelectedAnalysisType, setSelectedCategoryResult } from '../store/slices/navigationSlice';
 import { loadVisibilityDefaults, selectVisibilityInitialized, setDisplayMode, selectDisplayMode } from '../store/slices/visibilitySlice';
 import type { DisplayMode } from '../types/visibilityTypes';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
@@ -26,6 +28,8 @@ import ClusterHeatmap from './charts/ClusterHeatmap';
 import ClusterScatterPlot from './charts/ClusterScatterPlot';
 import ClusterPicker from './ClusterPicker';
 import ExperimentDescriptionRequired from './ExperimentDescriptionRequired';
+
+const { Text } = Typography;
 
 interface CategoryResultsViewProps {
   projectId: string;
@@ -71,20 +75,24 @@ function ChartSelectionTitle({ selectedCount }: { selectedCount: number }) {
 }
 
 /**
- * Experiment Metadata Title Component
- * Styled header for Experiment Metadata collapse section
+ * Datasets Title Component
+ * Styled header for Datasets collapse section
  */
-function ExperimentMetadataTitle() {
+function DatasetsTitle({ count }: { count: number }) {
   return (
     <Space>
-      <CheckCircleOutlined style={{ color: '#52c41a' }} />
-      <span>Experiment Metadata (from project)</span>
-      <Tooltip title="Metadata about the experiment from the project file. Includes species, sex, organ, test article, and other experimental conditions.">
+      <DatabaseOutlined />
+      <span>Datasets</span>
+      {count > 0 && (
+        <Badge count={count} style={{ backgroundColor: '#1890ff' }} />
+      )}
+      <Tooltip title="Select a different dataset from this project to analyze.">
         <InfoCircleOutlined style={{ color: '#1890ff', cursor: 'help' }} />
       </Tooltip>
     </Space>
   );
 }
+
 
 export default function CategoryResultsView({ projectId, resultName }: CategoryResultsViewProps) {
   const dispatch = useAppDispatch();
@@ -99,6 +107,82 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
     'chart-7', 'chart-8', 'chart-9', 'chart-10', 'chart-11', 'chart-12',
     'chart-14', 'chart-15', 'category-results-table'
   ]);
+
+  // Datasets state
+  const [allAnnotations, setAllAnnotations] = useState<AnalysisAnnotationDto[]>([]);
+  const [datasetsTreeExpanded, setDatasetsTreeExpanded] = useState<React.Key[]>([]);
+
+  // Load all annotations for the project
+  useEffect(() => {
+    const loadAnnotations = async () => {
+      try {
+        const annotationList = await CategoryResultsService.getAllCategoryResultAnnotations(projectId);
+        const valid = (annotationList || []).filter((a): a is AnalysisAnnotationDto => a !== undefined);
+        setAllAnnotations(valid);
+      } catch (error) {
+        console.error('Failed to load annotations:', error);
+        setAllAnnotations([]);
+      }
+    };
+    loadAnnotations();
+  }, [projectId]);
+
+  // Helper function to get friendly name for analysis type
+  const getAnalysisTypeDisplayName = (analysisType: string | undefined): string => {
+    if (!analysisType) return 'Other';
+    const typeMap: Record<string, string> = {
+      'GO_BP': 'GO Biological Process',
+      'GO_MF': 'GO Molecular Function',
+      'GO_CC': 'GO Cellular Component',
+      'GO_ALL': 'GO All Terms',
+      'KEGG': 'KEGG Pathways',
+      'Reactome': 'Reactome Pathways',
+      'BioPlanet': 'BioPlanet Pathways',
+      'Pathway': 'Pathways',
+      'GENE': 'Genes',
+    };
+    return typeMap[analysisType] || analysisType;
+  };
+
+  // Build datasets tree
+  const buildDatasetsTree = (): TreeDataNode[] => {
+    const grouped = allAnnotations.reduce((acc, ann) => {
+      const type = ann.analysisType || 'Other';
+      if (!acc[type]) acc[type] = [];
+      acc[type].push(ann);
+      return acc;
+    }, {} as Record<string, AnalysisAnnotationDto[]>);
+
+    return Object.entries(grouped).map(([analysisType, items]) => ({
+      title: (
+        <span>
+          {getAnalysisTypeDisplayName(analysisType)}
+          <Tag color="blue" style={{ marginLeft: 8, fontSize: '11px' }}>{items.length}</Tag>
+        </span>
+      ),
+      key: `type::${analysisType}`,
+      icon: <span style={{ fontSize: '12px' }}>📂</span>,
+      children: items.map(ann => ({
+        title: ann.displayName || ann.fullName || 'Unknown',
+        key: ann.fullName || '',
+        icon: <span style={{ fontSize: '12px' }}>📊</span>,
+        isLeaf: true,
+      })),
+    })).sort((a, b) => String(a.key).localeCompare(String(b.key)));
+  };
+
+  // Handle dataset tree selection
+  const handleDatasetSelect = (selectedKeys: React.Key[]) => {
+    if (selectedKeys.length === 0) return;
+    const key = selectedKeys[0] as string;
+
+    if (key.startsWith('type::')) {
+      const analysisType = key.replace('type::', '');
+      dispatch(setSelectedAnalysisType(analysisType));
+    } else {
+      dispatch(setSelectedCategoryResult(key));
+    }
+  };
 
   // Handle toggling a single chart collapse (add or remove from open list)
   const handleChartCollapseChange = (chartKey: string) => (keys: string | string[]) => {
@@ -322,55 +406,33 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
               </span>
             </h2>
 
-            {/* Experiment Description from Project Metadata - Collapsible */}
+            {/* Datasets - Collapsible */}
             <div style={{ marginBottom: '4px' }}>
+              <style>{`
+                .datasets-tree .ant-tree-node-selected {
+                  background-color: #e6f7ff !important;
+                  font-weight: 600 !important;
+                }
+                .datasets-tree .ant-tree-node-selected .ant-tree-title {
+                  color: #1890ff !important;
+                }
+              `}</style>
               <Collapse
                 size="small"
                 items={[{
-                  key: 'experiment-metadata',
-                  label: <ExperimentMetadataTitle />,
+                  key: 'datasets',
+                  label: <DatasetsTitle count={allAnnotations.length} />,
                   children: (
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {experimentDescription.subjectType && (
-                        <Tag color="default" style={{ fontSize: '13px' }}>Type: {experimentDescription.subjectType}</Tag>
-                      )}
-                      {experimentDescription.testArticle && (
-                        <Tag color="blue" style={{ fontSize: '13px' }}>Test Article: {experimentDescription.testArticle}</Tag>
-                      )}
-                      {experimentDescription.casrn && (
-                        <Tag color="geekblue" style={{ fontSize: '13px' }}>CASRN: {experimentDescription.casrn}</Tag>
-                      )}
-                      {experimentDescription.dsstox && (
-                        <Tag color="geekblue" style={{ fontSize: '13px' }}>DSSTOX: {experimentDescription.dsstox}</Tag>
-                      )}
-                      <Tag color="orange" style={{ fontSize: '13px' }}>Species: {experimentDescription.species}</Tag>
-                      {experimentDescription.strain && (
-                        <Tag color="gold" style={{ fontSize: '13px' }}>Strain: {experimentDescription.strain}</Tag>
-                      )}
-                      <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {experimentDescription.sex}</Tag>
-                      <Tag color="green" style={{ fontSize: '13px' }}>Organ: {experimentDescription.organ}</Tag>
-                      {experimentDescription.cellLine && (
-                        <Tag color="lime" style={{ fontSize: '13px' }}>Cell Line: {experimentDescription.cellLine}</Tag>
-                      )}
-                      {experimentDescription.studyDuration && (
-                        <Tag color="volcano" style={{ fontSize: '13px' }}>Duration: {experimentDescription.studyDuration}</Tag>
-                      )}
-                      {experimentDescription.articleRoute && (
-                        <Tag color="red" style={{ fontSize: '13px' }}>Route: {experimentDescription.articleRoute}</Tag>
-                      )}
-                      {experimentDescription.articleVehicle && (
-                        <Tag color="magenta" style={{ fontSize: '13px' }}>Vehicle: {experimentDescription.articleVehicle}</Tag>
-                      )}
-                      {experimentDescription.administrationMeans && (
-                        <Tag color="pink" style={{ fontSize: '13px' }}>Means: {experimentDescription.administrationMeans}</Tag>
-                      )}
-                      {experimentDescription.platform && (
-                        <Tag color="cyan" style={{ fontSize: '13px' }}>Platform: {experimentDescription.platform}</Tag>
-                      )}
-                      {experimentDescription.provider && (
-                        <Tag color="processing" style={{ fontSize: '13px' }}>Provider: {experimentDescription.provider}</Tag>
-                      )}
-                    </div>
+                    <Tree
+                      className="datasets-tree"
+                      showIcon
+                      treeData={buildDatasetsTree()}
+                      expandedKeys={datasetsTreeExpanded}
+                      onExpand={(keys) => setDatasetsTreeExpanded(keys)}
+                      onSelect={handleDatasetSelect}
+                      selectedKeys={[resultName]}
+                      style={{ background: 'transparent' }}
+                    />
                   ),
                 }]}
                 style={{ background: '#fafafa' }}
@@ -441,60 +503,39 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
               </span>
             </h2>
 
-            {/* Experiment Description - Collapsible */}
+            {/* Datasets - Collapsible */}
             <div style={{ marginBottom: '4px' }}>
+              <style>{`
+                .datasets-tree .ant-tree-node-selected {
+                  background-color: #e6f7ff !important;
+                  font-weight: 600 !important;
+                }
+                .datasets-tree .ant-tree-node-selected .ant-tree-title {
+                  color: #1890ff !important;
+                }
+              `}</style>
               <Collapse
                 size="small"
                 items={[{
-                  key: 'experiment-metadata',
-                  label: <ExperimentMetadataTitle />,
+                  key: 'datasets',
+                  label: <DatasetsTitle count={allAnnotations.length} />,
                   children: (
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {experimentDescription.subjectType && (
-                        <Tag color="default" style={{ fontSize: '13px' }}>Type: {experimentDescription.subjectType}</Tag>
-                      )}
-                      {experimentDescription.testArticle && (
-                        <Tag color="blue" style={{ fontSize: '13px' }}>Test Article: {experimentDescription.testArticle}</Tag>
-                      )}
-                      {experimentDescription.casrn && (
-                        <Tag color="geekblue" style={{ fontSize: '13px' }}>CASRN: {experimentDescription.casrn}</Tag>
-                      )}
-                      {experimentDescription.dsstox && (
-                        <Tag color="geekblue" style={{ fontSize: '13px' }}>DSSTOX: {experimentDescription.dsstox}</Tag>
-                      )}
-                      <Tag color="orange" style={{ fontSize: '13px' }}>Species: {experimentDescription.species}</Tag>
-                      {experimentDescription.strain && (
-                        <Tag color="gold" style={{ fontSize: '13px' }}>Strain: {experimentDescription.strain}</Tag>
-                      )}
-                      <Tag color="purple" style={{ fontSize: '13px' }}>Sex: {experimentDescription.sex}</Tag>
-                      <Tag color="green" style={{ fontSize: '13px' }}>Organ: {experimentDescription.organ}</Tag>
-                      {experimentDescription.cellLine && (
-                        <Tag color="lime" style={{ fontSize: '13px' }}>Cell Line: {experimentDescription.cellLine}</Tag>
-                      )}
-                      {experimentDescription.studyDuration && (
-                        <Tag color="volcano" style={{ fontSize: '13px' }}>Duration: {experimentDescription.studyDuration}</Tag>
-                      )}
-                      {experimentDescription.articleRoute && (
-                        <Tag color="red" style={{ fontSize: '13px' }}>Route: {experimentDescription.articleRoute}</Tag>
-                      )}
-                      {experimentDescription.articleVehicle && (
-                        <Tag color="magenta" style={{ fontSize: '13px' }}>Vehicle: {experimentDescription.articleVehicle}</Tag>
-                      )}
-                      {experimentDescription.administrationMeans && (
-                        <Tag color="pink" style={{ fontSize: '13px' }}>Means: {experimentDescription.administrationMeans}</Tag>
-                      )}
-                      {experimentDescription.platform && (
-                        <Tag color="cyan" style={{ fontSize: '13px' }}>Platform: {experimentDescription.platform}</Tag>
-                      )}
-                      {experimentDescription.provider && (
-                        <Tag color="processing" style={{ fontSize: '13px' }}>Provider: {experimentDescription.provider}</Tag>
-                      )}
-                    </div>
+                    <Tree
+                      className="datasets-tree"
+                      showIcon
+                      treeData={buildDatasetsTree()}
+                      expandedKeys={datasetsTreeExpanded}
+                      onExpand={(keys) => setDatasetsTreeExpanded(keys)}
+                      onSelect={handleDatasetSelect}
+                      selectedKeys={[resultName]}
+                      style={{ background: 'transparent' }}
+                    />
                   ),
                 }]}
                 style={{ background: '#fafafa' }}
               />
             </div>
+
           </div>
         )}
 

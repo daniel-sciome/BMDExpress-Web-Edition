@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Tree, Collapse, Tag, Typography, Switch, Space, Divider, Button } from 'antd';
-import type { TreeDataNode } from 'antd';
-import { ProjectService, CategoryResultsService } from 'Frontend/generated/endpoints';
+import { Collapse, Tag, Typography, Switch, Space, Radio, Spin, Button } from 'antd';
+import { ProjectService } from 'Frontend/generated/endpoints';
+import type ProjectMetadataDto from 'Frontend/generated/com/sciome/dto/ProjectMetadataDto';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { setSelectedProject, setSelectedAnalysisType, setSelectedCategoryResult } from '../store/slices/navigationSlice';
+import { setSelectedProject } from '../store/slices/navigationSlice';
 import { setViewMode } from '../store/slices/categoryResultsSlice';
 import { selectAllFilterGroups } from '../store/slices/filterSlice';
 import FilterGroupList from './filters/FilterGroupList';
@@ -14,8 +14,6 @@ const { Text } = Typography;
 export default function ProjectTreeSidebar() {
   const dispatch = useAppDispatch();
   const selectedProject = useAppSelector((state) => state.navigation.selectedProject);
-  const selectedAnalysisType = useAppSelector((state) => state.navigation.selectedAnalysisType);
-  const selectedCategoryResult = useAppSelector((state) => state.navigation.selectedCategoryResult);
   const viewMode = useAppSelector((state) => state.categoryResults.viewMode);
   const filterGroups = useAppSelector(selectAllFilterGroups);
 
@@ -25,57 +23,25 @@ export default function ProjectTreeSidebar() {
   // State for essential filter group editor
   const [essentialEditorVisible, setEssentialEditorVisible] = useState(false);
 
-  const [treeData, setTreeData] = useState<TreeDataNode[]>([]);
-  const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
-  const [selectedKeys, setSelectedKeys] = useState<React.Key[]>([]);
+  // Project list state
+  const [projects, setProjects] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Metadata state - keyed by project ID
+  const [projectMetadata, setProjectMetadata] = useState<Record<string, ProjectMetadataDto | null>>({});
+  const [loadingMetadata, setLoadingMetadata] = useState<Record<string, boolean>>({});
 
   // Load projects on mount
   useEffect(() => {
     loadProjects();
   }, []);
 
-  // Update selected keys when Redux state changes
-  useEffect(() => {
-    let newKeys: React.Key[] = [];
-
-    if (selectedCategoryResult && selectedProject) {
-      // Individual result selected
-      newKeys = [`${selectedProject}::${selectedCategoryResult}`];
-      console.log('[ProjectTreeSidebar] Setting selectedKeys to individual result:', newKeys);
-    } else if (selectedAnalysisType && selectedProject) {
-      // Analysis type selected (multiset view)
-      newKeys = [`${selectedProject}::type::${selectedAnalysisType}`];
-      console.log('[ProjectTreeSidebar] Setting selectedKeys to analysis type:', newKeys);
-    } else if (selectedProject) {
-      // Just project selected
-      newKeys = [selectedProject];
-      console.log('[ProjectTreeSidebar] Setting selectedKeys to project:', newKeys);
-    } else {
-      // Nothing selected
-      newKeys = [];
-      console.log('[ProjectTreeSidebar] Clearing selectedKeys');
-    }
-
-    setSelectedKeys(newKeys);
-  }, [selectedProject, selectedAnalysisType, selectedCategoryResult]);
-
   const loadProjects = async () => {
     try {
       setLoading(true);
       const projectList = await ProjectService.getAllProjectIds();
-      const projects = (projectList || []).filter((p): p is string => p !== undefined);
-
-      // Build tree structure
-      const tree: TreeDataNode[] = projects.map((projectId) => ({
-        title: projectId,
-        key: projectId,
-        isLeaf: false,
-        selectable: false,  // Project nodes are NOT selectable, only expandable
-        children: [], // Will be loaded on expand
-      }));
-
-      setTreeData(tree);
+      const validProjects = (projectList || []).filter((p): p is string => p !== undefined);
+      setProjects(validProjects);
     } catch (error) {
       console.error('Failed to load projects:', error);
     } finally {
@@ -83,148 +49,90 @@ export default function ProjectTreeSidebar() {
     }
   };
 
-  // Helper function to get friendly name for analysis type
-  const getAnalysisTypeDisplayName = (analysisType: string | undefined): string => {
-    if (!analysisType) return 'Other';
+  // Load metadata for a project when its collapse is expanded
+  const loadMetadataForProject = async (projectId: string) => {
+    if (projectMetadata[projectId] !== undefined || loadingMetadata[projectId]) {
+      return; // Already loaded or loading
+    }
 
-    const typeMap: Record<string, string> = {
-      'GO_BP': 'GO Biological Process',
-      'GO_MF': 'GO Molecular Function',
-      'GO_CC': 'GO Cellular Component',
-      'GO_ALL': 'GO All Terms',
-      'KEGG': 'KEGG Pathways',
-      'Reactome': 'Reactome Pathways',
-      'BioPlanet': 'BioPlanet Pathways',
-      'Pathway': 'Pathways',
-      'GENE': 'Genes',
-    };
-
-    return typeMap[analysisType] || analysisType;
-  };
-
-  const loadCategoryResults = async (projectId: string): Promise<TreeDataNode[]> => {
+    setLoadingMetadata(prev => ({ ...prev, [projectId]: true }));
     try {
-      const annotations = await CategoryResultsService.getAllCategoryResultAnnotations(projectId);
-      const validAnnotations = (annotations || []).filter((a): a is import('Frontend/generated/com/sciome/dto/AnalysisAnnotationDto').default => a !== undefined);
-
-      // Group annotations by analysisType
-      const groupedByType = validAnnotations.reduce((acc, annotation) => {
-        const type = annotation.analysisType || 'Other';
-        if (!acc[type]) {
-          acc[type] = [];
-        }
-        acc[type].push(annotation);
-        return acc;
-      }, {} as Record<string, typeof validAnnotations>);
-
-      // Create tree nodes for each category type
-      const typeNodes = Object.entries(groupedByType).map(([analysisType, annotations]) => ({
-        title: getAnalysisTypeDisplayName(analysisType),
-        key: `${projectId}::type::${analysisType}`,
-        isLeaf: false,
-        icon: <span style={{ fontSize: '12px' }}>📂</span>,
-        children: annotations.map((annotation) => ({
-          title: annotation.displayName || annotation.fullName || 'Unknown',
-          key: `${projectId}::${annotation.fullName}`,
-          isLeaf: true,
-          icon: <span style={{ fontSize: '12px' }}>📊</span>,
-          data: annotation, // Store full annotation for later use
-        })),
-      }));
-
-      // Sort by type name for consistent display
-      return typeNodes.sort((a, b) => (a.title as string).localeCompare(b.title as string));
+      const metadata = await ProjectService.getProjectMetadata(projectId);
+      setProjectMetadata(prev => ({ ...prev, [projectId]: metadata }));
     } catch (error) {
-      console.error('Failed to load category results:', error);
-      return [];
+      console.error('Failed to load metadata for project:', projectId, error);
+      setProjectMetadata(prev => ({ ...prev, [projectId]: null }));
+    } finally {
+      setLoadingMetadata(prev => ({ ...prev, [projectId]: false }));
     }
   };
 
-  const onLoadData = async (node: any): Promise<void> => {
-    const { key, children } = node;
-
-    // Already loaded
-    if (children && children.length > 0) {
-      return;
-    }
-
-    // Check if this is a project node (no :: in key)
-    const keyStr = key as string;
-    if (!keyStr.includes('::')) {
-      // Load category type groups for this project
-      const categoryTypeNodes = await loadCategoryResults(keyStr);
-
-      // Update tree data
-      setTreeData((prevData) =>
-        updateTreeData(prevData, key, categoryTypeNodes)
-      );
-    }
-    // Category type nodes already have their children loaded inline
+  // Handle project selection via radio
+  const handleProjectSelect = (projectId: string) => {
+    dispatch(setSelectedProject(projectId));
   };
 
-  const updateTreeData = (
-    list: TreeDataNode[],
-    key: React.Key,
-    children: TreeDataNode[]
-  ): TreeDataNode[] => {
-    return list.map((node) => {
-      if (node.key === key) {
-        return {
-          ...node,
-          children,
-        };
+  // Handle collapse expansion - load metadata
+  const handleCollapseChange = (keys: string | string[]) => {
+    const expandedKeys = Array.isArray(keys) ? keys : [keys];
+    expandedKeys.forEach(key => {
+      if (key && !projectMetadata[key]) {
+        loadMetadataForProject(key);
       }
-      if (node.children) {
-        return {
-          ...node,
-          children: updateTreeData(node.children, key, children),
-        };
-      }
-      return node;
     });
   };
 
-  const onSelect = (selectedKeys: React.Key[], info: any) => {
-    console.log('[ProjectTreeSidebar] onSelect called with keys:', selectedKeys);
-
-    if (selectedKeys.length === 0) {
-      console.log('[ProjectTreeSidebar] Empty selection, ignoring');
-      return;
+  // Render metadata tags for a project
+  const renderMetadataTags = (metadata: ProjectMetadataDto | null) => {
+    if (!metadata || !metadata.experimentDescription) {
+      return <Text type="secondary" style={{ fontSize: '12px' }}>No metadata available</Text>;
     }
 
-    const key = selectedKeys[0] as string;
-    console.log('[ProjectTreeSidebar] Selected key:', key);
-
-    // All selectable nodes contain :: (projects are non-selectable)
-    if (!key.includes('::')) {
-      console.warn('[ProjectTreeSidebar] Unexpected selection of non-:: key:', key);
-      return;
-    }
-
-    const parts = key.split('::');
-
-    // Check if it's a category type node (format: projectId::type::typeName)
-    if (parts.length === 3 && parts[1] === 'type') {
-      // It's a category type node - SELECT IT for multi-set view
-      const [projectId, , analysisType] = parts;
-      console.log('[ProjectTreeSidebar] Type node selected:', { projectId, analysisType });
-      dispatch(setSelectedProject(projectId));
-      dispatch(setSelectedAnalysisType(analysisType));
-      return;
-    }
-
-    // It's a category result (format: projectId::resultName)
-    const [projectId, resultName] = parts;
-    console.log('[ProjectTreeSidebar] Individual result selected:', { projectId, resultName });
-    dispatch(setSelectedProject(projectId));
-    dispatch(setSelectedCategoryResult(resultName));
+    const exp = metadata.experimentDescription;
+    return (
+      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+        {exp.testArticle && <Tag color="blue" style={{ fontSize: '11px', margin: 0 }}>Test Article: {exp.testArticle}</Tag>}
+        {exp.species && <Tag color="orange" style={{ fontSize: '11px', margin: 0 }}>Species: {exp.species}</Tag>}
+        {exp.strain && <Tag color="gold" style={{ fontSize: '11px', margin: 0 }}>Strain: {exp.strain}</Tag>}
+        {exp.sex && <Tag color="purple" style={{ fontSize: '11px', margin: 0 }}>Sex: {exp.sex}</Tag>}
+        {exp.organ && <Tag color="green" style={{ fontSize: '11px', margin: 0 }}>Organ: {exp.organ}</Tag>}
+        {exp.casrn && <Tag color="geekblue" style={{ fontSize: '11px', margin: 0 }}>CASRN: {exp.casrn}</Tag>}
+        {exp.dsstox && <Tag color="geekblue" style={{ fontSize: '11px', margin: 0 }}>DSSTOX: {exp.dsstox}</Tag>}
+        {exp.studyDuration && <Tag color="volcano" style={{ fontSize: '11px', margin: 0 }}>Duration: {exp.studyDuration}</Tag>}
+        {exp.articleRoute && <Tag color="red" style={{ fontSize: '11px', margin: 0 }}>Route: {exp.articleRoute}</Tag>}
+        {exp.platform && <Tag color="cyan" style={{ fontSize: '11px', margin: 0 }}>Platform: {exp.platform}</Tag>}
+      </div>
+    );
   };
 
-  const onExpand = (expandedKeys: React.Key[]) => {
-    setExpandedKeys(expandedKeys);
-  };
+  // Build project items for the nested collapse (each project is a collapse item)
+  const projectItems = projects.map(projectId => ({
+    key: projectId,
+    label: (
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Radio
+          checked={selectedProject === projectId}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleProjectSelect(projectId);
+          }}
+        />
+        <Text style={{ fontSize: '13px' }}>{projectId}</Text>
+      </div>
+    ),
+    children: loadingMetadata[projectId] ? (
+      <div style={{ padding: '8px', textAlign: 'center' }}>
+        <Spin size="small" />
+      </div>
+    ) : (
+      renderMetadataTags(projectMetadata[projectId] || null)
+    ),
+  }));
 
-  // Build collapse items for projects
+  // Build collapse items for projects section
   const projectCollapseItems = [
     {
       key: '1',
@@ -234,11 +142,11 @@ export default function ProjectTreeSidebar() {
           onClick={(e) => e.stopPropagation()}
         >
           <Text strong style={{ fontSize: '13px', color: '#262626' }}>
-            BMD Express 3 Projects
+            Projects
           </Text>
-          {!loading && treeData.length > 0 && (
+          {!loading && projects.length > 0 && (
             <Tag color="default" style={{ fontSize: '11px' }}>
-              {treeData.length} {treeData.length === 1 ? 'project' : 'projects'}
+              {projects.length}
             </Tag>
           )}
         </div>
@@ -247,23 +155,16 @@ export default function ProjectTreeSidebar() {
         <div style={{ padding: '16px', color: '#666', fontSize: '13px' }}>
           Loading projects...
         </div>
-      ) : treeData.length === 0 ? (
+      ) : projects.length === 0 ? (
         <div style={{ padding: '16px', color: '#666', fontSize: '13px' }}>
           No projects available
         </div>
       ) : (
-        <Tree
-          showIcon
-          loadData={onLoadData}
-          treeData={treeData}
-          expandedKeys={expandedKeys}
-          selectedKeys={selectedKeys}
-          onSelect={onSelect}
-          onExpand={onExpand}
-          style={{
-            background: 'transparent',
-            fontSize: '14px',
-          }}
+        <Collapse
+          size="small"
+          items={projectItems}
+          onChange={handleCollapseChange}
+          style={{ background: 'transparent' }}
         />
       ),
     },
