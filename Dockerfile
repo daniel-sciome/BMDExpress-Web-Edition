@@ -13,4 +13,5 @@ EXPOSE 8080
 
 # Run the application
 # Cloud Run injects PORT environment variable, application.properties uses ${PORT:8080}
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Set heap size to use most of available memory (Cloud Run gives 2Gi)
+ENTRYPOINT ["java", "-Xmx1536m", "-jar", "app.jar"]
