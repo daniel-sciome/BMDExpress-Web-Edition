@@ -18,7 +18,6 @@ import AccumulationCharts from './charts/AccumulationCharts';
 import BestModelsPieChart from './charts/BestModelsPieChart';
 import PathwayCurveViewer from './PathwayCurveViewer';
 import UmapScatterPlot from './charts/UmapScatterPlot';
-import PrimaryFilter, { PrimaryFilterTitle } from './PrimaryFilter';
 import ViolinPlotPerCategory from './charts/ViolinPlotPerCategory';
 import MeanHistograms from './charts/MeanHistograms';
 import MedianHistograms from './charts/MedianHistograms';
@@ -162,11 +161,6 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
 
   // Note: Initial "all selected" state is now set in loadCategoryResultsWithRenderState thunk
   // This ensures selection is set BEFORE the component renders, avoiding flash of unchecked state
-
-  // Calculate active filter count for Primary Filter title
-  const activeFilterCount = Object.entries(filters).filter(
-    ([_, value]) => value !== undefined && value !== null
-  ).length;
 
   // Debug logging for component mounting and props changes
   useEffect(() => {
@@ -503,21 +497,6 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
             </div>
           </div>
         )}
-
-      {/* Primary Filter - Collapsible (skip for GENE analyses) */}
-      {annotation && annotation.analysisType !== 'GENE' && (
-        <div style={{ padding: '0 1rem', flexShrink: 0 }}>
-          <Collapse
-            size="small"
-            items={[{
-              key: 'masterfilter',
-              label: <PrimaryFilterTitle activeCount={activeFilterCount} />,
-              children: <PrimaryFilter hideCard={true} />,
-            }]}
-            style={{ marginBottom: '4px', background: '#fafafa' }}
-          />
-        </div>
-      )}
 
       {/* Chart Selection - Collapsible (Power User mode only) */}
       {viewMode === 'power' && (
