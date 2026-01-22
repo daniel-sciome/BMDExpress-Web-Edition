@@ -2,30 +2,13 @@ backend:
   name: github
   repo: daniel-sciome/BMDExpress-Web-Edition
   branch: main
-  base_url: https://bmdx-web-ed.vercel.app
 media_folder: "docs/assets/images"
 public_folder: "assets/images"
 site_url: https://daniel-sciome.github.io/BMDExpress-Web-Edition
 
 collections:
-  - name: "docs"
-    label: "Documentation Pages"
-    folder: "docs"
-    create: false
-    slug: "{{slug}}"
-    extension: "md"
-    format: "frontmatter"
-    fields:
-      - { label: "Title", name: "title", widget: "string" }
-      - { label: "Navigation Order", name: "nav_order", widget: "number" }
-      - { label: "Content", name: "body", widget: "markdown" }
-    filter:
-      field: "nav_order"
-      value: ""
-      # This ensures only files with nav_order are shown
-
   - name: "pages"
-    label: "All Pages"
+    label: "Documentation Pages"
     files:
       - label: "Home"
         name: "index"
