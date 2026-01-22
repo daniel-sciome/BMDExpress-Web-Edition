@@ -2,9 +2,7 @@ backend:
   name: github
   repo: daniel-sciome/BMDExpress-Web-Edition
   branch: main
-  base_url: https://decap-oauth.netlify.app
-
-publish_mode: editorial_workflow
+  base_url: https://bmdx-web-ed.vercel.app
 media_folder: "docs/assets/images"
 public_folder: "assets/images"
 site_url: https://daniel-sciome.github.io/BMDExpress-Web-Edition
