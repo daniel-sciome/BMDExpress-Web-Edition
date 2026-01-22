@@ -1,4 +1,5 @@
 /target/
+.vercel-secret
 .idea/
 .vscode/
 .settings
