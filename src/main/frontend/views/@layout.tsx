@@ -18,7 +18,7 @@ function Header() {
 
 function SidebarNav() {
   return (
-    <div className="mx-m">
+    <div style={{ marginLeft: '16px', marginRight: '3px' }}>
       <ProjectTreeSidebar />
     </div>
   );

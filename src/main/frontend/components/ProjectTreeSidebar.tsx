@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Collapse, Tag, Typography, Switch, Space, Radio, Spin, Button } from 'antd';
+import { Collapse, Tag, Typography, Switch, Space, Radio, Spin, Button, Tooltip } from 'antd';
+import { EyeOutlined } from '@ant-design/icons';
 import { ProjectService } from 'Frontend/generated/endpoints';
 import type ProjectMetadataDto from 'Frontend/generated/com/sciome/dto/ProjectMetadataDto';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { setSelectedProject } from '../store/slices/navigationSlice';
 import { setViewMode } from '../store/slices/categoryResultsSlice';
 import { selectAllFilterGroups } from '../store/slices/filterSlice';
+import { setDisplayMode, selectDisplayMode } from '../store/slices/visibilitySlice';
+import type { DisplayMode } from '../types/visibilityTypes';
 import FilterGroupList from './filters/FilterGroupList';
 import FilterGroupEditor from './filters/FilterGroupEditor';
 
@@ -16,6 +19,7 @@ export default function ProjectTreeSidebar() {
   const selectedProject = useAppSelector((state) => state.navigation.selectedProject);
   const viewMode = useAppSelector((state) => state.categoryResults.viewMode);
   const filterGroups = useAppSelector(selectAllFilterGroups);
+  const displayMode = useAppSelector(selectDisplayMode);
 
   // Find the Essential filter group
   const essentialGroup = filterGroups.find(group => group.id === 'standard-essential');
@@ -203,6 +207,42 @@ export default function ProjectTreeSidebar() {
         items={projectCollapseItems}
         size="small"
       />
+
+      {/* Visibility Toggle */}
+      {selectedProject && (
+        <div style={{
+          padding: '12px 16px',
+          marginTop: '8px',
+          background: '#fafafa',
+          borderRadius: '4px',
+          border: '1px solid #d9d9d9'
+        }}>
+          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <Space align="center">
+              <EyeOutlined style={{ color: '#666' }} />
+              <Text strong style={{ fontSize: '13px', color: '#262626' }}>Visibility</Text>
+            </Space>
+            <Radio.Group
+              value={displayMode}
+              onChange={(e) => dispatch(setDisplayMode(e.target.value as DisplayMode))}
+              size="small"
+              optionType="button"
+              buttonStyle="solid"
+              style={{ width: '100%' }}
+            >
+              <Tooltip title="Show all categories at full opacity">
+                <Radio.Button value="highlight" style={{ width: '33.33%', textAlign: 'center', fontSize: '11px' }}>All</Radio.Button>
+              </Tooltip>
+              <Tooltip title="Dim categories that don't pass filters">
+                <Radio.Button value="dim" style={{ width: '33.33%', textAlign: 'center', fontSize: '11px' }}>Dim</Radio.Button>
+              </Tooltip>
+              <Tooltip title="Hide categories that don't pass filters">
+                <Radio.Button value="isolate" style={{ width: '33.34%', textAlign: 'center', fontSize: '11px' }}>Hide</Radio.Button>
+              </Tooltip>
+            </Radio.Group>
+          </Space>
+        </div>
+      )}
 
       {/* Simple mode: Essential Filter Group */}
       {viewMode === 'simple' && essentialGroup && selectedProject && (

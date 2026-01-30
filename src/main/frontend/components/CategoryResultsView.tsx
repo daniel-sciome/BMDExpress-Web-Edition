@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card, Radio, Button, Typography, Tabs } from 'antd';
-import { FileTextOutlined, InfoCircleOutlined, LineChartOutlined, EyeOutlined, DatabaseOutlined } from '@ant-design/icons';
+import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card, Radio, Button, Typography, Tabs, Drawer } from 'antd';
+import { FileTextOutlined, InfoCircleOutlined, LineChartOutlined, EyeOutlined, DatabaseOutlined, AppstoreOutlined, MinusSquareOutlined } from '@ant-design/icons';
 import { Icon } from '@vaadin/react-components';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadCategoryResultsWithRenderState, loadAnalysisParameters, setAnalysisType } from '../store/slices/categoryResultsSlice';
@@ -115,6 +115,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   const [allAnnotations, setAllAnnotations] = useState<AnalysisAnnotationDto[]>([]);
   const [comparatorDatasets, setComparatorDatasets] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<string>('single');
+  const [activePanel, setActivePanel] = useState<string | null>(null);
 
   // Load all annotations for the project
   useEffect(() => {
@@ -361,10 +362,10 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           }
         `}
       </style>
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
         {/* Formatted header with annotation metadata */}
         {annotation && annotation.parseSuccess ? (
-          <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
+          <div style={{ padding: '1rem 1rem 0 50px', flexShrink: 0 }}>
             <h2 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               {experimentDescription.testArticle || annotation.chemical || 'Unknown Test Article'}
               {experimentDescription.sex && (
@@ -415,126 +416,9 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
               </span>
             </h2>
 
-            {/* Datasets - Collapsible */}
-            <div style={{ marginBottom: '4px' }}>
-              <Collapse
-                size="small"
-                items={[{
-                  key: 'datasets',
-                  label: <DatasetsTitle count={allAnnotations.length} />,
-                  children: (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {Object.entries(groupedAnnotations).sort((a, b) => a[0].localeCompare(b[0])).map(([analysisType, items]) => (
-                        <div key={analysisType}>
-                          {/* Analysis type header */}
-                          <div
-                            style={{
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              color: '#666',
-                              marginBottom: '4px',
-                              marginLeft: '4px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                            }}
-                          >
-                            <span>🧬</span>
-                            {getAnalysisTypeDisplayName(analysisType)}
-                            <Tag color="blue" style={{ fontSize: '10px', marginLeft: '4px' }}>{items.length}</Tag>
-                          </div>
-                          {/* Dataset chips */}
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginLeft: '4px' }}>
-                            {items.map(ann => {
-                              const datasetKey = ann.fullName || '';
-                              const isPrimary = datasetKey === resultName;
-                              const isComparator = comparatorDatasets.includes(datasetKey);
-
-                              return (
-                                <Tooltip
-                                  key={datasetKey}
-                                  title={
-                                    isPrimary ? 'Primary dataset (Cmd/Ctrl+click to compare others)' :
-                                    isComparator ? 'Comparator (click to set as primary, Cmd/Ctrl+click to remove)' :
-                                    'Click to set as primary, Cmd/Ctrl+click to add as comparator'
-                                  }
-                                >
-                                  <div
-                                    onClick={(e) => handleDatasetClick(datasetKey, e)}
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      padding: '3px 8px',
-                                      borderRadius: '4px',
-                                      cursor: 'pointer',
-                                      fontSize: '11px',
-                                      fontWeight: isPrimary ? 600 : 400,
-                                      backgroundColor: isPrimary ? '#1890ff' : isComparator ? '#e6f7ff' : '#fff',
-                                      color: isPrimary ? '#fff' : '#333',
-                                      border: isPrimary ? '1px solid #1890ff' : isComparator ? '1px solid #91d5ff' : '1px solid #d9d9d9',
-                                      transition: 'all 0.2s',
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      if (!isPrimary && !isComparator) {
-                                        e.currentTarget.style.backgroundColor = '#f5f5f5';
-                                        e.currentTarget.style.borderColor = '#bfbfbf';
-                                      }
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      if (!isPrimary && !isComparator) {
-                                        e.currentTarget.style.backgroundColor = '#fff';
-                                        e.currentTarget.style.borderColor = '#d9d9d9';
-                                      }
-                                    }}
-                                  >
-                                    {isPrimary && <span>★</span>}
-                                    {isComparator && <span>◇</span>}
-                                    {ann.displayName || ann.fullName}
-                                  </div>
-                                </Tooltip>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                      {/* Hint text */}
-                      <div style={{ fontSize: '11px', color: '#8c8c8c', fontStyle: 'italic', marginTop: '4px' }}>
-                        Click = set primary, Cmd/Ctrl+click = toggle comparator
-                      </div>
-                    </div>
-                  ),
-                }]}
-                style={{ background: '#fafafa' }}
-              />
-            </div>
-
-            {/* Analysis Parameters - Collapsible */}
-            {analysisParameters && analysisParameters.length > 0 && (
-              <div style={{ marginBottom: '4px' }}>
-                <Collapse
-                  size="small"
-                  items={[{
-                    key: 'params',
-                    label: <AnalysisParametersTitle paramCount={analysisParameters.length} />,
-                    children: (
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        {analysisParameters.map((param, index) => (
-                          <Tag key={index} color="geekblue" style={{ fontSize: '12px', margin: 0 }}>
-                            {param}
-                          </Tag>
-                        ))}
-                      </div>
-                    ),
-                  }]}
-                  style={{ background: '#fafafa' }}
-                />
-              </div>
-            )}
-
           </div>
         ) : (
-          <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
+          <div style={{ padding: '1rem 1rem 0 50px', flexShrink: 0 }}>
             <h2 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               {experimentDescription.testArticle || resultName}
               {experimentDescription.sex && (
@@ -573,186 +457,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
               </span>
             </h2>
 
-            {/* Datasets - Collapsible */}
-            <div style={{ marginBottom: '4px' }}>
-              <Collapse
-                size="small"
-                items={[{
-                  key: 'datasets',
-                  label: <DatasetsTitle count={allAnnotations.length} />,
-                  children: (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {Object.entries(groupedAnnotations).sort((a, b) => a[0].localeCompare(b[0])).map(([analysisType, items]) => (
-                        <div key={analysisType}>
-                          {/* Analysis type header */}
-                          <div
-                            style={{
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              color: '#666',
-                              marginBottom: '4px',
-                              marginLeft: '4px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                            }}
-                          >
-                            <span>🧬</span>
-                            {getAnalysisTypeDisplayName(analysisType)}
-                            <Tag color="blue" style={{ fontSize: '10px', marginLeft: '4px' }}>{items.length}</Tag>
-                          </div>
-                          {/* Dataset chips */}
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginLeft: '4px' }}>
-                            {items.map(ann => {
-                              const datasetKey = ann.fullName || '';
-                              const isPrimary = datasetKey === resultName;
-                              const isComparator = comparatorDatasets.includes(datasetKey);
-
-                              return (
-                                <Tooltip
-                                  key={datasetKey}
-                                  title={
-                                    isPrimary ? 'Primary dataset (Cmd/Ctrl+click to compare others)' :
-                                    isComparator ? 'Comparator (click to set as primary, Cmd/Ctrl+click to remove)' :
-                                    'Click to set as primary, Cmd/Ctrl+click to add as comparator'
-                                  }
-                                >
-                                  <div
-                                    onClick={(e) => handleDatasetClick(datasetKey, e)}
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      padding: '3px 8px',
-                                      borderRadius: '4px',
-                                      cursor: 'pointer',
-                                      fontSize: '11px',
-                                      fontWeight: isPrimary ? 600 : 400,
-                                      backgroundColor: isPrimary ? '#1890ff' : isComparator ? '#e6f7ff' : '#fff',
-                                      color: isPrimary ? '#fff' : '#333',
-                                      border: isPrimary ? '1px solid #1890ff' : isComparator ? '1px solid #91d5ff' : '1px solid #d9d9d9',
-                                      transition: 'all 0.2s',
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      if (!isPrimary && !isComparator) {
-                                        e.currentTarget.style.backgroundColor = '#f5f5f5';
-                                        e.currentTarget.style.borderColor = '#bfbfbf';
-                                      }
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      if (!isPrimary && !isComparator) {
-                                        e.currentTarget.style.backgroundColor = '#fff';
-                                        e.currentTarget.style.borderColor = '#d9d9d9';
-                                      }
-                                    }}
-                                  >
-                                    {isPrimary && <span>★</span>}
-                                    {isComparator && <span>◇</span>}
-                                    {ann.displayName || ann.fullName}
-                                  </div>
-                                </Tooltip>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                      {/* Hint text */}
-                      <div style={{ fontSize: '11px', color: '#8c8c8c', fontStyle: 'italic', marginTop: '4px' }}>
-                        Click = set primary, Cmd/Ctrl+click = toggle comparator
-                      </div>
-                    </div>
-                  ),
-                }]}
-                style={{ background: '#fafafa' }}
-              />
-            </div>
-
           </div>
         )}
-
-      {/* Chart Selection - Collapsible (Power User mode only) */}
-      {viewMode === 'power' && (
-        <div style={{ padding: '0 1rem', flexShrink: 0 }}>
-          <Collapse
-            size="small"
-            items={[{
-              key: 'chartselection',
-              label: <ChartSelectionTitle selectedCount={visibleCharts.length} />,
-              children: (
-                <Checkbox.Group
-                  value={visibleCharts}
-                  onChange={setVisibleCharts}
-                >
-                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                    <Checkbox value="1">Default Charts</Checkbox>
-                    <Checkbox value="2">UMAP Semantic Space</Checkbox>
-                    <Checkbox value="3">Curve Overlay</Checkbox>
-                    <Checkbox value="4">Range Plot</Checkbox>
-                    <Checkbox value="5">Bubble Chart</Checkbox>
-                    <Checkbox value="6">Best Models Pie</Checkbox>
-                    <Checkbox value="7">Bar Charts</Checkbox>
-                    <Checkbox value="8">Accumulation Charts</Checkbox>
-                    <Checkbox value="9">Mean Histograms</Checkbox>
-                    <Checkbox value="10">Median Histograms</Checkbox>
-                    <Checkbox value="11">BMD vs BMDL Scatter</Checkbox>
-                    <Checkbox value="12">Violin Per Category</Checkbox>
-                    <Checkbox value="14">Gene Cluster Heatmap</Checkbox>
-                    <Checkbox value="15">Gene Cluster Scatter</Checkbox>
-                  </div>
-                </Checkbox.Group>
-              ),
-            }]}
-            style={{ marginBottom: '4px', background: '#fafafa' }}
-          />
-        </div>
-      )}
-
-      {/* Display Mode Toggle - with border to match collapses */}
-      <div style={{ padding: '0 1rem', flexShrink: 0 }}>
-        <div style={{
-          marginBottom: '4px',
-          padding: '8px 12px',
-          background: '#fafafa',
-          border: '1px solid #d9d9d9',
-          borderRadius: '8px',
-        }}>
-          <Space size="middle" align="center">
-            <Space size="small">
-              <EyeOutlined style={{ color: '#666' }} />
-              <span style={{ fontSize: '12px', color: '#666' }}>Visibility:</span>
-            </Space>
-            <Radio.Group
-              value={displayMode}
-              onChange={(e) => handleDisplayModeChange(e.target.value as DisplayMode)}
-              size="small"
-              optionType="button"
-              buttonStyle="solid"
-            >
-              <Tooltip title="Show all categories (filtered + unfiltered) at full opacity">
-                <Radio.Button value="highlight">Show All</Radio.Button>
-              </Tooltip>
-              <Tooltip title="Dim categories that don't pass filter criteria">
-                <Radio.Button value="dim">Dim Others</Radio.Button>
-              </Tooltip>
-              <Tooltip title="Hide categories that don't pass filter criteria">
-                <Radio.Button value="isolate">Hide Others</Radio.Button>
-              </Tooltip>
-            </Radio.Group>
-            <Tooltip title="Collapse all expanded sections">
-              <Button size="small" onClick={handleCollapseAll}>
-                Collapse All
-              </Button>
-            </Tooltip>
-          </Space>
-        </div>
-      </div>
-
-      {/* Cluster Picker - Power User mode only */}
-      {viewMode === 'power' && (
-        <div style={{ padding: '0 1rem', flexShrink: 0 }}>
-          <ClusterPicker />
-        </div>
-      )}
 
       {/* Main content - tabbed when comparators are selected */}
       {comparatorDatasets.length > 0 ? (
@@ -770,7 +476,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                   overflowY: 'auto',
                   overflowX: 'hidden',
                   minHeight: 0,
-                  padding: '1rem'
+                  padding: '1rem',
+                  paddingLeft: '50px'
                 }}>
                   {/* Charts - Direct rendering based on checkbox selection (Power User mode only) */}
                   {viewMode === 'power' && visibleCharts.includes('1') && (
@@ -1002,7 +709,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                   overflowY: 'auto',
                   overflowX: 'hidden',
                   minHeight: 0,
-                  padding: '1rem'
+                  padding: '1rem',
+                  paddingLeft: '50px'
                 }}>
                   <Collapse
                     defaultActiveKey={['comparisonTable', 'venn', 'accumulation', 'globalViolin']}
@@ -1067,7 +775,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           overflowY: 'auto',
           overflowX: 'hidden',
           minHeight: 0,
-          padding: '1rem'
+          padding: '1rem',
+          paddingLeft: '50px'
         }}>
         {/* Charts - Direct rendering based on checkbox selection (Power User mode only) */}
         {viewMode === 'power' && visibleCharts.includes('1') && (
@@ -1289,6 +998,208 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         />
       </div>
       )}
+
+      {/* Icon Toolbar - Left Edge */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 4,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px',
+          background: '#fff',
+          borderRadius: '4px',
+          padding: '8px 6px',
+          border: '1px solid #d9d9d9',
+          zIndex: 10,
+        }}
+      >
+        <Tooltip title="Datasets" placement="right">
+          <Button
+            type={activePanel === 'datasets' ? 'primary' : 'text'}
+            icon={<DatabaseOutlined />}
+            onClick={() => setActivePanel(activePanel === 'datasets' ? null : 'datasets')}
+            size="small"
+          />
+        </Tooltip>
+        {analysisParameters && analysisParameters.length > 0 && (
+          <Tooltip title="Analysis Parameters" placement="right">
+            <Button
+              type={activePanel === 'parameters' ? 'primary' : 'text'}
+              icon={<FileTextOutlined />}
+              onClick={() => setActivePanel(activePanel === 'parameters' ? null : 'parameters')}
+              size="small"
+            />
+          </Tooltip>
+        )}
+        {viewMode === 'power' && (
+          <>
+            <Tooltip title="Chart Selection" placement="right">
+              <Button
+                type={activePanel === 'charts' ? 'primary' : 'text'}
+                icon={<LineChartOutlined />}
+                onClick={() => setActivePanel(activePanel === 'charts' ? null : 'charts')}
+                size="small"
+              />
+            </Tooltip>
+            <Tooltip title="Cluster Picker" placement="right">
+              <Button
+                type={activePanel === 'clusters' ? 'primary' : 'text'}
+                icon={<AppstoreOutlined />}
+                onClick={() => setActivePanel(activePanel === 'clusters' ? null : 'clusters')}
+                size="small"
+              />
+            </Tooltip>
+          </>
+        )}
+        {/* Divider */}
+        <div style={{ borderTop: '1px solid #d9d9d9', margin: '4px 0' }} />
+        <Tooltip title="Collapse All Charts" placement="right">
+          <Button
+            type="text"
+            icon={<MinusSquareOutlined />}
+            onClick={handleCollapseAll}
+            size="small"
+          />
+        </Tooltip>
+      </div>
+
+      {/* Flyout Drawer */}
+      <Drawer
+        title={
+          activePanel === 'datasets' ? 'Datasets' :
+          activePanel === 'parameters' ? 'Analysis Parameters' :
+          activePanel === 'charts' ? 'Chart Selection' :
+          activePanel === 'clusters' ? 'Cluster Picker' : ''
+        }
+        placement="right"
+        open={activePanel !== null}
+        onClose={() => setActivePanel(null)}
+        width={400}
+      >
+        {/* Datasets Panel */}
+        {activePanel === 'datasets' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {Object.entries(groupedAnnotations).sort((a, b) => a[0].localeCompare(b[0])).map(([analysisType, items]) => (
+              <div key={analysisType}>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: '#666',
+                    marginBottom: '6px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <span>🧬</span>
+                  {getAnalysisTypeDisplayName(analysisType)}
+                  <Tag color="blue" style={{ fontSize: '11px' }}>{items.length}</Tag>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {items.map(ann => {
+                    const datasetKey = ann.fullName || '';
+                    const isPrimary = datasetKey === resultName;
+                    const isComparator = comparatorDatasets.includes(datasetKey);
+                    return (
+                      <Tooltip
+                        key={datasetKey}
+                        title={
+                          isPrimary ? 'Primary dataset (Cmd/Ctrl+click to compare others)' :
+                          isComparator ? 'Comparator (click to set as primary, Cmd/Ctrl+click to remove)' :
+                          'Click to set as primary, Cmd/Ctrl+click to add as comparator'
+                        }
+                      >
+                        <div
+                          onClick={(e) => handleDatasetClick(datasetKey, e)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '4px 10px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: isPrimary ? 600 : 400,
+                            backgroundColor: isPrimary ? '#1890ff' : isComparator ? '#e6f7ff' : '#fff',
+                            color: isPrimary ? '#fff' : '#333',
+                            border: isPrimary ? '1px solid #1890ff' : isComparator ? '1px solid #91d5ff' : '1px solid #d9d9d9',
+                            transition: 'all 0.2s',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isPrimary && !isComparator) {
+                              e.currentTarget.style.backgroundColor = '#f5f5f5';
+                              e.currentTarget.style.borderColor = '#bfbfbf';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isPrimary && !isComparator) {
+                              e.currentTarget.style.backgroundColor = '#fff';
+                              e.currentTarget.style.borderColor = '#d9d9d9';
+                            }
+                          }}
+                        >
+                          {isPrimary && <span>★</span>}
+                          {isComparator && <span>◇</span>}
+                          {ann.displayName || ann.fullName}
+                        </div>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+            <div style={{ fontSize: '11px', color: '#8c8c8c', fontStyle: 'italic', marginTop: '8px' }}>
+              Click = set primary, Cmd/Ctrl+click = toggle comparator
+            </div>
+          </div>
+        )}
+
+        {/* Parameters Panel */}
+        {activePanel === 'parameters' && analysisParameters && (
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {analysisParameters.map((param, index) => (
+              <Tag key={index} color="geekblue" style={{ fontSize: '12px', margin: 0 }}>
+                {param}
+              </Tag>
+            ))}
+          </div>
+        )}
+
+        {/* Charts Panel */}
+        {activePanel === 'charts' && (
+          <Checkbox.Group
+            value={visibleCharts}
+            onChange={setVisibleCharts}
+            style={{ width: '100%' }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <Checkbox value="1">Default Charts</Checkbox>
+              <Checkbox value="2">UMAP Semantic Space</Checkbox>
+              <Checkbox value="3">Curve Overlay</Checkbox>
+              <Checkbox value="4">Range Plot</Checkbox>
+              <Checkbox value="5">Bubble Chart</Checkbox>
+              <Checkbox value="6">Best Models Pie</Checkbox>
+              <Checkbox value="7">Bar Charts</Checkbox>
+              <Checkbox value="8">Accumulation Charts</Checkbox>
+              <Checkbox value="9">Mean Histograms</Checkbox>
+              <Checkbox value="10">Median Histograms</Checkbox>
+              <Checkbox value="11">BMD vs BMDL Scatter</Checkbox>
+              <Checkbox value="12">Violin Per Category</Checkbox>
+              <Checkbox value="14">Gene Cluster Heatmap</Checkbox>
+              <Checkbox value="15">Gene Cluster Scatter</Checkbox>
+            </div>
+          </Checkbox.Group>
+        )}
+
+        {/* Clusters Panel */}
+        {activePanel === 'clusters' && (
+          <ClusterPicker />
+        )}
+      </Drawer>
     </div>
     </>
   );
