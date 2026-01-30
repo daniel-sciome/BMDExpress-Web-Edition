@@ -94,17 +94,33 @@ export default function ProjectTreeSidebar() {
 
     const exp = metadata.experimentDescription;
     return (
-      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-        {exp.testArticle && <Tag color="blue" style={{ fontSize: '11px', margin: 0 }}>Test Article: {exp.testArticle}</Tag>}
-        {exp.species && <Tag color="orange" style={{ fontSize: '11px', margin: 0 }}>Species: {exp.species}</Tag>}
-        {exp.strain && <Tag color="gold" style={{ fontSize: '11px', margin: 0 }}>Strain: {exp.strain}</Tag>}
-        {exp.sex && <Tag color="purple" style={{ fontSize: '11px', margin: 0 }}>Sex: {exp.sex}</Tag>}
-        {exp.organ && <Tag color="green" style={{ fontSize: '11px', margin: 0 }}>Organ: {exp.organ}</Tag>}
-        {exp.casrn && <Tag color="geekblue" style={{ fontSize: '11px', margin: 0 }}>CASRN: {exp.casrn}</Tag>}
-        {exp.dsstox && <Tag color="geekblue" style={{ fontSize: '11px', margin: 0 }}>DSSTOX: {exp.dsstox}</Tag>}
-        {exp.studyDuration && <Tag color="volcano" style={{ fontSize: '11px', margin: 0 }}>Duration: {exp.studyDuration}</Tag>}
-        {exp.articleRoute && <Tag color="red" style={{ fontSize: '11px', margin: 0 }}>Route: {exp.articleRoute}</Tag>}
-        {exp.platform && <Tag color="cyan" style={{ fontSize: '11px', margin: 0 }}>Platform: {exp.platform}</Tag>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        {/* Row 1: Strain + Species combined */}
+        {(exp.strain || exp.species) && (
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            <Tag color="orange" style={{ fontSize: '11px', margin: 0 }}>{[exp.strain, exp.species ? exp.species.charAt(0).toUpperCase() + exp.species.slice(1) : null].filter(Boolean).join(' ')}</Tag>
+          </div>
+        )}
+        {/* Row 2: Sex, Organ */}
+        {(exp.sex || exp.organ) && (
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            {exp.sex && <Tag color="purple" style={{ fontSize: '11px', margin: 0 }}>{exp.sex}</Tag>}
+            {exp.organ && <Tag color="green" style={{ fontSize: '11px', margin: 0 }}>{exp.organ}</Tag>}
+          </div>
+        )}
+        {/* Row 3: Platform */}
+        {exp.platform && (
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            <Tag color="cyan" style={{ fontSize: '11px', margin: 0 }}>{exp.platform}</Tag>
+          </div>
+        )}
+        {/* Row 4: CASRN, DSSTOX */}
+        {(exp.casrn || exp.dsstox) && (
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            {exp.casrn && <Tag color="geekblue" style={{ fontSize: '11px', margin: 0 }}>CASRN {exp.casrn}</Tag>}
+            {exp.dsstox && <Tag color="geekblue" style={{ fontSize: '11px', margin: 0 }}>{exp.dsstox.replace(/^(DTXSID)(\d+)$/, '$1 $2')}</Tag>}
+          </div>
+        )}
       </div>
     );
   };
