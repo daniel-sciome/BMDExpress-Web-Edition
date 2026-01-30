@@ -5,6 +5,7 @@
  * in the category results table (Cluster, Category ID, and Description).
  */
 
+import React from 'react';
 import type { ColumnsType } from 'antd/es/table';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import { getCategoryColumnLabels, type AnalysisInfo } from '../utils/categoryLabels';
@@ -44,7 +45,8 @@ export function getFixedColumns(
     title: formatHeader('Cluster'),
     dataIndex: 'clusterId',
     key: 'clusterId',
-    width: 100,
+    width: 40,
+    align: 'center' as const,
     render: (clusterId: number | undefined) => {
       // -2 = not in reference, -1 = unclassified, 0+ = cluster number
       if (clusterId === undefined || clusterId === -2) return 'not in reference';
