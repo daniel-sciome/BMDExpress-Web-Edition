@@ -366,8 +366,21 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {/* Formatted header with annotation metadata */}
         {annotation && annotation.parseSuccess ? (
           <div style={{ padding: '1rem 1rem 0 50px', flexShrink: 0 }}>
+            {/* TODO: Project-level metadata is not well-defined. Currently using experiment-level metadata. */}
             <h2 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               {experimentDescription.testArticle || annotation.chemical || 'Unknown Test Article'}
+              {(experimentDescription.strain || experimentDescription.species) && (
+                <span style={{
+                  padding: '2px 8px',
+                  border: '1px solid #fa8c16',
+                  color: '#fa8c16',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  fontWeight: 500,
+                }}>
+                  {[experimentDescription.strain, experimentDescription.species ? experimentDescription.species.charAt(0).toUpperCase() + experimentDescription.species.slice(1) : null].filter(Boolean).join(' ')}
+                </span>
+              )}
               {experimentDescription.sex && (
                 <span style={{
                   padding: '2px 8px',
@@ -390,6 +403,42 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                   fontWeight: 500,
                 }}>
                   {experimentDescription.organ}
+                </span>
+              )}
+              {experimentDescription.platform && (
+                <span style={{
+                  padding: '2px 8px',
+                  border: '1px solid #13c2c2',
+                  color: '#13c2c2',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  fontWeight: 500,
+                }}>
+                  {experimentDescription.platform}
+                </span>
+              )}
+              {experimentDescription.casrn && (
+                <span style={{
+                  padding: '2px 8px',
+                  border: '1px solid #2f54eb',
+                  color: '#2f54eb',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  fontWeight: 500,
+                }}>
+                  CASRN {experimentDescription.casrn}
+                </span>
+              )}
+              {experimentDescription.dsstox && (
+                <span style={{
+                  padding: '2px 8px',
+                  border: '1px solid #2f54eb',
+                  color: '#2f54eb',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  fontWeight: 500,
+                }}>
+                  {experimentDescription.dsstox.replace(/^(DTXSID)(\d+)$/, '$1 $2')}
                 </span>
               )}
               {annotation.analysisType && (
@@ -419,8 +468,21 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           </div>
         ) : (
           <div style={{ padding: '1rem 1rem 0 50px', flexShrink: 0 }}>
+            {/* TODO: Project-level metadata is not well-defined. Currently using experiment-level metadata. */}
             <h2 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               {experimentDescription.testArticle || resultName}
+              {(experimentDescription.strain || experimentDescription.species) && (
+                <span style={{
+                  padding: '2px 8px',
+                  border: '1px solid #fa8c16',
+                  color: '#fa8c16',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  fontWeight: 500,
+                }}>
+                  {[experimentDescription.strain, experimentDescription.species ? experimentDescription.species.charAt(0).toUpperCase() + experimentDescription.species.slice(1) : null].filter(Boolean).join(' ')}
+                </span>
+              )}
               {experimentDescription.sex && (
                 <span style={{
                   padding: '2px 8px',
@@ -443,6 +505,42 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                   fontWeight: 500,
                 }}>
                   {experimentDescription.organ}
+                </span>
+              )}
+              {experimentDescription.platform && (
+                <span style={{
+                  padding: '2px 8px',
+                  border: '1px solid #13c2c2',
+                  color: '#13c2c2',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  fontWeight: 500,
+                }}>
+                  {experimentDescription.platform}
+                </span>
+              )}
+              {experimentDescription.casrn && (
+                <span style={{
+                  padding: '2px 8px',
+                  border: '1px solid #2f54eb',
+                  color: '#2f54eb',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  fontWeight: 500,
+                }}>
+                  CASRN {experimentDescription.casrn}
+                </span>
+              )}
+              {experimentDescription.dsstox && (
+                <span style={{
+                  padding: '2px 8px',
+                  border: '1px solid #2f54eb',
+                  color: '#2f54eb',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  fontWeight: 500,
+                }}>
+                  {experimentDescription.dsstox.replace(/^(DTXSID)(\d+)$/, '$1 $2')}
                 </span>
               )}
               <span style={{

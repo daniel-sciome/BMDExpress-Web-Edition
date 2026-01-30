@@ -87,40 +87,11 @@ export default function ProjectTreeSidebar() {
   };
 
   // Render metadata tags for a project
-  const renderMetadataTags = (metadata: ProjectMetadataDto | null) => {
-    if (!metadata || !metadata.experimentDescription) {
-      return <Text type="secondary" style={{ fontSize: '12px' }}>No metadata available</Text>;
-    }
-
-    const exp = metadata.experimentDescription;
+  // TODO: Project-level metadata is not well-defined. Currently showing placeholder.
+  const renderMetadataTags = (_metadata: ProjectMetadataDto | null) => {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        {/* Row 1: Strain + Species combined */}
-        {(exp.strain || exp.species) && (
-          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-            <Tag color="orange" style={{ fontSize: '11px', margin: 0 }}>{[exp.strain, exp.species ? exp.species.charAt(0).toUpperCase() + exp.species.slice(1) : null].filter(Boolean).join(' ')}</Tag>
-          </div>
-        )}
-        {/* Row 2: Sex, Organ */}
-        {(exp.sex || exp.organ) && (
-          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-            {exp.sex && <Tag color="purple" style={{ fontSize: '11px', margin: 0 }}>{exp.sex}</Tag>}
-            {exp.organ && <Tag color="green" style={{ fontSize: '11px', margin: 0 }}>{exp.organ}</Tag>}
-          </div>
-        )}
-        {/* Row 3: Platform */}
-        {exp.platform && (
-          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-            <Tag color="cyan" style={{ fontSize: '11px', margin: 0 }}>{exp.platform}</Tag>
-          </div>
-        )}
-        {/* Row 4: CASRN, DSSTOX */}
-        {(exp.casrn || exp.dsstox) && (
-          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-            {exp.casrn && <Tag color="geekblue" style={{ fontSize: '11px', margin: 0 }}>CASRN {exp.casrn}</Tag>}
-            {exp.dsstox && <Tag color="geekblue" style={{ fontSize: '11px', margin: 0 }}>{exp.dsstox.replace(/^(DTXSID)(\d+)$/, '$1 $2')}</Tag>}
-          </div>
-        )}
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '-10px' }}>
+        <Text type="secondary" style={{ fontSize: '12px', fontStyle: 'italic' }}>project metadata goes here</Text>
       </div>
     );
   };
