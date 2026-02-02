@@ -18,12 +18,12 @@ const navigationSlice = createSlice({
   initialState,
   reducers: {
     setSelectedProject: (state, action: PayloadAction<string | null>) => {
-      state.selectedProject = action.payload;
       // Clear both type and result when project changes
       if (state.selectedProject !== action.payload) {
         state.selectedAnalysisType = null;
         state.selectedCategoryResult = null;
       }
+      state.selectedProject = action.payload;
     },
     setSelectedAnalysisType: (state, action: PayloadAction<string | null>) => {
       state.selectedAnalysisType = action.payload;

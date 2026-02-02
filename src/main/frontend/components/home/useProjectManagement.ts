@@ -18,14 +18,12 @@ export interface UseProjectManagementReturn {
   selectedProject: string | null;
   loading: boolean;
   categoryResults: string[];
-  selectedCategoryResult: string | null;
   projectMetadata: ProjectMetadataDto | null;
 
   // Handlers
   handleUpload: (e: UploadBeforeEvent) => Promise<void>;
   handleSelectProject: (projectId: string) => Promise<void>;
   handleDeleteProject: (projectId: string) => Promise<void>;
-  setSelectedCategoryResult: (result: string | null) => void;
   loadProjectList: () => Promise<void>;
 }
 
@@ -34,7 +32,6 @@ export function useProjectManagement(): UseProjectManagementReturn {
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [categoryResults, setCategoryResults] = useState<string[]>([]);
-  const [selectedCategoryResult, setSelectedCategoryResult] = useState<string | null>(null);
   const [projectMetadata, setProjectMetadata] = useState<ProjectMetadataDto | null>(null);
 
   const loadProjectList = async () => {
@@ -83,7 +80,8 @@ export function useProjectManagement(): UseProjectManagementReturn {
 
   const handleSelectProject = async (projectId: string) => {
     setSelectedProject(projectId);
-    setSelectedCategoryResult(null);
+    // Note: Category result selection is managed via Redux navigationSlice,
+    // which automatically clears selectedCategoryResult when project changes
 
     // Load category results for this project
     try {
@@ -136,12 +134,10 @@ export function useProjectManagement(): UseProjectManagementReturn {
     selectedProject,
     loading,
     categoryResults,
-    selectedCategoryResult,
     projectMetadata,
     handleUpload,
     handleSelectProject,
     handleDeleteProject,
-    setSelectedCategoryResult,
     loadProjectList,
   };
 }

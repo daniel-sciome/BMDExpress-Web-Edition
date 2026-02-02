@@ -242,6 +242,7 @@ export default function LibraryView() {
     return (
       <div className="h-full">
         <CategoryResultsView
+          key={`${selectedProject}-${selectedCategoryResult}`}
           projectId={selectedProject}
           resultName={selectedCategoryResult}
         />
