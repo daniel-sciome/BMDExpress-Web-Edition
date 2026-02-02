@@ -136,104 +136,83 @@ export default function ClusterPicker() {
       ),
       children: (
         <div style={{ fontSize: '13px', paddingTop: '8px' }}>
-          {/* Cluster rows - 21 items per row, last row centered */}
-          {(() => {
-            const ITEMS_PER_ROW = 21;
-            const rows: typeof clusterSets[] = [];
-            for (let i = 0; i < clusterSets.length; i += ITEMS_PER_ROW) {
-              rows.push(clusterSets.slice(i, i + ITEMS_PER_ROW));
-            }
+          {/* Cluster buttons - flex wrap to flow within container */}
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '4px',
+              alignItems: 'center',
+            }}
+          >
+            {clusterSets.map(set => {
+              const { state, selectedCount, totalCount } = getClusterSelectionState(
+                set.categoryIds,
+                highlightedIds
+              );
 
-            return rows.map((row, rowIndex) => {
-              const isLastRow = rowIndex === rows.length - 1;
-              const isIncompleteRow = row.length < ITEMS_PER_ROW;
+              // Remove "Cluster " prefix from label
+              const shortLabel = set.label.replace(/^Cluster\s*/i, '');
+
+              // Special labels that get auto width
+              const isSpecialLabel = shortLabel === 'Unclassified' || shortLabel === 'Not in Semantic Space';
 
               return (
-                <div
-                  key={rowIndex}
-                  style={{
-                    display: 'flex',
-                    gap: '4px',
-                    marginBottom: rowIndex < rows.length - 1 ? '4px' : 0,
-                    justifyContent: isLastRow && isIncompleteRow ? 'center' : 'flex-start',
-                    alignItems: 'center',
-                  }}
+                <Tooltip
+                  key={set.setId}
+                  title={`${set.label}: ${selectedCount}/${totalCount} selected`}
                 >
-                  {row.map(set => {
-                    const { state, selectedCount, totalCount } = getClusterSelectionState(
-                      set.categoryIds,
-                      highlightedIds
-                    );
+                  <div
+                    onClick={(e) => handleClusterClick(set.categoryIds, state, e)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 4,
+                      cursor: 'pointer',
+                      padding: '4px 6px',
+                      borderRadius: 4,
+                      transition: 'background-color 0.2s',
+                      backgroundColor: state !== 'none' ? '#e6f7ff' : '#ffffff',
+                      border: '1px solid #91d5ff',
+                      boxShadow: state !== 'none' ? '0 0 0 1px #91d5ff' : 'none',
+                      width: isSpecialLabel ? 'auto' : 40,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (state === 'none') {
+                        e.currentTarget.style.backgroundColor = '#f5f5f5';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = state !== 'none' ? '#e6f7ff' : '#ffffff';
+                    }}
+                  >
+                    {/* Color swatch */}
+                    <div
+                      style={{
+                        width: 10,
+                        height: 10,
+                        background: set.color,
+                        borderRadius: 2,
+                        border: '1px solid rgba(0,0,0,0.1)',
+                        flexShrink: 0,
+                      }}
+                    />
 
-                    // Remove "Cluster " prefix from label
-                    const shortLabel = set.label.replace(/^Cluster\s*/i, '');
-
-                    // Calculate width based on label length
-                    const baseWidth = 32; // Base width for short labels
-                    const charWidth = 7; // Approximate width per character
-                    const minWidth = shortLabel.length <= 2 ? baseWidth :
-                                     Math.max(baseWidth, shortLabel.length * charWidth + 20);
-
-                    return (
-                      <Tooltip
-                        key={set.setId}
-                        title={`${set.label}: ${selectedCount}/${totalCount} selected`}
-                      >
-                        <div
-                          onClick={(e) => handleClusterClick(set.categoryIds, state, e)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 4,
-                            cursor: 'pointer',
-                            padding: '4px',
-                            borderRadius: 4,
-                            transition: 'background-color 0.2s',
-                            backgroundColor: state !== 'none' ? '#e6f7ff' : '#ffffff',
-                            border: state !== 'none' ? '1px solid #91d5ff' : '0.7px solid #91d5ff',
-                            minWidth: minWidth,
-                            flex: shortLabel.length <= 2 ? '1 1 0' : '0 0 auto',
-                            maxWidth: shortLabel.length <= 2 ? undefined : 'fit-content',
-                          }}
-                          onMouseEnter={(e) => {
-                            if (state === 'none') {
-                              e.currentTarget.style.backgroundColor = '#f5f5f5';
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = state !== 'none' ? '#e6f7ff' : '#ffffff';
-                          }}
-                        >
-                          {/* Color swatch */}
-                          <div
-                            style={{
-                              width: 10,
-                              height: 10,
-                              background: set.color,
-                              borderRadius: 2,
-                              border: '1px solid rgba(0,0,0,0.1)',
-                              flexShrink: 0,
-                            }}
-                          />
-
-                          {/* Short label */}
-                          <span style={{
-                            color: '#595959',
-                            fontWeight: state !== 'none' ? 600 : 400,
-                            fontSize: '11px',
-                            whiteSpace: 'nowrap',
-                          }}>
-                            {shortLabel}
-                          </span>
-                        </div>
-                      </Tooltip>
-                    );
-                  })}
-                </div>
+                    {/* Short label */}
+                    <span style={{
+                      color: '#595959',
+                      fontWeight: state !== 'none' ? 600 : 400,
+                      fontSize: '11px',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {shortLabel}
+                    </span>
+                  </div>
+                </Tooltip>
               );
-            });
-          })()}
+            })}
+          </div>
 
           {/* Hint text */}
           <div style={{
