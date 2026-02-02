@@ -1,34 +1,104 @@
 // PrimaryFilter.tsx
 // Master filter component for global filtering of category results
-// Phase 1: Three numeric range filters with localStorage persistence
+// Uses modal-based editing with flexible operators
 
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, InputNumber, Button, Space, Badge, Tooltip, Radio } from 'antd';
-import { FilterOutlined, ClearOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Card, Button, Space, Badge, Tooltip, Radio, Row, Col, Typography } from 'antd';
+import { FilterOutlined, ClearOutlined, InfoCircleOutlined, EditOutlined } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { updateFiltersWithRenderState, clearFilters, setComparisonMode } from '../store/slices/categoryResultsSlice';
+import FilterGroupEditorModal, {
+  FilterConfig,
+  formatFilterDisplay,
+  isBetweenOperator,
+  isFilterActive,
+} from './filters/FilterGroupEditorModal';
 
-const STORAGE_KEY = 'bmdexpress_master_filters_global';
+const { Text } = Typography;
 
-interface PrimaryFilterState {
-  percentageMin?: number;
-  genesPassedFiltersMin?: number;
-  allGenesMin?: number;
-  allGenesMax?: number;
-}
+const STORAGE_KEY = 'bmdexpress_primary_filters_v2';
 
-// Default filter values
-const DEFAULT_FILTERS: PrimaryFilterState = {
-  percentageMin: 5,
-  genesPassedFiltersMin: 3,
-  allGenesMin: 40,
-  allGenesMax: 500,
-};
+// Default filter configurations
+const DEFAULT_FILTER_CONFIGS: FilterConfig[] = [
+  {
+    id: 'percentage',
+    label: 'Percentage',
+    operator: '>=',
+    value: 5,
+    step: 0.1,
+    precision: 1,
+    min: 0,
+    max: 100,
+  },
+  {
+    id: 'genesPassed',
+    label: 'Genes Passed',
+    operator: '>=',
+    value: 3,
+    step: 1,
+    precision: 0,
+    min: 0,
+  },
+  {
+    id: 'allGenes',
+    label: 'All Genes',
+    operator: '[between]',
+    value: 40,
+    maxValue: 500,
+    step: 1,
+    precision: 0,
+    min: 0,
+  },
+];
 
 interface PrimaryFilterProps {
   hideCard?: boolean; // When true, renders content without Card wrapper
   showComparisonMode?: boolean; // When true, shows Multi-Dataset Comparison Mode controls
   vertical?: boolean; // When true, renders fields in a vertical stack for sidebar
+}
+
+/**
+ * Convert FilterConfig[] to Redux-compatible filter state
+ */
+function configsToReduxState(configs: FilterConfig[]): Record<string, number | undefined> {
+  const state: Record<string, number | undefined> = {};
+
+  for (const config of configs) {
+    // Skip if no value set (means "all" - no filtering)
+    if (config.value === undefined) continue;
+
+    // Map config IDs to Redux state keys based on operator
+    if (config.id === 'percentage') {
+      if (config.operator === '>=' || config.operator === '>') {
+        state.percentageMin = config.value;
+      } else if (config.operator === '<=' || config.operator === '<') {
+        state.percentageMax = config.value;
+      } else if (isBetweenOperator(config.operator)) {
+        state.percentageMin = config.value;
+        state.percentageMax = config.maxValue;
+      }
+    } else if (config.id === 'genesPassed') {
+      if (config.operator === '>=' || config.operator === '>') {
+        state.genesPassedFiltersMin = config.value;
+      } else if (config.operator === '<=' || config.operator === '<') {
+        state.genesPassedFiltersMax = config.value;
+      } else if (isBetweenOperator(config.operator)) {
+        state.genesPassedFiltersMin = config.value;
+        state.genesPassedFiltersMax = config.maxValue;
+      }
+    } else if (config.id === 'allGenes') {
+      if (config.operator === '>=' || config.operator === '>') {
+        state.allGenesMin = config.value;
+      } else if (config.operator === '<=' || config.operator === '<') {
+        state.allGenesMax = config.value;
+      } else if (isBetweenOperator(config.operator)) {
+        state.allGenesMin = config.value;
+        state.allGenesMax = config.maxValue;
+      }
+    }
+  }
+
+  return state;
 }
 
 /**
@@ -43,7 +113,7 @@ export function PrimaryFilterTitle({ activeCount }: { activeCount: number }) {
       {activeCount > 0 && (
         <Badge count={activeCount} style={{ backgroundColor: '#52c41a' }} />
       )}
-      <Tooltip title="Filter categories across all visualizations. Filters are global and persist across analyses. Default: Percentage ≥5%, Genes Passed ≥3, All Genes 40-500. Use 'Reset' to restore defaults, 'Show All' to remove all filters. Not applied to GENE analyses.">
+      <Tooltip title="Filter categories across all visualizations. Filters are global and persist across analyses. Not applied to GENE analyses.">
         <InfoCircleOutlined style={{ color: '#1890ff', cursor: 'help' }} />
       </Tooltip>
     </Space>
@@ -52,236 +122,90 @@ export function PrimaryFilterTitle({ activeCount }: { activeCount: number }) {
 
 export default function PrimaryFilter({ hideCard = false, showComparisonMode = false, vertical = false }: PrimaryFilterProps) {
   const dispatch = useAppDispatch();
-  const currentFilters = useAppSelector(state => state.categoryResults.filters);
   const comparisonMode = useAppSelector(state => state.categoryResults.comparisonMode);
 
-  // Local state for form inputs (before applying)
-  const [localFilters, setLocalFilters] = useState<PrimaryFilterState>(DEFAULT_FILTERS);
+  // Filter configurations state
+  const [filterConfigs, setFilterConfigs] = useState<FilterConfig[]>(DEFAULT_FILTER_CONFIGS);
+  const [editorVisible, setEditorVisible] = useState(false);
 
-  // Load from localStorage on mount, merge with defaults
+  // Load from localStorage on mount
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
-    let filtersToLoad = DEFAULT_FILTERS;
+    let configsToLoad = DEFAULT_FILTER_CONFIGS;
 
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        // Merge stored with defaults (stored values take precedence)
-        filtersToLoad = { ...DEFAULT_FILTERS, ...parsed };
+        if (Array.isArray(parsed)) {
+          configsToLoad = parsed;
+        }
       } catch (error) {
         console.error('Failed to load stored filters, using defaults:', error);
       }
     }
 
-    setLocalFilters(filtersToLoad);
+    setFilterConfigs(configsToLoad);
     // Auto-apply filters on mount
-    dispatch(updateFiltersWithRenderState(filtersToLoad));
+    dispatch(updateFiltersWithRenderState(configsToReduxState(configsToLoad)));
   }, [dispatch]);
 
-  // Count active filters (only the 4 visible primary filter fields)
-  const primaryFilterKeys: (keyof PrimaryFilterState)[] = ['percentageMin', 'genesPassedFiltersMin', 'allGenesMin', 'allGenesMax'];
-  const activeFilterCount = primaryFilterKeys.filter(
-    key => localFilters[key] !== undefined && localFilters[key] !== null
-  ).length;
+  // Count active filters (those with values set, not "all")
+  const activeFilterCount = filterConfigs.filter(f => isFilterActive(f)).length;
 
-  // Handle apply filters
-  const handleApply = () => {
-    // Filter out undefined values
-    const filtersToApply = Object.fromEntries(
-      Object.entries(localFilters).filter(([_, value]) => value !== undefined && value !== null)
-    );
-
-    console.log('[PrimaryFilter] Applying filters:', filtersToApply);
-    dispatch(updateFiltersWithRenderState(filtersToApply));
-
-    // Persist to localStorage
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(localFilters));
+  // Handle save from modal
+  const handleSave = (configs: FilterConfig[]) => {
+    setFilterConfigs(configs);
+    const reduxState = configsToReduxState(configs);
+    dispatch(updateFiltersWithRenderState(reduxState));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(configs));
   };
 
   // Handle reset to defaults
   const handleReset = () => {
-    setLocalFilters(DEFAULT_FILTERS);
-    dispatch(updateFiltersWithRenderState(DEFAULT_FILTERS));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_FILTERS));
+    setFilterConfigs(DEFAULT_FILTER_CONFIGS);
+    dispatch(updateFiltersWithRenderState(configsToReduxState(DEFAULT_FILTER_CONFIGS)));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_FILTER_CONFIGS));
   };
 
-  // Handle show all (clear all filters)
+  // Handle show all (clear all filter values to "all")
   const handleShowAll = () => {
-    const emptyFilters: PrimaryFilterState = {
-      percentageMin: undefined,
-      genesPassedFiltersMin: undefined,
-      allGenesMin: undefined,
-      allGenesMax: undefined,
-    };
-    setLocalFilters(emptyFilters);
+    const cleared = filterConfigs.map(f => ({ ...f, value: undefined, maxValue: undefined }));
+    setFilterConfigs(cleared);
     dispatch(clearFilters());
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cleared));
   };
-
-  // Handle individual filter changes
-  const updateFilter = <K extends keyof PrimaryFilterState>(
-    key: K,
-    value: number | null
-  ) => {
-    setLocalFilters(prev => ({
-      ...prev,
-      [key]: value === null ? undefined : value,
-    }));
-  };
-
-  const labelStyle = { fontWeight: 500, fontSize: '13px', whiteSpace: 'nowrap' } as const;
-  const inputWidth = 60;
 
   const filterContent = (
-      <>
-      {vertical ? (
-        <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-        <Space direction="vertical" size={8}>
-          <Space size={8} align="center">
-            <span style={labelStyle}>Percentage (Min %):</span>
-            <InputNumber
-              style={{ width: inputWidth }}
-              placeholder="--"
-              value={localFilters.percentageMin}
-              onChange={(value) => updateFilter('percentageMin', value)}
-              min={0}
-              max={100}
-              step={1}
-              precision={1}
-            />
-          </Space>
-          <Space size={8} align="center">
-            <span style={labelStyle}>Genes Passed (Min):</span>
-            <InputNumber
-              style={{ width: inputWidth }}
-              placeholder="--"
-              value={localFilters.genesPassedFiltersMin}
-              onChange={(value) => updateFilter('genesPassedFiltersMin', value)}
-              min={0}
-              step={1}
-              precision={0}
-            />
-          </Space>
-          <Space size={8} align="center">
-            <span style={labelStyle}>All Genes (Min):</span>
-            <InputNumber
-              style={{ width: inputWidth }}
-              placeholder="--"
-              value={localFilters.allGenesMin}
-              onChange={(value) => updateFilter('allGenesMin', value)}
-              min={0}
-              step={1}
-              precision={0}
-            />
-          </Space>
-          <Space size={8} align="center">
-            <span style={labelStyle}>All Genes (Max):</span>
-            <InputNumber
-              style={{ width: inputWidth }}
-              placeholder="--"
-              value={localFilters.allGenesMax}
-              onChange={(value) => updateFilter('allGenesMax', value)}
-              min={0}
-              step={1}
-              precision={0}
-            />
-          </Space>
-          <Space size={8}>
-            <Button type="primary" icon={<FilterOutlined />} onClick={handleApply} size="small">
-              Apply
-            </Button>
-            <Button icon={<ClearOutlined />} onClick={handleReset} size="small">
-              Reset
-            </Button>
-            <Button onClick={handleShowAll} size="small" danger>
-              Show All
-            </Button>
-          </Space>
-        </Space>
-        </div>
-      ) : (
-        <Row gutter={[16, 16]} align="middle">
-          {/* Percentage Min */}
-          <Col xs={24} sm={12} md={6}>
-            <div style={{ marginBottom: 4, fontWeight: 500, fontSize: '13px' }}>
-              Percentage (Min %)
-            </div>
-            <InputNumber
-              style={{ width: '100%' }}
-              placeholder="No minimum"
-              value={localFilters.percentageMin}
-              onChange={(value) => updateFilter('percentageMin', value)}
-              min={0}
-              max={100}
-              step={1}
-              precision={1}
-            />
-          </Col>
+    <>
+      {/* Action buttons at top */}
+      <Space size={8} style={{ marginBottom: 12 }}>
+        <Button
+          type="primary"
+          size="small"
+          icon={<EditOutlined />}
+          onClick={() => setEditorVisible(true)}
+        >
+          Edit
+        </Button>
+        <Button size="small" icon={<ClearOutlined />} onClick={handleReset}>
+          Reset
+        </Button>
+        <Button size="small" danger onClick={handleShowAll}>
+          Clear All
+        </Button>
+      </Space>
 
-          {/* Genes Passed Filters Min */}
-          <Col xs={24} sm={12} md={6}>
-            <div style={{ marginBottom: 4, fontWeight: 500, fontSize: '13px' }}>
-              Genes Passed Filters (Min)
-            </div>
-            <InputNumber
-              style={{ width: '100%' }}
-              placeholder="No minimum"
-              value={localFilters.genesPassedFiltersMin}
-              onChange={(value) => updateFilter('genesPassedFiltersMin', value)}
-              min={0}
-              step={1}
-              precision={0}
-            />
-          </Col>
-
-          {/* All Genes Min */}
-          <Col xs={24} sm={12} md={5}>
-            <div style={{ marginBottom: 4, fontWeight: 500, fontSize: '13px' }}>
-              All Genes (Min)
-            </div>
-            <InputNumber
-              style={{ width: '100%' }}
-              placeholder="No minimum"
-              value={localFilters.allGenesMin}
-              onChange={(value) => updateFilter('allGenesMin', value)}
-              min={0}
-              step={1}
-              precision={0}
-            />
-          </Col>
-
-          {/* All Genes Max */}
-          <Col xs={24} sm={12} md={5}>
-            <div style={{ marginBottom: 4, fontWeight: 500, fontSize: '13px' }}>
-              All Genes (Max)
-            </div>
-            <InputNumber
-              style={{ width: '100%' }}
-              placeholder="No maximum"
-              value={localFilters.allGenesMax}
-              onChange={(value) => updateFilter('allGenesMax', value)}
-              min={0}
-              step={1}
-              precision={0}
-            />
-          </Col>
-
-          {/* Action Buttons */}
-          <Col xs={24} md={2}>
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Button type="primary" icon={<FilterOutlined />} onClick={handleApply} block size="small">
-                Apply
-              </Button>
-              <Button icon={<ClearOutlined />} onClick={handleReset} block size="small">
-                Reset
-              </Button>
-              <Button onClick={handleShowAll} block size="small" danger>
-                Show All
-              </Button>
-            </Space>
-          </Col>
-        </Row>
-      )}
+      {/* Filter display as text */}
+      <Space direction="vertical" size={4} style={{ width: '100%' }}>
+        {filterConfigs.map(filter => (
+          <Text
+            key={filter.id}
+            style={{ fontSize: '13px' }}
+          >
+            {formatFilterDisplay(filter)}
+          </Text>
+        ))}
+      </Space>
 
       {/* Multi-dataset Comparison Mode - only shown in multi-dataset context */}
       {showComparisonMode && (
@@ -315,7 +239,16 @@ export default function PrimaryFilter({ hideCard = false, showComparisonMode = f
           </Col>
         </Row>
       )}
-      </>
+
+      {/* Editor Modal */}
+      <FilterGroupEditorModal
+        visible={editorVisible}
+        onClose={() => setEditorVisible(false)}
+        onSave={handleSave}
+        filters={filterConfigs}
+        title="Edit Primary Filters"
+      />
+    </>
   );
 
   // Render with or without Card wrapper based on hideCard prop
