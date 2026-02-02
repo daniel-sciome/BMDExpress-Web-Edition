@@ -36,6 +36,18 @@ export default function FilterBuilder({ filter, onChange, onDelete, showDelete =
   );
   const [enabled, setEnabled] = useState<boolean>(filter?.enabled ?? true);
 
+  // Sync local state when filter prop changes (e.g., when opening editor with different group)
+  // Use filter.id as the key to detect when we're editing a truly different filter
+  const filterId = filter && 'id' in filter ? (filter as Filter).id : undefined;
+  useEffect(() => {
+    setSelectedField(filter?.field);
+    setSelectedOperator(filter?.operator);
+    setValue(filter && 'value' in filter ? filter.value : undefined);
+    setMaxValue(filter && 'maxValue' in filter ? filter.maxValue : undefined);
+    setSelectedValues(filter && 'values' in filter && filter.values ? filter.values : []);
+    setEnabled(filter?.enabled ?? true);
+  }, [filterId]);
+
   // Get field metadata
   const fieldMetadata = selectedField ? FIELD_METADATA[selectedField] : undefined;
   const isNumeric = fieldMetadata?.type === 'numeric';

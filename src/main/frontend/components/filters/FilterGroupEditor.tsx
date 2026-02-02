@@ -180,7 +180,7 @@ export default function FilterGroupEditor({ visible, onClose, editingGroup }: Fi
 
           {filters.map((filter, index) => (
             <FilterBuilder
-              key={index}
+              key={(filter as Filter).id || `new-${index}`}
               filter={filter}
               onChange={(filterData) => handleUpdateFilter(index, filterData)}
               onDelete={() => handleDeleteFilter(index)}

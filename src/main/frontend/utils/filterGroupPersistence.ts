@@ -15,7 +15,8 @@ const REMEMBER_FILTERS_STORAGE_KEY = 'bmdexpress_rememberFilters';
  */
 export function loadFilterGroups(): FilterGroup[] | null {
   const rememberFilters = localStorage.getItem(REMEMBER_FILTERS_STORAGE_KEY);
-  if (rememberFilters !== 'true') {
+  // Remember filters defaults to true (only skip if explicitly 'false')
+  if (rememberFilters === 'false') {
     return null;
   }
 
@@ -37,7 +38,8 @@ export function loadFilterGroups(): FilterGroup[] | null {
  */
 export function saveFilterGroups(groups: FilterGroup[]): void {
   const rememberFilters = localStorage.getItem(REMEMBER_FILTERS_STORAGE_KEY);
-  if (rememberFilters !== 'true') {
+  // Remember filters defaults to true (only skip if explicitly 'false')
+  if (rememberFilters === 'false') {
     return;
   }
 
@@ -60,11 +62,12 @@ export function clearSavedFilterGroups(): void {
 }
 
 /**
- * Get remember filters preference
+ * Get remember filters preference (defaults to true)
  */
 export function getRememberFiltersPreference(): boolean {
   const saved = localStorage.getItem(REMEMBER_FILTERS_STORAGE_KEY);
-  return saved === 'true';
+  // Default to true if no preference saved
+  return saved !== 'false';
 }
 
 /**
