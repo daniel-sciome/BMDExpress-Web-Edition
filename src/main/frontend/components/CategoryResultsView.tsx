@@ -6,6 +6,7 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadCategoryResultsWithRenderState, loadAnalysisParameters, setAnalysisType } from '../store/slices/categoryResultsSlice';
 import { setSelectedAnalysisType, setSelectedCategoryResult } from '../store/slices/navigationSlice';
 import { loadVisibilityDefaults, selectVisibilityInitialized, setDisplayMode, selectDisplayMode } from '../store/slices/visibilitySlice';
+import { selectVisibleCharts, selectOpenCollapses, setVisibleCharts, setOpenCollapses, openCollapse, collapseAll } from '../store/slices/uiStateSlice';
 import type { DisplayMode } from '../types/visibilityTypes';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
@@ -103,13 +104,10 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   const visibilityInitialized = useAppSelector(selectVisibilityInitialized);
   const displayMode = useAppSelector(selectDisplayMode);
   const [annotation, setAnnotation] = useState<AnalysisAnnotationDto | null>(null);
-  const [visibleCharts, setVisibleCharts] = useState<string[]>([]);
-  // Track which chart collapses are open (start with all expanded, including table)
-  const [openChartCollapses, setOpenChartCollapses] = useState<string[]>([
-    'chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5', 'chart-6',
-    'chart-7', 'chart-8', 'chart-9', 'chart-10', 'chart-11', 'chart-12',
-    'chart-14', 'chart-15', 'category-results-table'
-  ]);
+
+  // Chart visibility and collapse state from Redux (persists across result changes)
+  const visibleCharts = useAppSelector(selectVisibleCharts);
+  const openChartCollapses = useAppSelector(selectOpenCollapses);
 
   // Datasets state
   const [allAnnotations, setAllAnnotations] = useState<AnalysisAnnotationDto[]>([]);
@@ -199,16 +197,18 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
     const keysArray = Array.isArray(keys) ? keys : [keys];
     if (keysArray.includes(chartKey)) {
       // Opening this collapse - add to list if not present
-      setOpenChartCollapses(prev => prev.includes(chartKey) ? prev : [...prev, chartKey]);
+      if (!openChartCollapses.includes(chartKey)) {
+        dispatch(setOpenCollapses([...openChartCollapses, chartKey]));
+      }
     } else {
       // Closing this collapse - remove from list
-      setOpenChartCollapses(prev => prev.filter(k => k !== chartKey));
+      dispatch(setOpenCollapses(openChartCollapses.filter(k => k !== chartKey)));
     }
   };
 
   // Handle collapse all charts
   const handleCollapseAll = () => {
-    setOpenChartCollapses([]);
+    dispatch(collapseAll());
   };
 
   // Track previous visibleCharts to detect newly selected charts
@@ -230,15 +230,16 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
     // Only expand newly selected charts
     const newKeys = newlySelected
       .map(v => chartKeyMap[v])
-      .filter((key): key is string => key !== undefined);
+      .filter((key): key is string => key !== undefined)
+      .filter(key => !openChartCollapses.includes(key));
 
     if (newKeys.length > 0) {
-      setOpenChartCollapses(prev => [...prev, ...newKeys]);
+      dispatch(setOpenCollapses([...openChartCollapses, ...newKeys]));
     }
 
     // Update ref for next comparison
     prevVisibleChartsRef.current = visibleCharts;
-  }, [visibleCharts]);
+  }, [visibleCharts, openChartCollapses, dispatch]);
 
   // Handle display mode change
   const handleDisplayModeChange = (mode: DisplayMode) => {
@@ -789,9 +790,11 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                     isExpanded={openChartCollapses.includes('category-results-table')}
                     onExpandChange={(expanded) => {
                       if (expanded) {
-                        setOpenChartCollapses(prev => prev.includes('category-results-table') ? prev : [...prev, 'category-results-table']);
+                        if (!openChartCollapses.includes('category-results-table')) {
+                          dispatch(setOpenCollapses([...openChartCollapses, 'category-results-table']));
+                        }
                       } else {
-                        setOpenChartCollapses(prev => prev.filter(k => k !== 'category-results-table'));
+                        dispatch(setOpenCollapses(openChartCollapses.filter(k => k !== 'category-results-table')));
                       }
                     }}
                   />
@@ -1088,9 +1091,11 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           isExpanded={openChartCollapses.includes('category-results-table')}
           onExpandChange={(expanded) => {
             if (expanded) {
-              setOpenChartCollapses(prev => prev.includes('category-results-table') ? prev : [...prev, 'category-results-table']);
+              if (!openChartCollapses.includes('category-results-table')) {
+                dispatch(setOpenCollapses([...openChartCollapses, 'category-results-table']));
+              }
             } else {
-              setOpenChartCollapses(prev => prev.filter(k => k !== 'category-results-table'));
+              dispatch(setOpenCollapses(openChartCollapses.filter(k => k !== 'category-results-table')));
             }
           }}
         />
@@ -1271,7 +1276,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {activePanel === 'charts' && (
           <Checkbox.Group
             value={visibleCharts}
-            onChange={setVisibleCharts}
+            onChange={(checkedValues) => dispatch(setVisibleCharts(checkedValues as string[]))}
             style={{ width: '100%' }}
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
