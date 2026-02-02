@@ -8,6 +8,8 @@ import SelectedProjectInfo from '../components/home/SelectedProjectInfo';
 import ProjectMetadataPanel from '../components/home/ProjectMetadataPanel';
 import EmptyState from '../components/home/EmptyState';
 import { useProjectManagement } from '../components/home/useProjectManagement';
+import { useAppSelector, useAppDispatch } from '../store/hooks';
+import { setSelectedCategoryResult, selectSelectedCategoryResult } from '../store/slices/navigationSlice';
 import {
   VerticalLayout,
   Icon
@@ -23,6 +25,8 @@ export default function HomeView() {
   // It is intentionally unreachable but preserved for future use.
 
   const [viewMode, setViewMode] = useState<'upload' | 'library' | null>(null);
+  const dispatch = useAppDispatch();
+  const selectedCategoryResult = useAppSelector(selectSelectedCategoryResult);
 
   // Use custom hook for project management
   const {
@@ -30,12 +34,10 @@ export default function HomeView() {
     selectedProject,
     loading,
     categoryResults,
-    selectedCategoryResult,
     projectMetadata,
     handleUpload,
     handleSelectProject,
     handleDeleteProject,
-    setSelectedCategoryResult,
     loadProjectList,
   } = useProjectManagement();
 
@@ -112,7 +114,7 @@ export default function HomeView() {
               projectId={selectedProject}
               categoryResults={categoryResults}
               selectedCategoryResult={selectedCategoryResult}
-              onSelectCategoryResult={setSelectedCategoryResult}
+              onSelectCategoryResult={(result) => dispatch(setSelectedCategoryResult(result))}
             />
           )}
 
