@@ -22,7 +22,7 @@ function createStandardFilterGroups(): FilterGroup[] {
     // are handled by Primary Filters and not duplicated here
     {
       id: 'standard-statistics',
-      name: 'Statistics: Fisher\'s & BMD/BMDL/BMDU',
+      name: 'Statistics',
       description: 'Filters for all Statistics columns (Fisher\'s Full + BMD/BMDL/BMDU Extended + Confidence Intervals)',
       enabled: false,
       filters: [
@@ -210,7 +210,7 @@ function createStandardFilterGroups(): FilterGroup[] {
     // 3. Advanced Columns - Filter Counts & Percentiles
     {
       id: 'standard-advanced-counts',
-      name: 'Advanced: Filter Counts & Percentiles',
+      name: 'Counts & Percentiles',
       description: 'Filters for Filter Counts (12) and Percentile Values (6)',
       enabled: false,
       filters: [
@@ -351,7 +351,7 @@ function createStandardFilterGroups(): FilterGroup[] {
     // 4. Advanced Columns - Directional Analysis
     {
       id: 'standard-advanced-directional',
-      name: 'Advanced: Directional Analysis',
+      name: 'Direction',
       description: 'Filters for Directional UP (9), DOWN (9), and Analysis (3)',
       enabled: false,
       filters: [
@@ -514,7 +514,7 @@ function createStandardFilterGroups(): FilterGroup[] {
     // 5. Advanced Columns - Fold Change & Scores
     {
       id: 'standard-advanced-foldchange',
-      name: 'Advanced: Fold Change & Scores',
+      name: 'FC & Scores',
       description: 'Filters for Fold Change (6), Z-Scores (4), and Model Fold Change (4)',
       enabled: false,
       filters: [
