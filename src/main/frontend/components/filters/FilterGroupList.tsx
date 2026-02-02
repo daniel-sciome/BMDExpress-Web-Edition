@@ -1,15 +1,15 @@
 /**
  * FilterGroupList Component
  *
- * Displays filter groups in a collapsible tree format
+ * Displays filter groups in collapsible panels
  * - Show/hide filter groups
  * - Toggle enabled/disabled
  * - Edit/delete groups
  * - View filters within each group
  */
 
-import React, { useState, useEffect } from 'react';
-import { Tree, Button, Space, Tooltip, Typography, Tag, Popconfirm, Collapse, Checkbox } from 'antd';
+import React, { useState } from 'react';
+import { Button, Space, Tooltip, Typography, Tag, Popconfirm, Collapse, Checkbox } from 'antd';
 import {
   PlusOutlined,
   DeleteOutlined,
@@ -17,14 +17,13 @@ import {
   EyeOutlined,
   EyeInvisibleOutlined,
 } from '@ant-design/icons';
-import type { DataNode } from 'antd/es/tree';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { selectAllFilterGroups, toggleFilterGroup, deleteFilterGroup } from '../../store/slices/filterSlice';
 import { selectFilteredData } from '../../store/slices/categoryResultsSlice';
 import { getCategoryIdsForFilterGroup } from '../../utils/filterEvaluation';
 import { FIELD_METADATA } from '../../utils/filterMetadata';
 import FilterGroupEditor from './FilterGroupEditor';
-import PrimaryFilter, { PrimaryFilterTitle } from '../PrimaryFilter';
+import PrimaryFilter from '../PrimaryFilter';
 import type { FilterGroup, Filter } from '../../types/filterTypes';
 import { getRememberFiltersPreference, setRememberFiltersPreference } from '../../utils/filterGroupPersistence';
 
@@ -44,7 +43,6 @@ export default function FilterGroupList() {
 
   const [editorVisible, setEditorVisible] = useState(false);
   const [editingGroup, setEditingGroup] = useState<FilterGroup | undefined>(undefined);
-  const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
   const [rememberFilters, setRememberFilters] = useState<boolean>(() => getRememberFiltersPreference());
 
   // Update localStorage when remember filters preference changes
@@ -129,220 +127,159 @@ export default function FilterGroupList() {
     return `${field.label} ${symbol} ${valueStr}`;
   };
 
-  // Build tree data from filter groups (with Primary Filter as first node)
-  const primaryFilterNode: DataNode = {
-    key: 'primary-filters',
-    title: (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '4px 0',
-        }}
-      >
+  return (
+    <div style={{ marginTop: 16 }}>
+      {/* Header with create button */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <Space size="small">
-          <Text strong>Primary Filters</Text>
-          {activeFilterCount > 0 && (
-            <Tag color="green" style={{ fontSize: '11px' }}>
-              {activeFilterCount} active
-            </Tag>
-          )}
-        </Space>
-      </div>
-    ),
-    children: [
-      {
-        key: 'primary-filters-content',
-        title: <PrimaryFilter hideCard={true} vertical={true} />,
-        isLeaf: true,
-        selectable: false,
-      },
-    ],
-  };
-
-  const treeData: DataNode[] = [primaryFilterNode, ...filterGroups.map((group) => {
-    const matchingCount = getCategoryIdsForFilterGroup(allData, group).length;
-
-    return {
-      key: group.id,
-      title: (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '4px 0',
-          }}
-        >
-          <Space size="small">
-            <Text
-              strong
-              style={{
-                textDecoration: !group.enabled ? 'line-through' : 'none',
-                opacity: group.enabled ? 1 : 0.5,
-              }}
-            >
-              {group.name}
-            </Text>
-            {group.enabled && (
-              <Tag color="blue" style={{ fontSize: '11px' }}>
-                {matchingCount}
-              </Tag>
-            )}
-          </Space>
-          <Space size="small">
-            <Tooltip title={group.enabled ? 'Disable' : 'Enable'}>
-              <Button
-                type="text"
-                size="small"
-                icon={group.enabled ? <EyeOutlined /> : <EyeInvisibleOutlined />}
-                onClick={(e) => handleToggle(group.id, e)}
-                style={{ opacity: 0.7 }}
-              />
-            </Tooltip>
-            <Tooltip title="Edit">
-              <Button
-                type="text"
-                size="small"
-                icon={<EditOutlined />}
-                onClick={(e) => handleEdit(group, e)}
-                style={{ opacity: 0.7 }}
-              />
-            </Tooltip>
-            <Popconfirm
-              title="Delete filter group?"
-              description="This action cannot be undone."
-              onConfirm={(e) => handleDelete(group.id, e!)}
-              okText="Delete"
-              cancelText="Cancel"
-              okButtonProps={{ danger: true }}
-            >
-              <Button
-                type="text"
-                size="small"
-                danger
-                icon={<DeleteOutlined />}
-                onClick={(e) => e.stopPropagation()}
-                style={{ opacity: 0.7 }}
-              />
-            </Popconfirm>
-          </Space>
-        </div>
-      ),
-      children: [
-        ...(group.description
-          ? [
-              {
-                key: `${group.id}-description`,
-                title: (
-                  <Text type="secondary" style={{ fontSize: '12px', fontStyle: 'italic' }}>
-                    {group.description}
-                  </Text>
-                ),
-                isLeaf: true,
-                selectable: false,
-              },
-            ]
-          : []),
-        ...group.filters.map((filter, index) => ({
-          key: `${group.id}-filter-${index}`,
-          title: (
-            <div style={{ opacity: filter.enabled ? 1 : 0.5 }}>
-              <Text style={{ fontSize: '12px', textDecoration: !filter.enabled ? 'line-through' : 'none' }}>
-                {formatFilter(filter)}
-              </Text>
-              {!filter.enabled && (
-                <Tag color="default" style={{ marginLeft: 8, fontSize: '10px' }}>
-                  Disabled
-                </Tag>
-              )}
-            </div>
-          ),
-          isLeaf: true,
-          selectable: false,
-        })),
-      ],
-    };
-  })];
-
-  // Build collapse items
-  const collapseItems = [
-    {
-      key: '1',
-      label: (
-        <div
-          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-          onClick={(e) => e.stopPropagation()}
-        >
           <Text strong style={{ fontSize: '13px', color: '#262626' }}>
             Filters
           </Text>
           <Tag color="default" style={{ fontSize: '11px' }}>
             {filterGroups.length + 1} groups
           </Tag>
-          <Tooltip title="Create filter group">
-            <Button
-              type="primary"
-              size="small"
-              icon={<PlusOutlined />}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCreate();
-              }}
-            />
-          </Tooltip>
-        </div>
-      ),
-      children: (
-        <>
-          {/* Filter tree (includes Primary Filter as first node) */}
-          <style>{`
-            .filter-tree .ant-tree-switcher {
-              width: 16px !important;
-              display: flex !important;
-              align-items: flex-start !important;
-              padding-top: 11px !important;
-            }
-            .filter-tree .ant-tree-treenode {
-              align-items: flex-start !important;
-            }
-          `}</style>
-          <Tree
-            className="filter-tree"
-            showIcon
-            treeData={treeData}
-            expandedKeys={expandedKeys}
-            onExpand={(keys) => setExpandedKeys(keys)}
-            selectable={false}
-            style={{
-              background: 'transparent',
-              paddingLeft: 10,
-            }}
+        </Space>
+        <Tooltip title="Create filter group">
+          <Button
+            type="primary"
+            size="small"
+            icon={<PlusOutlined />}
+            onClick={handleCreate}
           />
+        </Tooltip>
+      </div>
 
-          {/* Remember Filters checkbox */}
-          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f0f0f0' }}>
-            <Checkbox
-              checked={rememberFilters}
-              onChange={(e) => handleRememberFiltersChange(e.target.checked)}
-              style={{ fontSize: '12px' }}
-            >
-              Remember filter settings
-            </Checkbox>
-          </div>
-        </>
-      ),
-    },
-  ];
-
-  return (
-    <div style={{ marginTop: 16 }}>
+      {/* Primary Filters - independent Collapse */}
       <Collapse
-        defaultActiveKey={['1']}
-        items={collapseItems}
         size="small"
+        items={[{
+          key: 'primary-filters',
+          label: (
+            <Space size="small">
+              <Text strong>Primary Filters</Text>
+              {activeFilterCount > 0 && (
+                <Tag color="green" style={{ fontSize: '11px' }}>
+                  {activeFilterCount} active
+                </Tag>
+              )}
+            </Space>
+          ),
+          children: <PrimaryFilter hideCard={true} vertical={true} />,
+        }]}
+        defaultActiveKey={['primary-filters']}
+        style={{ marginBottom: 8 }}
       />
+
+      {/* Other filter groups - each as independent Collapse */}
+      {filterGroups.map((group) => {
+        const matchingCount = getCategoryIdsForFilterGroup(allData, group).length;
+        return (
+          <Collapse
+            key={group.id}
+            size="small"
+            items={[{
+              key: group.id,
+              label: (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    width: '100%',
+                  }}
+                >
+                  <Space size="small">
+                    <Text
+                      strong
+                      style={{
+                        textDecoration: !group.enabled ? 'line-through' : 'none',
+                        opacity: group.enabled ? 1 : 0.5,
+                      }}
+                    >
+                      {group.name}
+                    </Text>
+                    {group.enabled && (
+                      <Tag color="blue" style={{ fontSize: '11px' }}>
+                        {matchingCount}
+                      </Tag>
+                    )}
+                  </Space>
+                  <Space size="small" onClick={(e) => e.stopPropagation()}>
+                    <Tooltip title={group.enabled ? 'Disable' : 'Enable'}>
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={group.enabled ? <EyeOutlined /> : <EyeInvisibleOutlined />}
+                        onClick={(e) => handleToggle(group.id, e)}
+                        style={{ opacity: 0.7 }}
+                      />
+                    </Tooltip>
+                    <Tooltip title="Edit">
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<EditOutlined />}
+                        onClick={(e) => handleEdit(group, e)}
+                        style={{ opacity: 0.7 }}
+                      />
+                    </Tooltip>
+                    <Popconfirm
+                      title="Delete filter group?"
+                      description="This action cannot be undone."
+                      onConfirm={(e) => handleDelete(group.id, e!)}
+                      okText="Delete"
+                      cancelText="Cancel"
+                      okButtonProps={{ danger: true }}
+                    >
+                      <Button
+                        type="text"
+                        size="small"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ opacity: 0.7 }}
+                      />
+                    </Popconfirm>
+                  </Space>
+                </div>
+              ),
+              children: (
+                <div style={{ paddingLeft: 8 }}>
+                  {group.description && (
+                    <Text type="secondary" style={{ fontSize: '12px', fontStyle: 'italic', display: 'block', marginBottom: 8 }}>
+                      {group.description}
+                    </Text>
+                  )}
+                  {group.filters.map((filter, index) => (
+                    <div key={index} style={{ opacity: filter.enabled ? 1 : 0.5, marginBottom: 4 }}>
+                      <Text style={{ fontSize: '12px', textDecoration: !filter.enabled ? 'line-through' : 'none' }}>
+                        {formatFilter(filter)}
+                      </Text>
+                      {!filter.enabled && (
+                        <Tag color="default" style={{ marginLeft: 8, fontSize: '10px' }}>
+                          Disabled
+                        </Tag>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ),
+            }]}
+            style={{ marginBottom: 8 }}
+          />
+        );
+      })}
+
+      {/* Remember Filters checkbox */}
+      <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f0f0f0' }}>
+        <Checkbox
+          checked={rememberFilters}
+          onChange={(e) => handleRememberFiltersChange(e.target.checked)}
+          style={{ fontSize: '12px' }}
+        >
+          Remember filter settings
+        </Checkbox>
+      </div>
 
       {/* Filter Group Editor Modal */}
       <FilterGroupEditor
