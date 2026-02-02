@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Collapse, Tag, Typography, Switch, Space, Radio, Spin, Button, Tooltip } from 'antd';
+import { Collapse, Tag, Typography, Switch, Space, Radio, Spin, Tooltip, Checkbox } from 'antd';
 import { EyeOutlined } from '@ant-design/icons';
+import { getRememberFiltersPreference, setRememberFiltersPreference } from '../utils/filterGroupPersistence';
 import { ProjectService } from 'Frontend/generated/endpoints';
 import type ProjectMetadataDto from 'Frontend/generated/com/sciome/dto/ProjectMetadataDto';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { setSelectedProject } from '../store/slices/navigationSlice';
 import { setViewMode } from '../store/slices/categoryResultsSlice';
-import { selectAllFilterGroups } from '../store/slices/filterSlice';
 import { setDisplayMode, selectDisplayMode } from '../store/slices/visibilitySlice';
 import type { DisplayMode } from '../types/visibilityTypes';
 import FilterGroupList from './filters/FilterGroupList';
-import FilterGroupEditor from './filters/FilterGroupEditor';
 
 const { Text } = Typography;
 
@@ -18,14 +17,21 @@ export default function ProjectTreeSidebar() {
   const dispatch = useAppDispatch();
   const selectedProject = useAppSelector((state) => state.navigation.selectedProject);
   const viewMode = useAppSelector((state) => state.categoryResults.viewMode);
-  const filterGroups = useAppSelector(selectAllFilterGroups);
   const displayMode = useAppSelector(selectDisplayMode);
 
-  // Find the Essential filter group
-  const essentialGroup = filterGroups.find(group => group.id === 'standard-essential');
+  // State for remember filters preference
+  const [rememberFilters, setRememberFilters] = useState<boolean>(() => getRememberFiltersPreference());
 
-  // State for essential filter group editor
-  const [essentialEditorVisible, setEssentialEditorVisible] = useState(false);
+  // Handle remember filters change
+  const handleRememberFiltersChange = (checked: boolean) => {
+    const wasEnabled = rememberFilters;
+    setRememberFilters(checked);
+    setRememberFiltersPreference(checked);
+    // Reload if user just disabled it (to clear saved state)
+    if (wasEnabled && !checked) {
+      window.location.reload();
+    }
+  };
 
   // Project list state
   const [projects, setProjects] = useState<string[]>([]);
@@ -231,50 +237,17 @@ export default function ProjectTreeSidebar() {
         </div>
       )}
 
-      {/* Simple mode: Essential Filter Group */}
-      {viewMode === 'simple' && essentialGroup && selectedProject && (
-        <>
-          <Collapse
-            size="small"
-            defaultActiveKey={['essential']}
-            style={{ marginTop: '8px' }}
-            items={[{
-              key: 'essential',
-              label: (
-                <Space>
-                  <Text strong style={{ fontSize: '13px' }}>{essentialGroup.name}</Text>
-                  {essentialGroup.enabled && (
-                    <Tag color="green" style={{ fontSize: '11px' }}>Active</Tag>
-                  )}
-                </Space>
-              ),
-              children: (
-                <div>
-                  <div style={{ marginBottom: '8px' }}>
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      {essentialGroup.description}
-                    </Text>
-                  </div>
-                  <Button
-                    size="small"
-                    type="primary"
-                    onClick={() => setEssentialEditorVisible(true)}
-                    style={{ width: '100%' }}
-                  >
-                    Edit Filters
-                  </Button>
-                </div>
-              ),
-            }]}
-          />
-          {essentialEditorVisible && (
-            <FilterGroupEditor
-              visible={essentialEditorVisible}
-              onClose={() => setEssentialEditorVisible(false)}
-              editingGroup={essentialGroup}
-            />
-          )}
-        </>
+      {/* Simple mode: Remember Filters checkbox */}
+      {viewMode === 'simple' && selectedProject && (
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f0f0f0' }}>
+          <Checkbox
+            checked={rememberFilters}
+            onChange={(e) => handleRememberFiltersChange(e.target.checked)}
+            style={{ fontSize: '12px' }}
+          >
+            Remember filter settings
+          </Checkbox>
+        </div>
       )}
 
       {/* Power User mode: Filter groups */}

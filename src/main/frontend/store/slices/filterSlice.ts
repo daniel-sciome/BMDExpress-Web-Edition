@@ -17,41 +17,9 @@ function createStandardFilterGroups(): FilterGroup[] {
   const now = Date.now();
 
   return [
-    // 1. Primary Filter Columns: Gene Counts
-    {
-      id: 'standard-essential',
-      name: 'Essential: Gene Counts',
-      description: 'Filters for all Essential columns (Gene Counts)',
-      enabled: false,
-      filters: [
-        {
-          id: nanoid(),
-          field: 'genesThatPassedAllFilters',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'geneAllCount',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'percentage',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-      ],
-      color: '#1890ff',
-      createdAt: now,
-      updatedAt: now,
-    },
-
-    // 2. Statistics Columns: Fisher's, BMD, BMDL, BMDU
+    // 1. Statistics Columns: Fisher's, BMD, BMDL, BMDU
+    // Note: Essential/Gene Counts filters (percentage, genesThatPassedAllFilters, geneAllCount)
+    // are handled by Primary Filters and not duplicated here
     {
       id: 'standard-statistics',
       name: 'Statistics: Fisher\'s & BMD/BMDL/BMDU',
