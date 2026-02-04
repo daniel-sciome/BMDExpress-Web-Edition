@@ -9,11 +9,15 @@
 
 import React, { useMemo, useState } from 'react';
 import Plot from 'react-plotly.js';
-import { Button } from 'antd';
+import { Button, Space, Typography } from 'antd';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useReactiveState } from './hooks/useReactiveState';
+import { useBmdMetricTriple } from './hooks/useBmdMetric';
+import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterIdForCategory, getClusterLabel } from './utils/clusterColors';
 import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES } from './utils/plotlyConfig';
+
+const { Text } = Typography;
 
 /**
  * Generate deterministic jitter based on a string key.
@@ -36,6 +40,9 @@ export default function BMDBoxPlot() {
   const clusterColors = useClusterColors();
   const hasSelection = categoryState.selectedIds.size > 0;
 
+  // BMD metric selection (all three bases share the same stat)
+  const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('mean');
+
   // Build traces with inFocus-based styling
   const { traces, yAxisRange, bmdStats } = useMemo(() => {
     const result: any[] = [];
@@ -48,14 +55,18 @@ export default function BMDBoxPlot() {
     };
 
     data.forEach(row => {
-      if (row.bmdMean !== undefined && row.bmdMean !== null && !isNaN(row.bmdMean)) {
-        allValues.bmd.push({ value: row.bmdMean, categoryId: row.categoryId || '', inFocus: row.inFocus });
+      const bmdVal = bmd.getValue(row);
+      const bmdlVal = bmdl.getValue(row);
+      const bmduVal = bmdu.getValue(row);
+
+      if (bmdVal !== undefined && bmdVal !== null && !isNaN(bmdVal)) {
+        allValues.bmd.push({ value: bmdVal, categoryId: row.categoryId || '', inFocus: row.inFocus });
       }
-      if (row.bmdlMean !== undefined && row.bmdlMean !== null && !isNaN(row.bmdlMean)) {
-        allValues.bmdl.push({ value: row.bmdlMean, categoryId: row.categoryId || '', inFocus: row.inFocus });
+      if (bmdlVal !== undefined && bmdlVal !== null && !isNaN(bmdlVal)) {
+        allValues.bmdl.push({ value: bmdlVal, categoryId: row.categoryId || '', inFocus: row.inFocus });
       }
-      if (row.bmduMean !== undefined && row.bmduMean !== null && !isNaN(row.bmduMean)) {
-        allValues.bmdu.push({ value: row.bmduMean, categoryId: row.categoryId || '', inFocus: row.inFocus });
+      if (bmduVal !== undefined && bmduVal !== null && !isNaN(bmduVal)) {
+        allValues.bmdu.push({ value: bmduVal, categoryId: row.categoryId || '', inFocus: row.inFocus });
       }
     });
 
@@ -65,7 +76,7 @@ export default function BMDBoxPlot() {
         x: Array(allValues.bmd.length).fill(0),
         y: allValues.bmd.map(v => v.value),
         type: 'box',
-        name: 'BMD Mean',
+        name: bmd.label,
         marker: { color: 'black' },
         line: { color: 'black' },
         fillcolor: 'rgba(0, 0, 0, 0.1)',
@@ -81,7 +92,7 @@ export default function BMDBoxPlot() {
         x: Array(allValues.bmdl.length).fill(1),
         y: allValues.bmdl.map(v => v.value),
         type: 'box',
-        name: 'BMDL Mean',
+        name: bmdl.label,
         marker: { color: 'black' },
         line: { color: 'black' },
         fillcolor: 'rgba(0, 0, 0, 0.1)',
@@ -96,7 +107,7 @@ export default function BMDBoxPlot() {
         x: Array(allValues.bmdu.length).fill(2),
         y: allValues.bmdu.map(v => v.value),
         type: 'box',
-        name: 'BMDU Mean',
+        name: bmdu.label,
         marker: { color: 'black' },
         line: { color: 'black' },
         fillcolor: 'rgba(0, 0, 0, 0.1)',
@@ -234,7 +245,7 @@ export default function BMDBoxPlot() {
     }
 
     return { traces: result, yAxisRange: yRange, bmdStats: stats };
-  }, [data, clusterColors, displayMode, getPointStyle, shouldHidePoint, categoryState.selectedIds, hasSelection]);
+  }, [data, clusterColors, displayMode, getPointStyle, shouldHidePoint, categoryState.selectedIds, hasSelection, bmd, bmdl, bmdu]);
 
   if (!data || data.length === 0) {
     return (
@@ -250,7 +261,12 @@ export default function BMDBoxPlot() {
 
   return (
     <div style={{ width: '100%' }}>
-      <div style={{ marginBottom: '8px' }}>
+      {/* Controls */}
+      <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+        <Space>
+          <Text>BMD Statistic:</Text>
+          <BmdStatSelector stat={stat} onStatChange={setStat} />
+        </Space>
         <Button
           size="small"
           onClick={() => setUseFixedScale(!useFixedScale)}
@@ -272,7 +288,7 @@ export default function BMDBoxPlot() {
               title: '',
               tickmode: 'array',
               tickvals: [0, 1, 2],
-              ticktext: ['BMD Mean', 'BMDL Mean', 'BMDU Mean'],
+              ticktext: [bmd.label, bmdl.label, bmdu.label],
             },
             ...DEFAULT_LAYOUT_STYLES,
             margin: { l: 60, r: 30, t: 80, b: 60 },

@@ -14,14 +14,16 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { Checkbox, Radio, Space } from 'antd';
+import { Checkbox, Space, Typography } from 'antd';
 import Plot from 'react-plotly.js';
 import { useReactiveState } from './hooks/useReactiveState';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
+import { useBmdMetricPair } from './hooks/useBmdMetric';
+import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
-type MetricType = 'median' | 'mean';
+const { Text } = Typography;
 
 export default function BMDvsBMDLScatter() {
   // Get ALL data with inFocus state using shared hook
@@ -30,7 +32,9 @@ export default function BMDvsBMDLScatter() {
   const categoryState = useReactiveState('categoryId');
   const [useLogX, setUseLogX] = useState(true);
   const [useLogY, setUseLogY] = useState(true);
-  const [metricType, setMetricType] = useState<MetricType>('median');
+
+  // BMD vs BMDL paired metric selection (same stat for both axes)
+  const { stat, setStat, metric1: bmdMetric, metric2: bmdlMetric } = useBmdMetricPair('bmd', 'bmdl', 'median');
 
   const hasSelection = categoryState.selectedIds.size > 0;
 
@@ -48,17 +52,9 @@ export default function BMDvsBMDLScatter() {
     }>>();
 
     data.forEach(row => {
-      // Get X (BMD) and Y (BMDL) values based on metric type
-      let xValue: number | undefined;
-      let yValue: number | undefined;
-
-      if (metricType === 'median') {
-        xValue = row.bmdMedian;
-        yValue = row.bmdlMedian;
-      } else {
-        xValue = row.bmdMean;
-        yValue = row.bmdlMean;
-      }
+      // Get X (BMD) and Y (BMDL) values using the selected metric
+      const xValue = bmdMetric.getValue(row);
+      const yValue = bmdlMetric.getValue(row);
 
       // Only include valid positive values
       if (xValue !== undefined && yValue !== undefined &&
@@ -82,7 +78,7 @@ export default function BMDvsBMDLScatter() {
     });
 
     return byCluster;
-  }, [data, metricType]);
+  }, [data, bmdMetric, bmdlMetric]);
 
   if (!scatterData || scatterData.size === 0) {
     return (
@@ -124,7 +120,8 @@ export default function BMDvsBMDLScatter() {
   const xAxisConfig = getAxisConfig(allXValues, useLogX);
   const yAxisConfig = getAxisConfig(allYValues, useLogY);
 
-  const metricLabel = metricType === 'median' ? 'Median' : 'Mean';
+  // Get label from the stat (e.g., "Median", "Mean", "5th Percentile")
+  const statLabel = stat.charAt(0).toUpperCase() + stat.slice(1).replace(/([A-Z])/g, ' $1');
 
   // Create traces with inFocus-based per-point styling
   const traces = useMemo(() => {
@@ -203,25 +200,22 @@ export default function BMDvsBMDLScatter() {
         hovertemplate:
           '<b>%{text}</b><br>' +
           `${getClusterLabel(clusterId)}<br>` +
-          `BMD ${metricLabel}: %{x:.4f}<br>` +
-          `BMDL ${metricLabel}: %{y:.4f}<br>` +
+          `${bmdMetric.label}: %{x:.4f}<br>` +
+          `${bmdlMetric.label}: %{y:.4f}<br>` +
           '<extra></extra>',
         showlegend: false,
       });
     });
 
     return result;
-  }, [scatterData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, shouldHidePoint, metricLabel]);
+  }, [scatterData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, shouldHidePoint, bmdMetric.label, bmdlMetric.label]);
 
   return (
     <div style={{ width: '100%' }}>
       <div style={{ marginBottom: '1rem', display: 'flex', gap: '2rem', alignItems: 'center' }}>
         <Space>
-          <span style={{ fontWeight: 500 }}>Metric:</span>
-          <Radio.Group value={metricType} onChange={(e) => setMetricType(e.target.value)}>
-            <Radio.Button value="median">Median</Radio.Button>
-            <Radio.Button value="mean">Mean</Radio.Button>
-          </Radio.Group>
+          <Text>BMD Statistic:</Text>
+          <BmdStatSelector stat={stat} onStatChange={setStat} />
         </Space>
 
         <Space>
@@ -239,18 +233,18 @@ export default function BMDvsBMDLScatter() {
         layout={{
           ...DEFAULT_LAYOUT_STYLES,
           title: {
-            text: `BMD vs BMDL Scatter Plot (${metricLabel})`,
+            text: `BMD vs BMDL Scatter Plot (${statLabel})`,
             font: { size: 14 }
           },
           xaxis: {
-            title: { text: `BMD ${metricLabel}` },
+            title: { text: bmdMetric.label },
             type: xAxisConfig.type,
             range: xAxisConfig.range,
             gridcolor: DEFAULT_GRID_COLOR,
             showgrid: true,
           },
           yaxis: {
-            title: { text: `BMDL ${metricLabel}` },
+            title: { text: bmdlMetric.label },
             type: yAxisConfig.type,
             range: yAxisConfig.range,
             gridcolor: DEFAULT_GRID_COLOR,

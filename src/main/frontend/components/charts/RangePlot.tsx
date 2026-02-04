@@ -9,12 +9,16 @@
 
 import React, { useMemo, useState } from 'react';
 import Plot from 'react-plotly.js';
-import { Select } from 'antd';
+import { Select, Space, Typography } from 'antd';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useReactiveState } from './hooks/useReactiveState';
+import { useBmdMetricTriple } from './hooks/useBmdMetric';
+import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterIdForCategory, getClusterLabel } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 import { hexToRgba } from './utils/displayModeStyles';
+
+const { Text } = Typography;
 
 const TOP_N_OPTIONS = [10, 20, 50, 100, 200, 'All'] as const;
 
@@ -25,19 +29,21 @@ export default function RangePlot() {
   const hasSelection = categoryState.selectedIds.size > 0;
   const [topN, setTopN] = useState<number | 'All'>(20);
 
+  // BMD metric selection (all three bases share the same stat)
+  const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('median');
+
   // Filter top N categories by p-value, then sort alphabetically for display
   // Track p-value rank for each category
   const topCategories = useMemo(() => {
     if (!data || data.length === 0) return [];
 
-    const validData = data.filter(row =>
-      row.bmdMedian != null &&
-      row.bmdlMedian != null &&
-      row.bmduMedian != null &&
-      row.bmdMedian > 0 &&
-      row.bmdlMedian > 0 &&
-      row.bmduMedian > 0
-    );
+    const validData = data.filter(row => {
+      const bmdVal = bmd.getValue(row);
+      const bmdlVal = bmdl.getValue(row);
+      const bmduVal = bmdu.getValue(row);
+      return bmdVal != null && bmdlVal != null && bmduVal != null &&
+             bmdVal > 0 && bmdlVal > 0 && bmduVal > 0;
+    });
 
     // First sort by p-value to get top N most significant
     const sortedByPValue = [...validData].sort((a, b) => {
@@ -59,21 +65,20 @@ export default function RangePlot() {
       const nameB = (b.categoryDescription || b.categoryId || '').toLowerCase();
       return nameA.localeCompare(nameB);
     });
-  }, [data, topN]);
+  }, [data, topN, bmd, bmdl, bmdu]);
 
   // Calculate max display name length from ALL valid categories (not just topN)
   // This ensures consistent axis width regardless of how many categories are shown
   const maxDisplayNameLen = useMemo(() => {
     if (!data || data.length === 0) return 0;
 
-    const validData = data.filter(row =>
-      row.bmdMedian != null &&
-      row.bmdlMedian != null &&
-      row.bmduMedian != null &&
-      row.bmdMedian > 0 &&
-      row.bmdlMedian > 0 &&
-      row.bmduMedian > 0
-    );
+    const validData = data.filter(row => {
+      const bmdVal = bmd.getValue(row);
+      const bmdlVal = bmdl.getValue(row);
+      const bmduVal = bmdu.getValue(row);
+      return bmdVal != null && bmdlVal != null && bmduVal != null &&
+             bmdVal > 0 && bmdlVal > 0 && bmduVal > 0;
+    });
 
     // Calculate what the longest label would be if ALL categories were shown
     // Format: "N. Category Name (R)" where N could be up to validData.length digits
@@ -93,7 +98,7 @@ export default function RangePlot() {
     });
 
     return maxLen;
-  }, [data]);
+  }, [data, bmd, bmdl, bmdu]);
 
   // Truncated width for display (1/3 of full width)
   const truncatedDisplayLen = Math.ceil(maxDisplayNameLen / 3);
@@ -167,9 +172,9 @@ export default function RangePlot() {
         categoryName: baseName,
         displayName,
         fullDisplayName,
-        bmd: row.bmdMedian!,
-        bmdl: row.bmdlMedian!,
-        bmdu: row.bmduMedian!,
+        bmd: bmd.getValue(row)!,
+        bmdl: bmdl.getValue(row)!,
+        bmdu: bmdu.getValue(row)!,
         inFocus: row.inFocus,
         alphabeticalIndex: originalIdx + 1,
         pValueRank: row.pValueRank
@@ -177,7 +182,7 @@ export default function RangePlot() {
     });
 
     return byCluster;
-  }, [topCategories, categoriesForDisplay, truncatedDisplayLen]);
+  }, [topCategories, categoriesForDisplay, truncatedDisplayLen, bmd, bmdl, bmdu]);
 
   // Create traces with inFocus-based per-point styling
   const plotData = useMemo(() => {
@@ -272,9 +277,9 @@ export default function RangePlot() {
             `${item.categoryName}<br>` +
             `${getClusterLabel(clusterId)}<br>` +
             `Alphabetical: #${item.alphabeticalIndex} | P-value Rank: #${item.pValueRank}<br>` +
-            'BMD: %{x:.4f}<br>' +
-            `BMDL: ${item.bmdl.toFixed(4)}<br>` +
-            `BMDU: ${item.bmdu.toFixed(4)}<br>` +
+            `${bmd.label}: %{x:.4f}<br>` +
+            `${bmdl.label}: ${item.bmdl.toFixed(4)}<br>` +
+            `${bmdu.label}: ${item.bmdu.toFixed(4)}<br>` +
             '<extra></extra>',
           showlegend: false,
         });
@@ -282,7 +287,7 @@ export default function RangePlot() {
     });
 
     return traces;
-  }, [clusterData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, shouldHidePoint]);
+  }, [clusterData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, shouldHidePoint, bmd.label, bmdl.label, bmdu.label]);
 
   if (!data || data.length === 0) {
     return (
@@ -310,8 +315,8 @@ export default function RangePlot() {
   const reversedNames = [...paddedDisplayNames].reverse(); // A at top
 
   const titleText = topN === 'All'
-    ? 'Range Plot: BMD with Confidence Intervals (All Pathways)'
-    : `Range Plot: BMD with Confidence Intervals (Top ${topN} Pathways)`;
+    ? `Range Plot: ${bmd.label} with Confidence Intervals (All Pathways)`
+    : `Range Plot: ${bmd.label} with Confidence Intervals (Top ${topN} Pathways)`;
 
   const layout: any = {
     title: {
@@ -319,7 +324,7 @@ export default function RangePlot() {
       font: { size: 14 },
     },
     xaxis: {
-      title: { text: 'BMD Value' },
+      title: { text: bmd.label },
       type: 'log',
       autorange: true,
       gridcolor: DEFAULT_GRID_COLOR,
@@ -366,18 +371,25 @@ export default function RangePlot() {
 
   return (
     <div style={{ width: '100%' }}>
-      <div style={{ marginBottom: '0.5rem' }}>
-        <span style={{ marginRight: '0.5rem' }}>Show:</span>
-        <Select
-          value={topN}
-          onChange={setTopN}
-          style={{ width: 100 }}
-          size="small"
-          options={TOP_N_OPTIONS.map(opt => ({
-            value: opt,
-            label: opt === 'All' ? 'All' : `Top ${opt}`,
-          }))}
-        />
+      {/* Controls */}
+      <div style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+        <Space>
+          <Text>BMD Statistic:</Text>
+          <BmdStatSelector stat={stat} onStatChange={setStat} />
+        </Space>
+        <Space>
+          <Text>Show:</Text>
+          <Select
+            value={topN}
+            onChange={setTopN}
+            style={{ width: 100 }}
+            size="small"
+            options={TOP_N_OPTIONS.map(opt => ({
+              value: opt,
+              label: opt === 'All' ? 'All' : `Top ${opt}`,
+            }))}
+          />
+        </Space>
       </div>
       <div style={{ display: 'flex', width: '100%' }}>
         {/* HTML table label column with hover tooltips */}

@@ -8,17 +8,25 @@
  */
 
 import React, { useMemo, useCallback } from 'react';
+import { Space, Typography } from 'antd';
 import Plot from 'react-plotly.js';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useReactiveState } from './hooks/useReactiveState';
+import { useBmdMetric } from './hooks/useBmdMetric';
+import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterIdForCategory, getClusterLabel } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+
+const { Text } = Typography;
 
 export default function BubbleChart() {
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const clusterColors = useClusterColors();
   const hasSelection = categoryState.selectedIds.size > 0;
+
+  // BMD metric selection (base fixed to 'bmd', stat selectable)
+  const { stat, setStat, label: metricLabel, getValue } = useBmdMetric('bmd', 'median');
 
   // Group data by cluster with inFocus state
   const bubbleData = useMemo(() => {
@@ -34,7 +42,8 @@ export default function BubbleChart() {
     }>>();
 
     data.forEach(row => {
-      if (row.bmdMedian == null || row.bmdMedian <= 0) return;
+      const bmdValue = getValue(row);
+      if (bmdValue == null || bmdValue <= 0) return;
       if (row.fishersExactTwoTailPValue == null || row.fishersExactTwoTailPValue <= 0) return;
       if (row.percentage == null || row.percentage <= 0) return;
 
@@ -44,7 +53,7 @@ export default function BubbleChart() {
       }
 
       byCluster.get(clusterId)!.push({
-        x: row.bmdMedian,
+        x: bmdValue,
         y: -Math.log10(row.fishersExactTwoTailPValue),
         size: row.percentage,
         categoryId: row.categoryId || '',
@@ -54,7 +63,7 @@ export default function BubbleChart() {
     });
 
     return byCluster;
-  }, [data]);
+  }, [data, getValue]);
 
   // Calculate max percentage for bubble size scaling
   const maxPercentage = useMemo(() => {
@@ -152,7 +161,7 @@ export default function BubbleChart() {
         hovertemplate:
           '<b>%{text}</b><br>' +
           `${getClusterLabel(clusterId)}<br>` +
-          'BMD: %{x:.4f}<br>' +
+          `${metricLabel}: %{x:.4f}<br>` +
           '-log10(p-value): %{y:.2f}<br>' +
           'Percentage: %{marker.size:.1f}%<br>' +
           '<extra></extra>',
@@ -161,7 +170,7 @@ export default function BubbleChart() {
     });
 
     return traces;
-  }, [bubbleData, clusterColors, maxPercentage, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, shouldHidePoint]);
+  }, [bubbleData, clusterColors, maxPercentage, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, shouldHidePoint, metricLabel]);
 
   const handlePlotClick = useCallback((event: any) => {
     if (event.points && event.points.length > 0) {
@@ -196,11 +205,11 @@ export default function BubbleChart() {
 
   const layout: any = {
     title: {
-      text: 'Bubble Chart: BMD vs Fisher P-Value (size = % genes)',
+      text: `Bubble Chart: ${metricLabel} vs Fisher P-Value (size = % genes)`,
       font: { size: 16 },
     },
     xaxis: {
-      title: { text: 'BMD Median' },
+      title: { text: metricLabel },
       type: 'log',
       autorange: true,
       gridcolor: DEFAULT_GRID_COLOR,
@@ -218,6 +227,15 @@ export default function BubbleChart() {
 
   return (
     <div style={{ width: '100%' }}>
+      {/* Controls */}
+      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+        <Space>
+          <Text>BMD Statistic:</Text>
+          <BmdStatSelector stat={stat} onStatChange={setStat} />
+        </Space>
+      </div>
+
+      {/* Chart */}
       <Plot
         data={plotData}
         layout={layout}

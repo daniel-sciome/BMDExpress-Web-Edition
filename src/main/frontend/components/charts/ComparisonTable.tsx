@@ -71,10 +71,42 @@ export default function ComparisonTable({
   const comparisonMode = useAppSelector((state) => state.categoryResults.comparisonMode);
   const showIntersection = comparisonMode === 'intersection';
 
-  // Available metrics for comparison
+  // Available metrics for comparison (grouped)
   const metrics = [
+    // BMD Core Statistics
     { value: 'bmdMean', label: 'BMD Mean' },
     { value: 'bmdMedian', label: 'BMD Median' },
+    { value: 'bmdMinimum', label: 'BMD Minimum' },
+    { value: 'bmdMaximum', label: 'BMD Maximum' },
+    { value: 'bmdSD', label: 'BMD Std Dev' },
+    // BMD Weighted & Percentiles
+    { value: 'bmdWMean', label: 'BMD Weighted Mean' },
+    { value: 'bmdWSD', label: 'BMD Weighted SD' },
+    { value: 'bmdFifthPercentile', label: 'BMD 5th Percentile' },
+    { value: 'bmdTenthPercentile', label: 'BMD 10th Percentile' },
+    // BMDL Core Statistics
+    { value: 'bmdlMean', label: 'BMDL Mean' },
+    { value: 'bmdlMedian', label: 'BMDL Median' },
+    { value: 'bmdlMinimum', label: 'BMDL Minimum' },
+    { value: 'bmdlMaximum', label: 'BMDL Maximum' },
+    { value: 'bmdlSD', label: 'BMDL Std Dev' },
+    // BMDL Weighted & Percentiles
+    { value: 'bmdlWMean', label: 'BMDL Weighted Mean' },
+    { value: 'bmdlWSD', label: 'BMDL Weighted SD' },
+    { value: 'bmdlFifthPercentile', label: 'BMDL 5th Percentile' },
+    { value: 'bmdlTenthPercentile', label: 'BMDL 10th Percentile' },
+    // BMDU Core Statistics
+    { value: 'bmduMean', label: 'BMDU Mean' },
+    { value: 'bmduMedian', label: 'BMDU Median' },
+    { value: 'bmduMinimum', label: 'BMDU Minimum' },
+    { value: 'bmduMaximum', label: 'BMDU Maximum' },
+    { value: 'bmduSD', label: 'BMDU Std Dev' },
+    // BMDU Weighted & Percentiles
+    { value: 'bmduWMean', label: 'BMDU Weighted Mean' },
+    { value: 'bmduWSD', label: 'BMDU Weighted SD' },
+    { value: 'bmduFifthPercentile', label: 'BMDU 5th Percentile' },
+    { value: 'bmduTenthPercentile', label: 'BMDU 10th Percentile' },
+    // Other Statistics
     { value: 'fishersExactTwoTailPValue', label: "Fisher's P-Value" },
     { value: 'genesThatPassedAllFilters', label: 'Genes Passed' },
     { value: 'geneAllCount', label: 'Total Genes' },

@@ -13,14 +13,18 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Card, Select, Button, Alert, Spin } from 'antd';
+import { Select, Button, Alert, Spin, Space, Typography } from 'antd';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import Plot from 'react-plotly.js';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 import { useAppSelector } from '../../store/hooks';
 import { applyPrimaryFilters } from '../../utils/applyPrimaryFilters';
+import { useBmdMetricTriple } from './hooks/useBmdMetric';
+import { BmdStatSelector } from './BmdMetricSelector';
+import { BmdBaseType } from './utils/bmdMetricConfig';
 
 const { Option } = Select;
+const { Text } = Typography;
 
 interface GlobalViolinComparisonProps {
   projectId: string;
@@ -39,8 +43,14 @@ export default function GlobalViolinComparison({
   const [resultDisplayNames, setResultDisplayNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedMetric, setSelectedMetric] = useState<'bmd' | 'bmdl' | 'bmdu'>('bmd'); // Using bmdMedian (bmd = median)
+  const [selectedBase, setSelectedBase] = useState<BmdBaseType>('bmd');
   const [activeResults, setActiveResults] = useState<string[]>(selectedResults);
+
+  // BMD metric selection (all three bases share the same stat)
+  const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('median');
+
+  // Get the appropriate metric based on selected base
+  const selectedMetric = selectedBase === 'bmd' ? bmd : selectedBase === 'bmdl' ? bmdl : bmdu;
 
   // Get master filters and comparison mode from Redux
   const filters = useAppSelector((state) => state.categoryResults.filters);
@@ -173,19 +183,7 @@ export default function GlobalViolinComparison({
       const medianValues: number[] = [];
 
       resultData.forEach((row: any) => {
-        let value: number | undefined;
-
-        switch (selectedMetric) {
-          case 'bmd':
-            value = row.bmdMedian;
-            break;
-          case 'bmdl':
-            value = row.bmdlMedian;
-            break;
-          case 'bmdu':
-            value = row.bmduMedian;
-            break;
-        }
+        const value = selectedMetric.getValue(row);
 
         if (value != null && value > 0 && !isNaN(value) && isFinite(value)) {
           medianValues.push(value);
@@ -229,7 +227,7 @@ export default function GlobalViolinComparison({
         opacity: 0.6,
         points: 'outliers',
         hoverinfo: 'y+name',
-        hovertemplate: `<b>${displayName}</b><br>Median Value: %{y:.4f}<extra></extra>`,
+        hovertemplate: `<b>${displayName}</b><br>${selectedMetric.label}: %{y:.4f}<extra></extra>`,
         bandwidth: undefined, // Let Plotly auto-calculate
       });
     });
@@ -252,7 +250,7 @@ export default function GlobalViolinComparison({
     return { traces, yRange };
   }, [comparisonData, selectedMetric, colors, resultDisplayNames]);
 
-  const metricLabel = selectedMetric === 'bmd' ? 'BMD' : selectedMetric === 'bmdl' ? 'BMDL' : 'BMDU';
+  const metricLabel = selectedMetric.label;
 
   // Get other available results (excluding the current one being viewed)
   const otherResults = availableResults.filter(r => !selectedResults.includes(r));
@@ -260,17 +258,23 @@ export default function GlobalViolinComparison({
   return (
     <div style={{ width: '100%' }}>
       <div style={{ marginBottom: '1rem' }}>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '1rem' }}>
-          <span style={{ fontWeight: 500 }}>Metric:</span>
-          <Select
-            value={selectedMetric}
-            onChange={setSelectedMetric}
-            style={{ width: 120 }}
-          >
-            <Option value="bmd">BMD</Option>
-            <Option value="bmdl">BMDL</Option>
-            <Option value="bmdu">BMDU</Option>
-          </Select>
+        <div style={{ display: 'flex', gap: '24px', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          <Space>
+            <Text>Base:</Text>
+            <Select
+              value={selectedBase}
+              onChange={setSelectedBase}
+              style={{ width: 90 }}
+            >
+              <Option value="bmd">BMD</Option>
+              <Option value="bmdl">BMDL</Option>
+              <Option value="bmdu">BMDU</Option>
+            </Select>
+          </Space>
+          <Space>
+            <Text>Statistic:</Text>
+            <BmdStatSelector stat={stat} onStatChange={setStat} />
+          </Space>
         </div>
 
         {otherResults.length > 0 && (
@@ -327,7 +331,7 @@ export default function GlobalViolinComparison({
             data={violinPlotData.traces}
             layout={{
               title: {
-                text: `Global ${metricLabel} Median Distribution Comparison`,
+                text: `Global ${metricLabel} Distribution Comparison`,
                 font: { size: 14 },
               },
               xaxis: {
@@ -338,7 +342,7 @@ export default function GlobalViolinComparison({
                 standoff: 30,
               },
               yaxis: {
-                title: { text: `${metricLabel} Median Value` },
+                title: { text: metricLabel },
                 type: 'log',
                 range: violinPlotData.yRange,
                 showgrid: true,
