@@ -21,8 +21,7 @@ import BestModelsPieChart from './charts/BestModelsPieChart';
 import PathwayCurveViewer from './PathwayCurveViewer';
 import UmapScatterPlot from './charts/UmapScatterPlot';
 import ViolinPlotPerCategory from './charts/ViolinPlotPerCategory';
-import MeanHistograms from './charts/MeanHistograms';
-import MedianHistograms from './charts/MedianHistograms';
+import StatHistograms from './charts/StatHistograms';
 import BMDvsBMDLScatter from './charts/BMDvsBMDLScatter';
 import ClusterHeatmap from './charts/ClusterHeatmap';
 import ClusterScatterPlot from './charts/ClusterScatterPlot';
@@ -707,22 +706,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                         onChange={handleChartCollapseChange('chart-9')}
                         items={[{
                           key: 'chart-9',
-                          label: <span style={{ lineHeight: '22px' }}>Mean Histograms</span>,
-                          children: <MeanHistograms key={`${projectId}-${resultName}`} />
-                        }]}
-                      />
-                    </div>
-                  )}
-
-                  {viewMode === 'power' && visibleCharts.includes('10') && (
-                    <div style={{ marginBottom: '4px' }}>
-                      <Collapse
-                        activeKey={openChartCollapses}
-                        onChange={handleChartCollapseChange('chart-10')}
-                        items={[{
-                          key: 'chart-10',
-                          label: <span style={{ lineHeight: '22px' }}>Median Histograms</span>,
-                          children: <MedianHistograms key={`${projectId}-${resultName}`} />
+                          label: <span style={{ lineHeight: '22px' }}>Stat Histograms</span>,
+                          children: <StatHistograms key={`${projectId}-${resultName}`} />
                         }]}
                       />
                     </div>
@@ -1008,22 +993,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
               onChange={handleChartCollapseChange('chart-9')}
               items={[{
                 key: 'chart-9',
-                label: <span style={{ lineHeight: '22px' }}>Mean Histograms</span>,
-                children: <MeanHistograms key={`${projectId}-${resultName}`} />
-              }]}
-            />
-          </div>
-        )}
-
-        {viewMode === 'power' && visibleCharts.includes('10') && (
-          <div style={{ marginBottom: '4px' }}>
-            <Collapse
-              activeKey={openChartCollapses}
-              onChange={handleChartCollapseChange('chart-10')}
-              items={[{
-                key: 'chart-10',
-                label: <span style={{ lineHeight: '22px' }}>Median Histograms</span>,
-                children: <MedianHistograms key={`${projectId}-${resultName}`} />
+                label: <span style={{ lineHeight: '22px' }}>Stat Histograms</span>,
+                children: <StatHistograms key={`${projectId}-${resultName}`} />
               }]}
             />
           </div>

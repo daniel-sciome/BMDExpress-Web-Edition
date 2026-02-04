@@ -7,18 +7,26 @@
  * Uses inFocus-based display mode styling (highlight/dim/isolate).
  */
 
-import React, { useMemo, useCallback, useState } from 'react';
+import React, { useMemo, useCallback } from 'react';
+import { Space, Typography } from 'antd';
 import Plot from 'react-plotly.js';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useReactiveState } from './hooks/useReactiveState';
+import { useBmdMetric } from './hooks/useBmdMetric';
+import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+
+const { Text } = Typography;
 
 export default function BMDvsPValueScatter() {
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const clusterColors = useClusterColors();
   const hasSelection = categoryState.selectedIds.size > 0;
+
+  // BMD metric selection (base fixed to 'bmd', stat selectable)
+  const { stat, setStat, label: metricLabel, getValue } = useBmdMetric('bmd', 'median');
 
   // Prepare data for plotting
   const scatterData = useMemo(() => {
@@ -34,7 +42,7 @@ export default function BMDvsPValueScatter() {
     }>>();
 
     data.forEach(row => {
-      const xValue = row.bmdMean;
+      const xValue = getValue(row);
       const pValue = row.fishersExactTwoTailPValue;
 
       if (xValue === undefined || xValue === null || xValue <= 0) return;
@@ -58,7 +66,7 @@ export default function BMDvsPValueScatter() {
     });
 
     return byCluster;
-  }, [data]);
+  }, [data, getValue]);
 
   // Calculate axis ranges
   const { xRange, yRange } = useMemo(() => {
@@ -167,14 +175,14 @@ export default function BMDvsPValueScatter() {
         hovertemplate:
           '<b>%{text}</b><br>' +
           `${getClusterLabel(clusterId)}<br>` +
-          'BMD Mean: %{x:.4f}<br>' +
+          `${metricLabel}: %{x:.4f}<br>` +
           '-log10(p): %{y:.4f}<extra></extra>',
         showlegend: false,
       });
     });
 
     return result;
-  }, [scatterData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, shouldHidePoint]);
+  }, [scatterData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, shouldHidePoint, metricLabel]);
 
   const handlePlotClick = useCallback((event: any) => {
     if (event.points && event.points.length > 0) {
@@ -202,17 +210,27 @@ export default function BMDvsPValueScatter() {
   }
 
   return (
-    <div style={{ width: '100%', height: '500px' }}>
-      <Plot
-        data={traces}
-        layout={{
-          title: 'BMD vs Fisher Exact P-Value (Colored by Cluster)',
-          xaxis: {
-            title: 'BMD Mean',
-            type: 'log',
-            range: xRange,
-            gridcolor: DEFAULT_GRID_COLOR,
-          },
+    <div style={{ width: '100%' }}>
+      {/* Controls */}
+      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+        <Space>
+          <Text>BMD Statistic:</Text>
+          <BmdStatSelector stat={stat} onStatChange={setStat} />
+        </Space>
+      </div>
+
+      {/* Chart */}
+      <div style={{ height: '500px' }}>
+        <Plot
+          data={traces}
+          layout={{
+            title: `${metricLabel} vs Fisher Exact P-Value (Colored by Cluster)`,
+            xaxis: {
+              title: metricLabel,
+              type: 'log',
+              range: xRange,
+              gridcolor: DEFAULT_GRID_COLOR,
+            },
           yaxis: {
             title: '-log10(Fisher Exact P-Value)',
             range: yRange,
@@ -227,6 +245,7 @@ export default function BMDvsPValueScatter() {
         onClick={handlePlotClick}
         style={{ width: '100%', height: '100%' }}
       />
+      </div>
     </div>
   );
 }

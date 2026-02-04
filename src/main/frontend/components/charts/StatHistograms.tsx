@@ -1,10 +1,10 @@
 /**
- * Median Histograms Component
+ * Stat Histograms Component
  *
- * Displays 3 histograms showing the distribution of category-level BMD median statistics:
- * 1. BMD Median
- * 2. BMDL Median
- * 3. BMDU Median
+ * Displays 3 histograms showing the distribution of category-level BMD statistics:
+ * 1. BMD (selected statistic)
+ * 2. BMDL (selected statistic)
+ * 3. BMDU (selected statistic)
  *
  * Each histogram shows stacked bars colored by UMAP cluster assignment.
  * Colors match the sidebar ClusterPicker for consistency.
@@ -14,23 +14,27 @@
  * - dim: Show in-focus at full opacity, out-of-focus dimmed
  * - isolate: Only show in-focus data
  *
- * This is a CATEGORY-LEVEL visualization - each data point is one category's aggregated median value.
- *
- * Medians are more robust to outliers than means, providing a better measure of central tendency
- * when the distribution is skewed.
+ * This is a CATEGORY-LEVEL visualization - each data point is one category's aggregated value.
  */
 
 import React, { useMemo, useState } from 'react';
-import { Row, Col, Checkbox } from 'antd';
+import { Row, Col, Checkbox, Space, Typography } from 'antd';
 import Plot from 'react-plotly.js';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
+import { useBmdMetricTriple } from './hooks/useBmdMetric';
+import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
-export default function MedianHistograms() {
+const { Text } = Typography;
+
+export default function StatHistograms() {
   const { data: allData, displayMode } = useFocusAwareStyling();
   const clusterColors = useClusterColors();
   const [useLogYAxis, setUseLogYAxis] = useState(false);
+
+  // BMD metric selection (all three bases share the same stat)
+  const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('median');
 
   // Group data by cluster and focus state, extract values for each metric
   const clusterData = useMemo(() => {
@@ -48,9 +52,8 @@ export default function MedianHistograms() {
       return a - b;
     });
 
-    // Extract values by cluster AND focus state for each metric
-    // Returns { inFocus: Map<clusterId, values>, outOfFocus: Map<clusterId, values> }
-    const extractValuesByClusterAndFocus = (field: string) => {
+    // Extract values by cluster AND focus state for a given getValue function
+    const extractValuesByClusterAndFocus = (getValue: (row: any) => number | undefined) => {
       const inFocus = new Map<number, number[]>();
       const outOfFocus = new Map<number, number[]>();
       sortedClusterIds.forEach(id => {
@@ -59,7 +62,7 @@ export default function MedianHistograms() {
       });
 
       allData.forEach(row => {
-        const value = (row as any)[field];
+        const value = getValue(row);
         const clusterId = getClusterIdForCategory(row.categoryId);
         if (value !== undefined && value > 0 && !isNaN(value) && isFinite(value)) {
           const targetMap = row.inFocus ? inFocus : outOfFocus;
@@ -73,29 +76,29 @@ export default function MedianHistograms() {
 
     return {
       clusterIds: sortedClusterIds,
-      bmdMedians: extractValuesByClusterAndFocus('bmdMedian'),
-      bmdlMedians: extractValuesByClusterAndFocus('bmdlMedian'),
-      bmduMedians: extractValuesByClusterAndFocus('bmduMedian'),
+      bmdValues: extractValuesByClusterAndFocus(bmd.getValue),
+      bmdlValues: extractValuesByClusterAndFocus(bmdl.getValue),
+      bmduValues: extractValuesByClusterAndFocus(bmdu.getValue),
     };
-  }, [allData]);
+  }, [allData, bmd, bmdl, bmdu]);
 
   // Check if any data exists
   const hasAnyData = useMemo(() => {
     if (!clusterData) return false;
     let total = 0;
-    clusterData.bmdMedians.inFocus.forEach(arr => total += arr.length);
-    clusterData.bmdMedians.outOfFocus.forEach(arr => total += arr.length);
-    clusterData.bmdlMedians.inFocus.forEach(arr => total += arr.length);
-    clusterData.bmdlMedians.outOfFocus.forEach(arr => total += arr.length);
-    clusterData.bmduMedians.inFocus.forEach(arr => total += arr.length);
-    clusterData.bmduMedians.outOfFocus.forEach(arr => total += arr.length);
+    clusterData.bmdValues.inFocus.forEach(arr => total += arr.length);
+    clusterData.bmdValues.outOfFocus.forEach(arr => total += arr.length);
+    clusterData.bmdlValues.inFocus.forEach(arr => total += arr.length);
+    clusterData.bmdlValues.outOfFocus.forEach(arr => total += arr.length);
+    clusterData.bmduValues.inFocus.forEach(arr => total += arr.length);
+    clusterData.bmduValues.outOfFocus.forEach(arr => total += arr.length);
     return total > 0;
   }, [clusterData]);
 
   if (!hasAnyData) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-        No valid median data available for histograms
+        No valid data available for histograms
       </div>
     );
   }
@@ -119,7 +122,6 @@ export default function MedianHistograms() {
   };
 
   // Helper to create stacked traces for a histogram with display mode support
-  // Creates traces for in-focus (full opacity) and out-of-focus (dimmed/hidden based on mode)
   const createStackedTraces = (dataByClusterAndFocus: { inFocus: Map<number, number[]>; outOfFocus: Map<number, number[]> }) => {
     const traces: any[] = [];
 
@@ -178,28 +180,33 @@ export default function MedianHistograms() {
     return total > 0;
   };
 
-  const hasBmdMedians = hasData(clusterData!.bmdMedians);
-  const hasBmdlMedians = hasData(clusterData!.bmdlMedians);
-  const hasBmduMedians = hasData(clusterData!.bmduMedians);
+  const hasBmdValues = hasData(clusterData!.bmdValues);
+  const hasBmdlValues = hasData(clusterData!.bmdlValues);
+  const hasBmduValues = hasData(clusterData!.bmduValues);
 
   return (
     <div style={{ width: '100%' }}>
-      <div style={{ marginBottom: '1rem' }}>
+      {/* Controls */}
+      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+        <Space>
+          <Text>BMD Statistic:</Text>
+          <BmdStatSelector stat={stat} onStatChange={setStat} />
+        </Space>
         <Checkbox checked={useLogYAxis} onChange={(e) => setUseLogYAxis(e.target.checked)}>
           Log Y-Axis
         </Checkbox>
       </div>
 
       <Row gutter={[16, 16]}>
-        {/* BMD Median Histogram */}
-        {hasBmdMedians && (
+        {/* BMD Histogram */}
+        {hasBmdValues && (
           <Col xs={24} lg={12}>
             <Plot
-              data={createStackedTraces(clusterData!.bmdMedians) as any}
+              data={createStackedTraces(clusterData!.bmdValues) as any}
               layout={{
                 ...commonLayout,
-                title: { text: 'BMD Median Histogram', font: { size: 14 } },
-                xaxis: { title: { text: 'BMD Median' }, gridcolor: DEFAULT_GRID_COLOR },
+                title: { text: `${bmd.label} Histogram`, font: { size: 14 } },
+                xaxis: { title: { text: bmd.label }, gridcolor: DEFAULT_GRID_COLOR },
                 height: 450,
               } as any}
               config={createPlotlyConfig() as any}
@@ -209,15 +216,15 @@ export default function MedianHistograms() {
           </Col>
         )}
 
-        {/* BMDL Median Histogram */}
-        {hasBmdlMedians && (
+        {/* BMDL Histogram */}
+        {hasBmdlValues && (
           <Col xs={24} lg={12}>
             <Plot
-              data={createStackedTraces(clusterData!.bmdlMedians) as any}
+              data={createStackedTraces(clusterData!.bmdlValues) as any}
               layout={{
                 ...commonLayout,
-                title: { text: 'BMDL Median Histogram', font: { size: 14 } },
-                xaxis: { title: { text: 'BMDL Median' }, gridcolor: DEFAULT_GRID_COLOR },
+                title: { text: `${bmdl.label} Histogram`, font: { size: 14 } },
+                xaxis: { title: { text: bmdl.label }, gridcolor: DEFAULT_GRID_COLOR },
                 height: 450,
               } as any}
               config={createPlotlyConfig() as any}
@@ -227,15 +234,15 @@ export default function MedianHistograms() {
           </Col>
         )}
 
-        {/* BMDU Median Histogram */}
-        {hasBmduMedians && (
+        {/* BMDU Histogram */}
+        {hasBmduValues && (
           <Col xs={24} lg={12}>
             <Plot
-              data={createStackedTraces(clusterData!.bmduMedians) as any}
+              data={createStackedTraces(clusterData!.bmduValues) as any}
               layout={{
                 ...commonLayout,
-                title: { text: 'BMDU Median Histogram', font: { size: 14 } },
-                xaxis: { title: { text: 'BMDU Median' }, gridcolor: DEFAULT_GRID_COLOR },
+                title: { text: `${bmdu.label} Histogram`, font: { size: 14 } },
+                xaxis: { title: { text: bmdu.label }, gridcolor: DEFAULT_GRID_COLOR },
                 height: 450,
               } as any}
               config={createPlotlyConfig() as any}
@@ -249,12 +256,11 @@ export default function MedianHistograms() {
       <div style={{ marginTop: '1rem', fontSize: '0.9em', color: '#666' }}>
         <p><strong>About these histograms:</strong></p>
         <ul style={{ marginLeft: '1.5rem' }}>
-          <li>Each histogram shows the distribution of category-level median values</li>
+          <li>Each histogram shows the distribution of category-level values for the selected statistic</li>
           <li>Colors correspond to UMAP cluster assignments (same as sidebar cluster picker)</li>
-          <li>X-axis: Median value range, Y-axis: Number of categories in that range</li>
+          <li>X-axis: Value range, Y-axis: Number of categories in that range</li>
           <li>Default bins: 20 equal-width buckets</li>
           <li>Toggle "Log Y-Axis" for better visibility with wide-ranging counts</li>
-          <li>Medians are more robust to outliers than means, showing the true center of each category's distribution</li>
         </ul>
       </div>
     </div>

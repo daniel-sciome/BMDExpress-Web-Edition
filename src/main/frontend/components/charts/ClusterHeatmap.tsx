@@ -17,6 +17,8 @@ import Plot from 'react-plotly.js';
 import { Spin, Select, Space, Typography } from 'antd';
 import { useGeneClusteringData, LinkageMethod } from './hooks/useGeneClusteringData';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
+import { useBmdMetric } from './hooks/useBmdMetric';
+import { BmdStatSelector } from './BmdMetricSelector';
 import { getClusterIdForCategory, getClusterColor } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
@@ -27,13 +29,13 @@ interface ClusterHeatmapProps {
   initialLinkageMethod?: LinkageMethod;
 }
 
-type BmdMetric = 'median' | 'mean';
-
 export default function ClusterHeatmap({
   initialLinkageMethod = 'average',
 }: ClusterHeatmapProps) {
   const [linkageMethod, setLinkageMethod] = useState<LinkageMethod>(initialLinkageMethod);
-  const [bmdMetric, setBmdMetric] = useState<BmdMetric>('median');
+
+  // BMD metric selection (base fixed to 'bmd', stat selectable)
+  const { stat, setStat, label: metricLabel, getValueWithFallback } = useBmdMetric('bmd', 'median');
 
   const {
     clusterAssignments,
@@ -75,10 +77,8 @@ export default function ClusterHeatmap({
       // Filter based on displayMode (isolate mode hides out-of-focus)
       if (shouldHidePoint(inFocus)) return;
 
-      // Get BMD value based on selected metric
-      const bmd = bmdMetric === 'median'
-        ? (cat.bmdMedian ?? cat.bmdMean)
-        : (cat.bmdMean ?? cat.bmdMedian);
+      // Get BMD value using the selected metric (with fallback to median)
+      const bmd = getValueWithFallback(cat, 'median');
 
       if (bmd != null && bmd > 0) {
         const data = geneClusterData.get(geneClusterId);
@@ -118,7 +118,7 @@ export default function ClusterHeatmap({
     });
 
     return traces;
-  }, [clusterAssignments, categoryData, uniqueClusterIds, focusMap, displayMode, shouldHidePoint, bmdMetric]);
+  }, [clusterAssignments, categoryData, uniqueClusterIds, focusMap, displayMode, shouldHidePoint, getValueWithFallback]);
 
   if (loading) {
     return (
@@ -145,15 +145,13 @@ export default function ClusterHeatmap({
     );
   }
 
-  const xAxisLabel = bmdMetric === 'median' ? 'BMD Median' : 'BMD Mean';
-
   const layout: any = {
     title: {
       text: `Gene Cluster Distribution (${categoryCount} categories, ${uniqueClusterIds.length} clusters)`,
       font: { size: 16 },
     },
     xaxis: {
-      title: { text: xAxisLabel },
+      title: { text: metricLabel },
       type: 'log',
       autorange: true,
       gridcolor: DEFAULT_GRID_COLOR,
@@ -177,16 +175,8 @@ export default function ClusterHeatmap({
       {/* Controls */}
       <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
         <Space>
-          <Text>BMD Metric:</Text>
-          <Select
-            value={bmdMetric}
-            onChange={setBmdMetric}
-            style={{ width: 100 }}
-            options={[
-              { value: 'median', label: 'Median' },
-              { value: 'mean', label: 'Mean' },
-            ]}
-          />
+          <Text>BMD Statistic:</Text>
+          <BmdStatSelector stat={stat} onStatChange={setStat} />
         </Space>
         <Space>
           <Text>Linkage Method:</Text>

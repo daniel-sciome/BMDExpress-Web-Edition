@@ -1,10 +1,14 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import Plot from 'react-plotly.js';
-import { Row, Col } from 'antd';
+import { Row, Col, Space, Typography } from 'antd';
 import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveState';
 import { useFocusAwareStyling } from 'Frontend/components/charts/hooks/useFocusAwareStyling';
+import { useBmdMetricTriple } from './hooks/useBmdMetric';
+import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+
+const { Text } = Typography;
 
 export default function AccumulationCharts() {
   // Get ALL data with inFocus state using shared hook
@@ -14,6 +18,9 @@ export default function AccumulationCharts() {
   const categoryState = useReactiveState('categoryId');
 
   const [charts, setCharts] = useState<any[]>([]);
+
+  // BMD metric selection (all three bases share the same stat)
+  const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('median');
 
   // Debug logging
   useEffect(() => {
@@ -36,31 +43,22 @@ export default function AccumulationCharts() {
 
     const hasSelection = categoryState.selectedIds.size > 0;
 
-    // Define the 6 charts with their data fields
+    // Define the 3 charts with their data fields (all using the selected stat)
     const chartConfigs = [
       {
-        title: 'BMD Median Accumulation',
-        field: 'bmdMedian',
+        title: `${bmd.label} Accumulation`,
+        getValue: bmd.getValue,
+        xAxisLabel: bmd.label,
       },
       {
-        title: 'BMD Mean Accumulation',
-        field: 'bmdMean',
+        title: `${bmdl.label} Accumulation`,
+        getValue: bmdl.getValue,
+        xAxisLabel: bmdl.label,
       },
       {
-        title: 'BMDL Median Accumulation',
-        field: 'bmdlMedian',
-      },
-      {
-        title: 'BMDL Mean Accumulation',
-        field: 'bmdlMean',
-      },
-      {
-        title: 'BMDU Median Accumulation',
-        field: 'bmduMedian',
-      },
-      {
-        title: 'BMDU Mean Accumulation',
-        field: 'bmduMean',
+        title: `${bmdu.label} Accumulation`,
+        getValue: bmdu.getValue,
+        xAxisLabel: bmdu.label,
       },
     ];
 
@@ -68,7 +66,7 @@ export default function AccumulationCharts() {
       // Get all values for cumulative calculation, including inFocus state
       const allValues = allData
         .map((row) => ({
-          value: (row as any)[config.field],
+          value: config.getValue(row),
           categoryId: row.categoryId,
           inFocus: row.inFocus
         }))
@@ -188,7 +186,7 @@ export default function AccumulationCharts() {
             font: { size: 14 },
           },
           xaxis: {
-            title: { text: 'BMD Value' },
+            title: { text: config.xAxisLabel },
             type: 'log',
             range: xAxisRange,
             gridcolor: DEFAULT_GRID_COLOR,
@@ -208,7 +206,7 @@ export default function AccumulationCharts() {
     }).filter(chart => chart !== null);
 
     setCharts(chartsData as any[]);
-  }, [allData, clusterColors, categoryState.selectedIds, displayMode, getPointStyle, shouldHidePoint]);
+  }, [allData, clusterColors, categoryState.selectedIds, displayMode, getPointStyle, shouldHidePoint, bmd, bmdl, bmdu]);
 
   if (!allData || allData.length === 0) {
     return (
@@ -234,7 +232,14 @@ export default function AccumulationCharts() {
 
   return (
     <div style={{ width: '100%' }}>
-      <h4 style={{ marginBottom: '1rem' }}>Accumulation Charts (Cumulative Distribution Functions)</h4>
+      {/* Controls */}
+      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+        <h4 style={{ margin: 0 }}>Accumulation Charts (Cumulative Distribution Functions)</h4>
+        <Space>
+          <Text>BMD Statistic:</Text>
+          <BmdStatSelector stat={stat} onStatChange={setStat} />
+        </Space>
+      </div>
       <Row gutter={[16, 16]}>
         {charts.map((chart, index) => (
           <Col xs={24} lg={12} key={index}>

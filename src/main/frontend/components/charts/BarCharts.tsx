@@ -9,17 +9,24 @@
 
 import React, { useMemo } from 'react';
 import Plot from 'react-plotly.js';
-import { Row, Col } from 'antd';
+import { Row, Col, Space, Typography } from 'antd';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useReactiveState } from './hooks/useReactiveState';
+import { useBmdMetricTriple } from './hooks/useBmdMetric';
+import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+
+const { Text } = Typography;
 
 export default function BarCharts() {
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const clusterColors = useClusterColors();
   const hasSelection = categoryState.selectedIds.size > 0;
+
+  // BMD metric selection (all three bases share the same stat)
+  const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('median');
 
   // Get top 20 categories sorted by p-value
   const topCategories = useMemo(() => {
@@ -35,22 +42,21 @@ export default function BarCharts() {
       .slice(0, 20);
   }, [data]);
 
-  // Define chart configs
-  const chartConfigs = [
-    { title: 'BMD Median', field: 'bmdMedian' as const },
-    { title: 'BMDL Median', field: 'bmdlMedian' as const },
-    { title: 'BMDU Median', field: 'bmduMedian' as const },
-    { title: 'BMD Mean', field: 'bmdMean' as const },
-    { title: 'BMDL Mean', field: 'bmdlMean' as const },
-    { title: 'BMDU Mean', field: 'bmduMean' as const },
-  ];
+  // Define chart configs based on selected stat
+  const chartConfigs = useMemo(() => [
+    { title: bmd.label, getValue: bmd.getValue },
+    { title: bmdl.label, getValue: bmdl.getValue },
+    { title: bmdu.label, getValue: bmdu.getValue },
+  ], [bmd, bmdl, bmdu]);
 
   // Group categories by cluster with inFocus state
   const clusterData = useMemo(() => {
     const byCluster = new Map<number, Array<{
       categoryId: string;
       categoryName: string;
-      values: Record<string, number>;
+      bmdValue: number;
+      bmdlValue: number;
+      bmduValue: number;
       inFocus: boolean;
     }>>();
 
@@ -63,24 +69,25 @@ export default function BarCharts() {
       byCluster.get(clusterId)!.push({
         categoryId: row.categoryId || '',
         categoryName: row.categoryDescription || row.categoryId || 'Unknown',
-        values: {
-          bmdMedian: row.bmdMedian ?? 0,
-          bmdlMedian: row.bmdlMedian ?? 0,
-          bmduMedian: row.bmduMedian ?? 0,
-          bmdMean: row.bmdMean ?? 0,
-          bmdlMean: row.bmdlMean ?? 0,
-          bmduMean: row.bmduMean ?? 0,
-        },
+        bmdValue: bmd.getValue(row) ?? 0,
+        bmdlValue: bmdl.getValue(row) ?? 0,
+        bmduValue: bmdu.getValue(row) ?? 0,
         inFocus: row.inFocus
       });
     });
 
     return byCluster;
-  }, [topCategories]);
+  }, [topCategories, bmd, bmdl, bmdu]);
 
-  // Create styled charts for each config
+  // Create styled charts for each config (BMD, BMDL, BMDU)
   const styledCharts = useMemo(() => {
-    return chartConfigs.map(config => {
+    const valueGetters = [
+      { title: bmd.label, getVal: (item: any) => item.bmdValue },
+      { title: bmdl.label, getVal: (item: any) => item.bmdlValue },
+      { title: bmdu.label, getVal: (item: any) => item.bmduValue },
+    ];
+
+    return valueGetters.map(config => {
       const traces: any[] = [];
 
       // Sort clusters (outliers last)
@@ -136,7 +143,7 @@ export default function BarCharts() {
         traces.push({
           type: 'bar',
           y: visibleItems.map(item => item.categoryName),
-          x: visibleItems.map(item => item.values[config.field]),
+          x: visibleItems.map(item => config.getVal(item)),
           orientation: 'h',
           name: getClusterLabel(clusterId),
           marker: {
@@ -149,7 +156,7 @@ export default function BarCharts() {
           },
           hovertemplate: '<b>%{y}</b><br>' +
             `${getClusterLabel(clusterId)}<br>` +
-            'Value: %{x:.4f}<extra></extra>',
+            `${config.title}: %{x:.4f}<extra></extra>`,
           showlegend: false,
         });
       });
@@ -159,7 +166,7 @@ export default function BarCharts() {
         data: traces,
       };
     });
-  }, [chartConfigs, clusterData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, shouldHidePoint]);
+  }, [clusterData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, shouldHidePoint, bmd.label, bmdl.label, bmdu.label]);
 
   if (!data || data.length === 0) {
     return (
@@ -179,7 +186,14 @@ export default function BarCharts() {
 
   return (
     <div style={{ width: '100%' }}>
-      <h4 style={{ marginBottom: '1rem' }}>BMD and BMDL Bar Charts (Top 20 Pathways)</h4>
+      {/* Controls */}
+      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+        <h4 style={{ margin: 0 }}>BMD Bar Charts (Top 20 Pathways)</h4>
+        <Space>
+          <Text>BMD Statistic:</Text>
+          <BmdStatSelector stat={stat} onStatChange={setStat} />
+        </Space>
+      </div>
       <Row gutter={[16, 16]}>
         {styledCharts.map((chart, index) => (
           <Col xs={24} lg={12} key={index}>
