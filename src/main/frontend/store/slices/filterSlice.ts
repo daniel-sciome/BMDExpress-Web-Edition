@@ -4,7 +4,7 @@
  * Manages user-defined filter groups for filtering CategoryAnalysisResultDto data
  */
 
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createSelector, PayloadAction } from '@reduxjs/toolkit';
 import type { FilterState, FilterGroup, Filter } from '../../types/filterTypes';
 import { nanoid } from '@reduxjs/toolkit';
 import { loadFilterGroups, saveFilterGroups, getRememberFiltersPreference } from '../../utils/filterGroupPersistence';
@@ -812,15 +812,20 @@ export default filterSlice.reducer;
  * Selectors
  */
 
+// Base selectors (direct state access - no memoization needed)
 export const selectAllFilterGroups = (state: { filters: FilterState }) => state.filters.groups;
+export const selectActiveGroupIds = (state: { filters: FilterState }) => state.filters.activeGroupIds;
 
-export const selectActiveFilterGroups = (state: { filters: FilterState }) =>
-  state.filters.groups.filter(g => state.filters.activeGroupIds.includes(g.id));
+// Memoized selectors (use createSelector to avoid returning new array references)
+export const selectActiveFilterGroups = createSelector(
+  [selectAllFilterGroups, selectActiveGroupIds],
+  (groups, activeIds) => groups.filter(g => activeIds.includes(g.id))
+);
 
-export const selectEnabledFilterGroups = (state: { filters: FilterState }) =>
-  state.filters.groups.filter(g => g.enabled);
+export const selectEnabledFilterGroups = createSelector(
+  [selectAllFilterGroups],
+  (groups) => groups.filter(g => g.enabled)
+);
 
 export const selectFilterGroupById = (id: string) => (state: { filters: FilterState }) =>
   state.filters.groups.find(g => g.id === id);
-
-export const selectActiveGroupIds = (state: { filters: FilterState }) => state.filters.activeGroupIds;
