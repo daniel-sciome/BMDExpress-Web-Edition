@@ -17,6 +17,8 @@ import Plot from 'react-plotly.js';
 import { Spin, Select, Space, Typography } from 'antd';
 import { useGeneClusteringData, LinkageMethod } from './hooks/useGeneClusteringData';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
+import { useBmdMetric } from './hooks/useBmdMetric';
+import { BmdStatSelector } from './BmdMetricSelector';
 import { getClusterIdForCategory, getClusterColor } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 
@@ -41,13 +43,13 @@ interface ClusterScatterPlotProps {
   initialLinkageMethod?: LinkageMethod;
 }
 
-type BmdMetric = 'median' | 'mean';
-
 export default function ClusterScatterPlot({
   initialLinkageMethod = 'average',
 }: ClusterScatterPlotProps) {
   const [linkageMethod, setLinkageMethod] = useState<LinkageMethod>(initialLinkageMethod);
-  const [bmdMetric, setBmdMetric] = useState<BmdMetric>('median');
+
+  // BMD metric selection (base fixed to 'bmd', stat selectable)
+  const { stat, setStat, label: metricLabel, getValueWithFallback } = useBmdMetric('bmd', 'median');
 
   const {
     clusterAssignments,
@@ -94,9 +96,8 @@ export default function ClusterScatterPlot({
       // Filter based on displayMode (isolate mode hides out-of-focus)
       if (shouldHidePoint(inFocus)) return;
 
-      const bmd = bmdMetric === 'median'
-        ? (cat.bmdMedian ?? cat.bmdMean)
-        : (cat.bmdMean ?? cat.bmdMedian);
+      // Get BMD value using the selected metric (with fallback to median)
+      const bmd = getValueWithFallback(cat, 'median');
 
       if (bmd != null && bmd > 0) {
         xValues.push(bmd);
@@ -122,7 +123,6 @@ export default function ClusterScatterPlot({
         const pValueStr = pValue != null && pValue > 0
           ? `Fisher p: ${pValue.toExponential(2)}<br>`
           : '';
-        const metricLabel = bmdMetric === 'median' ? 'BMD Median' : 'BMD Mean';
 
         texts.push(
           `<b>${cat.categoryDescription || categoryId}</b><br>` +
@@ -154,7 +154,7 @@ export default function ClusterScatterPlot({
       hovertemplate: '%{text}<extra></extra>',
       showlegend: false,
     }];
-  }, [clusterAssignments, categoryData, focusMap, displayMode, getPointStyle, shouldHidePoint, bmdMetric]);
+  }, [clusterAssignments, categoryData, focusMap, displayMode, getPointStyle, shouldHidePoint, getValueWithFallback, metricLabel]);
 
   // Calculate Y-axis range to show all clusters with padding
   // Must be before early returns to comply with React hooks rules
@@ -190,15 +190,13 @@ export default function ClusterScatterPlot({
     );
   }
 
-  const xAxisLabel = bmdMetric === 'median' ? 'BMD Median' : 'BMD Mean';
-
   const layout: any = {
     title: {
       text: `Gene Clusters: BMD by Cluster (${categoryCount} categories, ${uniqueClusterIds.length} clusters)`,
       font: { size: 16 },
     },
     xaxis: {
-      title: { text: xAxisLabel },
+      title: { text: metricLabel },
       type: 'log',
       autorange: true,
       gridcolor: DEFAULT_GRID_COLOR,
@@ -224,16 +222,8 @@ export default function ClusterScatterPlot({
       {/* Controls */}
       <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
         <Space>
-          <Text>BMD Metric:</Text>
-          <Select
-            value={bmdMetric}
-            onChange={setBmdMetric}
-            style={{ width: 100 }}
-            options={[
-              { value: 'median', label: 'Median' },
-              { value: 'mean', label: 'Mean' },
-            ]}
-          />
+          <Text>BMD Statistic:</Text>
+          <BmdStatSelector stat={stat} onStatChange={setStat} />
         </Space>
         <Space>
           <Text>Linkage Method:</Text>
