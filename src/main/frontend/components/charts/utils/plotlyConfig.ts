@@ -3,6 +3,8 @@
  *
  * Centralized management of Plotly.js chart configurations to ensure
  * consistent behavior and styling across all chart components.
+ *
+ * @module plotlyConfig
  */
 
 import type { Config } from 'plotly.js';
@@ -174,8 +176,13 @@ export function prepareLogScaleValues(values: number[]): {
     };
   }
 
-  const minNonZero = Math.min(...nonZeroValues);
-  const maxValue = Math.max(...nonZeroValues);
+  // Use iterative approach instead of spread operator to avoid stack overflow on large arrays
+  let minNonZero = Infinity;
+  let maxValue = -Infinity;
+  for (const v of nonZeroValues) {
+    if (v < minNonZero) minNonZero = v;
+    if (v > maxValue) maxValue = v;
+  }
   // Place zero one decade below the minimum non-zero value
   const zeroPosition = minNonZero / 10;
 
