@@ -3,6 +3,7 @@
 // Phase 4: Chart Reactivity Infrastructure
 
 import type { ReactiveStyleMode, ReactiveStyleProps } from 'Frontend/types/reactiveTypes';
+import { getUnselectedOpacity, SELECTED_STYLE } from './displayModeConfig';
 
 /**
  * Apply reactive styles to chart data based on selection state
@@ -44,34 +45,22 @@ export function applyReactiveStyles<T>(
     }
 
     if (isSelected) {
-      // Selected - highlight with border
+      // Selected - highlight with border (using centralized config)
       return {
-        opacity: 1.0,
+        opacity: SELECTED_STYLE.opacity,
         marker: {
-          opacity: 1.0,
-          line: { width: 2, color: '#fff' },
+          opacity: SELECTED_STYLE.opacity,
+          line: { width: SELECTED_STYLE.markerLineWidth, color: SELECTED_STYLE.markerLineColor },
         },
       };
     }
 
-    // Not selected - apply mode
-    switch (mode) {
-      case 'highlight':
-        return {
-          opacity: 1.0,
-          marker: { opacity: 1.0 },
-        };
-      case 'dim':
-        return {
-          opacity: 0.15,
-          marker: { opacity: 0.15 },
-        };
-      case 'hide':
-        return {
-          opacity: 0,
-          marker: { opacity: 0 },
-        };
-    }
+    // Not selected - apply mode using centralized config
+    const opacity = getUnselectedOpacity(mode);
+    return {
+      opacity,
+      marker: { opacity },
+    };
   });
 }
 
@@ -91,16 +80,9 @@ export function getReactiveOpacity(
   const hasSelection = selectedIds.size > 0;
 
   if (!hasSelection) return 1.0;
-  if (selectedIds.has(id)) return 1.0;
+  if (selectedIds.has(id)) return SELECTED_STYLE.opacity;
 
-  switch (mode) {
-    case 'highlight':
-      return 1.0;
-    case 'dim':
-      return 0.15;
-    case 'hide':
-      return 0;
-  }
+  return getUnselectedOpacity(mode);
 }
 
 /**
@@ -186,15 +168,15 @@ export function createReactiveMarker(
 
   if (isSelected) {
     return {
-      size: baseSize * 1.2,
+      size: baseSize * SELECTED_STYLE.sizeMultiplier,
       color: baseColor,
-      opacity: 1.0,
-      line: { width: 2, color: '#fff' },
+      opacity: SELECTED_STYLE.opacity,
+      line: { width: SELECTED_STYLE.markerLineWidth, color: SELECTED_STYLE.markerLineColor },
     };
   }
 
-  // Not selected
-  const opacity = getReactiveOpacity(id, selectedIds, mode);
+  // Not selected - use centralized config
+  const opacity = getUnselectedOpacity(mode);
   return {
     size: baseSize,
     color: baseColor,
