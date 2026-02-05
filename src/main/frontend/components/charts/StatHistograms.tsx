@@ -1,12 +1,10 @@
 /**
  * Stat Histograms Component
  *
- * Displays 3 histograms showing the distribution of category-level BMD statistics:
- * 1. BMD (selected statistic)
- * 2. BMDL (selected statistic)
- * 3. BMDU (selected statistic)
+ * Displays histogram(s) showing the distribution of category-level BMD statistics.
+ * Can show a single base (BMD/BMDL/BMDU) or all three side by side.
  *
- * Each histogram shows stacked bars colored by UMAP cluster assignment.
+ * The histogram shows stacked bars colored by UMAP cluster assignment.
  * Colors match the sidebar ClusterPicker for consistency.
  *
  * Responds to display modes:
@@ -18,23 +16,27 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { Row, Col, Checkbox, Space, Typography } from 'antd';
+import { Row, Col, Checkbox, Select, Space, Typography } from 'antd';
 import Plot from 'react-plotly.js';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useBmdMetricTriple } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
-import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
+import { getClusterColor, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import type { BmdBaseType } from './utils/bmdMetricConfig';
 
+const { Option } = Select;
 const { Text } = Typography;
+
+type BaseSelection = BmdBaseType | 'all';
 
 export default function StatHistograms() {
   const { data: allData, displayMode } = useFocusAwareStyling();
-  const clusterColors = useClusterColors();
-  const [useLogYAxis, setUseLogYAxis] = useState(false);
+  const [useLogXAxis, setUseLogXAxis] = useState(true);
+  const [selectedBase, setSelectedBase] = useState<BaseSelection>('bmd');
 
   // BMD metric selection (all three bases share the same stat)
-  const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('median');
+  const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('fifthPercentile');
 
   // Group data by cluster and focus state, extract values for each metric
   const clusterData = useMemo(() => {
@@ -104,7 +106,6 @@ export default function StatHistograms() {
   }
 
   const histogramConfig = {
-    type: useLogYAxis ? 'log' : 'linear',
     nbins: 20
   };
 
@@ -114,27 +115,72 @@ export default function StatHistograms() {
     bargap: 0.05,
     yaxis: {
       title: { text: 'Count' },
-      type: histogramConfig.type,
       gridcolor: DEFAULT_GRID_COLOR,
     },
     margin: { l: 60, r: 50, t: 60, b: 60 },
     showlegend: false,
   };
 
+  // Generate x-axis config for a given set of values
+  const getXAxisConfig = (dataByClusterAndFocus: { inFocus: Map<number, number[]>; outOfFocus: Map<number, number[]> }) => {
+    if (!useLogXAxis) {
+      return {
+        gridcolor: DEFAULT_GRID_COLOR,
+        type: 'linear' as const,
+      };
+    }
+
+    // Collect all values to determine range
+    const allValues: number[] = [];
+    dataByClusterAndFocus.inFocus.forEach(arr => allValues.push(...arr));
+    if (displayMode !== 'isolate') {
+      dataByClusterAndFocus.outOfFocus.forEach(arr => allValues.push(...arr));
+    }
+
+    if (allValues.length === 0) {
+      return { gridcolor: DEFAULT_GRID_COLOR, type: 'linear' as const };
+    }
+
+    const logValues = allValues.map(v => Math.log10(v));
+    const minLog = Math.floor(Math.min(...logValues));
+    const maxLog = Math.ceil(Math.max(...logValues));
+
+    // Generate tick values for each decade
+    const tickvals: number[] = [];
+    const ticktext: string[] = [];
+    for (let i = minLog; i <= maxLog; i++) {
+      tickvals.push(i);
+      const val = Math.pow(10, i);
+      ticktext.push(val >= 1 ? val.toString() : val.toFixed(-i));
+    }
+
+    return {
+      gridcolor: DEFAULT_GRID_COLOR,
+      type: 'linear' as const,
+      tickvals,
+      ticktext,
+    };
+  };
+
   // Helper to create stacked traces for a histogram with display mode support
+  // When using log scale, we transform values to log10 space for proper binning
   const createStackedTraces = (dataByClusterAndFocus: { inFocus: Map<number, number[]>; outOfFocus: Map<number, number[]> }) => {
     const traces: any[] = [];
 
     clusterData!.clusterIds.forEach(clusterId => {
       const inFocusValues = dataByClusterAndFocus.inFocus.get(clusterId) || [];
       const outOfFocusValues = dataByClusterAndFocus.outOfFocus.get(clusterId) || [];
-      const color = clusterColors[clusterId] || '#999999';
+      const color = getClusterColor(clusterId);
       const label = getClusterLabel(clusterId);
+
+      // Transform to log10 if using log scale
+      const transformValues = (values: number[]) =>
+        useLogXAxis ? values.map(v => Math.log10(v)) : values;
 
       // In-focus trace (always full opacity when visible)
       if (inFocusValues.length > 0) {
         traces.push({
-          x: inFocusValues,
+          x: transformValues(inFocusValues),
           type: 'histogram',
           nbinsx: histogramConfig.nbins,
           name: `${label} (in focus)`,
@@ -143,7 +189,9 @@ export default function StatHistograms() {
             opacity: 1.0,
             line: { color: 'white', width: 1 }
           },
-          hovertemplate: `Value: %{x:.4f}<br>Count: %{y}<extra>${label}</extra>`,
+          hovertemplate: useLogXAxis
+            ? `Value: 10^%{x:.2f}<br>Count: %{y}<extra>${label}</extra>`
+            : `Value: %{x:.4f}<br>Count: %{y}<extra>${label}</extra>`,
           showlegend: false,
         });
       }
@@ -152,7 +200,7 @@ export default function StatHistograms() {
       if (outOfFocusValues.length > 0 && displayMode !== 'isolate') {
         const outOfFocusOpacity = displayMode === 'dim' ? 0.2 : 1.0;
         traces.push({
-          x: outOfFocusValues,
+          x: transformValues(outOfFocusValues),
           type: 'histogram',
           nbinsx: histogramConfig.nbins,
           name: `${label} (out of focus)`,
@@ -161,7 +209,9 @@ export default function StatHistograms() {
             opacity: outOfFocusOpacity,
             line: { color: 'white', width: 1 }
           },
-          hovertemplate: `Value: %{x:.4f}<br>Count: %{y}<extra>${label}</extra>`,
+          hovertemplate: useLogXAxis
+            ? `Value: 10^%{x:.2f}<br>Count: %{y}<extra>${label}</extra>`
+            : `Value: %{x:.4f}<br>Count: %{y}<extra>${label}</extra>`,
           showlegend: false,
         });
       }
@@ -184,29 +234,51 @@ export default function StatHistograms() {
   const hasBmdlValues = hasData(clusterData!.bmdlValues);
   const hasBmduValues = hasData(clusterData!.bmduValues);
 
+  // Determine which histograms to show
+  const showBmd = selectedBase === 'all' || selectedBase === 'bmd';
+  const showBmdl = selectedBase === 'all' || selectedBase === 'bmdl';
+  const showBmdu = selectedBase === 'all' || selectedBase === 'bmdu';
+
+  // Determine column width based on how many histograms are shown
+  const colWidth = selectedBase === 'all' ? 12 : 24;
+
   return (
     <div style={{ width: '100%' }}>
       {/* Controls */}
       <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
         <Space>
-          <Text>BMD Statistic:</Text>
+          <Text>Base:</Text>
+          <Select
+            value={selectedBase}
+            onChange={setSelectedBase}
+            style={{ width: 100 }}
+          >
+            <Option value="all">All</Option>
+            <Option value="bmd">BMD</Option>
+            <Option value="bmdl">BMDL</Option>
+            <Option value="bmdu">BMDU</Option>
+          </Select>
+        </Space>
+        <Space>
+          <Text>Statistic:</Text>
           <BmdStatSelector stat={stat} onStatChange={setStat} />
         </Space>
-        <Checkbox checked={useLogYAxis} onChange={(e) => setUseLogYAxis(e.target.checked)}>
-          Log Y-Axis
+        <Checkbox checked={useLogXAxis} onChange={(e) => setUseLogXAxis(e.target.checked)}>
+          Log₁₀ Scale
         </Checkbox>
       </div>
 
       <Row gutter={[16, 16]}>
         {/* BMD Histogram */}
-        {hasBmdValues && (
-          <Col xs={24} lg={12}>
+        {showBmd && hasBmdValues && (
+          <Col xs={24} lg={colWidth} key={`bmd-col-${selectedBase}`}>
             <Plot
+              key={`bmd-plot-${selectedBase}`}
               data={createStackedTraces(clusterData!.bmdValues) as any}
               layout={{
                 ...commonLayout,
                 title: { text: `${bmd.label} Histogram`, font: { size: 14 } },
-                xaxis: { title: { text: bmd.label }, gridcolor: DEFAULT_GRID_COLOR },
+                xaxis: { ...getXAxisConfig(clusterData!.bmdValues), title: { text: useLogXAxis ? `${bmd.label} (log₁₀)` : bmd.label } },
                 height: 450,
               } as any}
               config={createPlotlyConfig() as any}
@@ -217,14 +289,15 @@ export default function StatHistograms() {
         )}
 
         {/* BMDL Histogram */}
-        {hasBmdlValues && (
-          <Col xs={24} lg={12}>
+        {showBmdl && hasBmdlValues && (
+          <Col xs={24} lg={colWidth} key={`bmdl-col-${selectedBase}`}>
             <Plot
+              key={`bmdl-plot-${selectedBase}`}
               data={createStackedTraces(clusterData!.bmdlValues) as any}
               layout={{
                 ...commonLayout,
                 title: { text: `${bmdl.label} Histogram`, font: { size: 14 } },
-                xaxis: { title: { text: bmdl.label }, gridcolor: DEFAULT_GRID_COLOR },
+                xaxis: { ...getXAxisConfig(clusterData!.bmdlValues), title: { text: useLogXAxis ? `${bmdl.label} (log₁₀)` : bmdl.label } },
                 height: 450,
               } as any}
               config={createPlotlyConfig() as any}
@@ -235,14 +308,15 @@ export default function StatHistograms() {
         )}
 
         {/* BMDU Histogram */}
-        {hasBmduValues && (
-          <Col xs={24} lg={12}>
+        {showBmdu && hasBmduValues && (
+          <Col xs={24} lg={colWidth} key={`bmdu-col-${selectedBase}`}>
             <Plot
+              key={`bmdu-plot-${selectedBase}`}
               data={createStackedTraces(clusterData!.bmduValues) as any}
               layout={{
                 ...commonLayout,
                 title: { text: `${bmdu.label} Histogram`, font: { size: 14 } },
-                xaxis: { title: { text: bmdu.label }, gridcolor: DEFAULT_GRID_COLOR },
+                xaxis: { ...getXAxisConfig(clusterData!.bmduValues), title: { text: useLogXAxis ? `${bmdu.label} (log₁₀)` : bmdu.label } },
                 height: 450,
               } as any}
               config={createPlotlyConfig() as any}

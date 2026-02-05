@@ -224,7 +224,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
     const chartKeyMap: Record<string, string> = {
       '1': 'chart-1', '2': 'chart-2', '3': 'chart-3', '4': 'chart-4',
       '5': 'chart-5', '6': 'chart-6', '7': 'chart-7', '8': 'chart-8',
-      '9': 'chart-9', '10': 'chart-10', '11': 'chart-11', '12': 'chart-12',
+      '9': 'chart-9', '11': 'chart-11', '12': 'chart-12',
       '14': 'chart-14', '15': 'chart-15'
     };
 
@@ -719,7 +719,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                         onChange={handleChartCollapseChange('chart-9')}
                         items={[{
                           key: 'chart-9',
-                          label: <span style={{ lineHeight: '22px' }}>Stat Histograms</span>,
+                          label: <span style={{ lineHeight: '22px' }}>BMD(L/U) Histograms</span>,
                           children: <StatHistograms key={`${projectId}-${resultName}`} />
                         }]}
                       />
@@ -1014,7 +1014,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
               onChange={handleChartCollapseChange('chart-9')}
               items={[{
                 key: 'chart-9',
-                label: <span style={{ lineHeight: '22px' }}>Stat Histograms</span>,
+                label: <span style={{ lineHeight: '22px' }}>BMD(L/U) Histograms</span>,
                 children: <StatHistograms key={`${projectId}-${resultName}`} />
               }]}
             />
@@ -1280,8 +1280,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
               <Checkbox value="6">Best Models Pie</Checkbox>
               <Checkbox value="7">Bar Charts</Checkbox>
               <Checkbox value="8">Accumulation Charts</Checkbox>
-              <Checkbox value="9">Mean Histograms</Checkbox>
-              <Checkbox value="10">Median Histograms</Checkbox>
+              <Checkbox value="9">BMD(L/U) Histograms</Checkbox>
               <Checkbox value="11">BMD vs BMDL Scatter</Checkbox>
               <Checkbox value="12">Violin Per Category</Checkbox>
               <Checkbox value="14">Gene Cluster Heatmap</Checkbox>
