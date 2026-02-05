@@ -36,7 +36,7 @@ export default function ViolinPlotPerCategory() {
   const [numCategories, setNumCategories] = useState(5);
 
   // BMD metric for sorting (uses selected base + stat)
-  const { stat, setStat, getValue: getSortValue, label: metricLabel } = useBmdMetric(selectedBase, 'fifthPercentile');
+  const { stat, setStat, getValue: getSortValue, label: metricLabel } = useBmdMetric(selectedBase);
 
   const hasSelection = categoryState.selectedIds.size > 0;
 

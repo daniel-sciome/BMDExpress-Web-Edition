@@ -36,7 +36,7 @@ export default function StatHistograms() {
   const [selectedBase, setSelectedBase] = useState<BaseSelection>('bmd');
 
   // BMD metric selection (all three bases share the same stat)
-  const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('fifthPercentile');
+  const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple();
 
   // Group data by cluster and focus state, extract values for each metric
   const clusterData = useMemo(() => {

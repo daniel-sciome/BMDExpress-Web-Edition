@@ -36,7 +36,7 @@ export default function BMDvsPValueScatter({ stat: externalStat, hideControls = 
 
   // BMD metric selection (base fixed to 'bmd', stat selectable or externally controlled)
   // Pass externalStat as controlled value - hook will use it when provided
-  const { stat, setStat, label: metricLabel, getValue } = useBmdMetric('bmd', 'median', externalStat);
+  const { stat, setStat, label: metricLabel, getValue } = useBmdMetric(undefined, undefined, externalStat);
 
   // Prepare data for plotting
   const scatterData = useMemo(() => {

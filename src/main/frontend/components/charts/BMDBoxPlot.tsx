@@ -51,7 +51,7 @@ export default function BMDBoxPlot({ stat: externalStat, hideControls = false }:
 
   // BMD metric selection (all three bases share the same stat, or externally controlled)
   // Pass externalStat as controlled value - hook will use it when provided
-  const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('median', externalStat);
+  const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple(undefined, externalStat);
 
   // Build traces with inFocus-based styling
   const { traces, yAxisRange, bmdStats } = useMemo(() => {

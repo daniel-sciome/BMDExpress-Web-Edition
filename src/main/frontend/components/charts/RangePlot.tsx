@@ -32,7 +32,7 @@ export default function RangePlot() {
   const [useLogScale, setUseLogScale] = useState(true);
 
   // BMD metric selection (all three bases share the same stat)
-  const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('median');
+  const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple();
 
   // Filter top N categories by BMD value (smallest first), then sort alphabetically for display
   // In isolate mode, Top N is computed from focused items only

@@ -49,7 +49,7 @@ export default function ClusterScatterPlot({
   const [linkageMethod, setLinkageMethod] = useState<LinkageMethod>(initialLinkageMethod);
 
   // BMD metric selection (base fixed to 'bmd', stat selectable)
-  const { stat, setStat, label: metricLabel, getValueWithFallback } = useBmdMetric('bmd', 'median');
+  const { stat, setStat, label: metricLabel, getValueWithFallback } = useBmdMetric();
 
   const {
     clusterAssignments,
