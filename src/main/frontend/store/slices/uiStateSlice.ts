@@ -14,10 +14,14 @@ const VISIBLE_CHARTS_STORAGE_KEY = 'bmdexpress_visible_charts';
 const OPEN_COLLAPSES_STORAGE_KEY = 'bmdexpress_open_collapses';
 
 // Default expanded collapses (table always expanded)
+// Chart keys use semantic IDs from CHART_CONFIG in CategoryResultsView.tsx
 const DEFAULT_OPEN_COLLAPSES = [
-  'chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5', 'chart-6',
-  'chart-7', 'chart-8', 'chart-9', 'chart-10', 'chart-11', 'chart-12',
-  'chart-14', 'chart-15', 'category-results-table'
+  'chart-default-charts', 'chart-umap-scatter', 'chart-curve-overlay',
+  'chart-range-plot', 'chart-bubble-chart', 'chart-best-models-pie',
+  'chart-bar-charts', 'chart-accumulation-charts', 'chart-bmd-histograms',
+  'chart-bmd-vs-bmdl-scatter', 'chart-violin-per-category',
+  'chart-cluster-heatmap', 'chart-cluster-scatter',
+  'category-results-table'
 ];
 
 // Load visible charts from localStorage

@@ -66,39 +66,8 @@ const CHART_CONFIG: ChartConfig[] = [
   { id: 'cluster-scatter', label: 'Gene Cluster Scatter', keyPostfix: '-cluster-scatter' },
 ];
 
-// Map for backwards compatibility with stored visibility state (numeric IDs)
-const LEGACY_ID_MAP: Record<string, string> = {
-  '1': 'default-charts',
-  '2': 'umap-scatter',
-  '3': 'curve-overlay',
-  '4': 'range-plot',
-  '5': 'bubble-chart',
-  '6': 'best-models-pie',
-  '7': 'bar-charts',
-  '8': 'accumulation-charts',
-  '9': 'bmd-histograms',
-  '11': 'bmd-vs-bmdl-scatter',
-  '12': 'violin-per-category',
-  '14': 'cluster-heatmap',
-  '15': 'cluster-scatter',
-};
-
-// Reverse map for checkbox values (to support existing Redux state)
-const SEMANTIC_TO_LEGACY_MAP: Record<string, string> = Object.fromEntries(
-  Object.entries(LEGACY_ID_MAP).map(([k, v]) => [v, k])
-);
-
-// Helper to get chart key for collapse
+// Helper to get chart collapse key from chart ID
 const getChartKey = (chartId: string) => `chart-${chartId}`;
-
-// Helper to check if chart is visible (handles both legacy and semantic IDs)
-const isChartVisible = (chartId: string, visibleCharts: string[]) => {
-  const legacyId = SEMANTIC_TO_LEGACY_MAP[chartId];
-  return visibleCharts.includes(chartId) || (legacyId && visibleCharts.includes(legacyId));
-};
-
-// Helper to get legacy ID for a semantic ID (for Redux compatibility)
-const getLegacyId = (chartId: string) => SEMANTIC_TO_LEGACY_MAP[chartId] || chartId;
 
 interface CategoryResultsViewProps {
   projectId: string;
@@ -243,11 +212,9 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
     const config = CHART_CONFIG.find(c => c.id === chartId);
     if (!config) return null;
 
-    const legacyId = getLegacyId(chartId);
-    // Use legacy key format for backwards compatibility with stored Redux state
-    const collapseKey = `chart-${legacyId}`;
+    const collapseKey = getChartKey(chartId);
 
-    if (!isChartVisible(chartId, visibleCharts)) return null;
+    if (!visibleCharts.includes(chartId)) return null;
 
     return (
       <div key={chartId} style={{ marginBottom: '4px' }}>
@@ -351,18 +318,12 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   // When a NEW chart is selected (not previously visible), auto-expand it
   // Charts that were already visible keep their current collapse state
   useEffect(() => {
-    // Generate chartKeyMap from config - maps legacy numeric IDs to semantic chart keys
-    const chartKeyMap: Record<string, string> = Object.fromEntries(
-      Object.entries(LEGACY_ID_MAP).map(([legacyId, semanticId]) => [legacyId, getChartKey(semanticId)])
-    );
-
     // Find charts that are newly selected (in current but not in previous)
     const newlySelected = visibleCharts.filter(v => !prevVisibleChartsRef.current.includes(v));
 
     // Only expand newly selected charts
     const newKeys = newlySelected
-      .map(v => chartKeyMap[v])
-      .filter((key): key is string => key !== undefined)
+      .map(v => getChartKey(v))
       .filter(key => !openChartCollapses.includes(key));
 
     if (newKeys.length > 0) {
@@ -1007,7 +968,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {CHART_CONFIG.map(config => (
-                <Checkbox key={config.id} value={getLegacyId(config.id)}>
+                <Checkbox key={config.id} value={config.id}>
                   {config.label}
                 </Checkbox>
               ))}
