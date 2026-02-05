@@ -22,7 +22,7 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { selectAllFilterGroups, toggleFilterGroup, deleteFilterGroup, updateFilterGroup } from '../../store/slices/filterSlice';
 import { selectFilteredData } from '../../store/slices/categoryResultsSlice';
 import { getCategoryIdsForFilterGroup } from '../../utils/filterEvaluation';
-import { FIELD_METADATA } from '../../utils/filterMetadata';
+import { FIELD_METADATA, operatorToShortSymbol, shortSymbolToOperator } from '../../utils/filterMetadata';
 import FilterGroupEditor from './FilterGroupEditor';
 import FilterGroupEditorModal, { FilterConfig, FilterOperator, formatFilterDisplay, isBetweenOperator, isFilterActive } from './FilterGroupEditorModal';
 import PrimaryFilter from '../PrimaryFilter';
@@ -35,19 +35,11 @@ import { getRememberFiltersPreference, setRememberFiltersPreference } from '../.
  */
 function filterToConfig(filter: Filter): FilterConfig {
   const field = FIELD_METADATA[filter.field];
-  let operator: FilterOperator = '>=';
 
-  // Map old operators to new format
-  if ('operator' in filter) {
-    switch (filter.operator) {
-      case 'greaterThan': operator = '>'; break;
-      case 'greaterThanOrEqual': operator = '>='; break;
-      case 'lessThan': operator = '<'; break;
-      case 'lessThanOrEqual': operator = '<='; break;
-      case 'between': operator = '[between]'; break;
-      default: operator = '>=';
-    }
-  }
+  // Convert verbose operator to short symbol using centralized config
+  const operator = ('operator' in filter)
+    ? operatorToShortSymbol(filter.operator) as FilterOperator
+    : '>=' as FilterOperator;
 
   // If filter was disabled, treat as "all" (no value)
   const hasValue = filter.enabled && 'value' in filter && typeof filter.value === 'number';
@@ -68,20 +60,8 @@ function filterToConfig(filter: Filter): FilterConfig {
  * Note: enabled is set based on whether value is defined (not "all")
  */
 function configToFilter(config: FilterConfig, originalFilter: Filter): Filter {
-  // Map new operators to old format
-  let operator: string;
-  switch (config.operator) {
-    case '>': operator = 'greaterThan'; break;
-    case '>=': operator = 'greaterThanOrEqual'; break;
-    case '<': operator = 'lessThan'; break;
-    case '<=': operator = 'lessThanOrEqual'; break;
-    case '[between]':
-    case 'between':
-    case '[between':
-    case 'between]':
-      operator = 'between'; break;
-    default: operator = 'greaterThanOrEqual';
-  }
+  // Convert short symbol to verbose operator using centralized config
+  const operator = shortSymbolToOperator(config.operator);
 
   // enabled = true if value is set (not "all")
   const isActive = isFilterActive(config);

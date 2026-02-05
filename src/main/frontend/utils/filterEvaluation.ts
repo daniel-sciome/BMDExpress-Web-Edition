@@ -8,6 +8,7 @@
 
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import type { Filter, NumericFilter, CategoricalFilter, FilterGroup } from '../types/filterTypes';
+import { getNumericOperatorConfig, getCategoricalOperatorConfig } from './filterMetadata';
 
 /**
  * Evaluate a single numeric filter against a data row
@@ -25,43 +26,20 @@ function evaluateNumericFilter(filter: NumericFilter, row: CategoryAnalysisResul
     return false;
   }
 
-  switch (filter.operator) {
-    case 'equals':
-      return numValue === filter.value;
-
-    case 'notEquals':
-      return numValue !== filter.value;
-
-    case 'lessThan':
-      return numValue < filter.value;
-
-    case 'lessThanOrEqual':
-      return numValue <= filter.value;
-
-    case 'greaterThan':
-      return numValue > filter.value;
-
-    case 'greaterThanOrEqual':
-      return numValue >= filter.value;
-
-    case 'between':
-      if (filter.maxValue === undefined) {
-        console.warn('[filterEvaluation] between operator requires maxValue');
-        return false;
-      }
-      return numValue >= filter.value && numValue <= filter.maxValue;
-
-    case 'notBetween':
-      if (filter.maxValue === undefined) {
-        console.warn('[filterEvaluation] notBetween operator requires maxValue');
-        return false;
-      }
-      return numValue < filter.value || numValue > filter.maxValue;
-
-    default:
-      console.warn('[filterEvaluation] Unknown numeric operator:', filter.operator);
-      return false;
+  // Look up operator config and use its evaluate function
+  const operatorConfig = getNumericOperatorConfig(filter.operator);
+  if (!operatorConfig) {
+    console.warn('[filterEvaluation] Unknown numeric operator:', filter.operator);
+    return false;
   }
+
+  // Check for required maxValue on range operators
+  if (operatorConfig.requiresMaxValue && filter.maxValue === undefined) {
+    console.warn(`[filterEvaluation] ${filter.operator} operator requires maxValue`);
+    return false;
+  }
+
+  return operatorConfig.evaluate(numValue, filter.value, filter.maxValue);
 }
 
 /**
@@ -77,31 +55,20 @@ function evaluateCategoricalFilter(filter: CategoricalFilter, row: CategoryAnaly
 
   const strValue = String(value);
 
-  switch (filter.operator) {
-    case 'equals':
-      return strValue === filter.value;
-
-    case 'notEquals':
-      return strValue !== filter.value;
-
-    case 'in':
-      if (!filter.values || filter.values.length === 0) {
-        console.warn('[filterEvaluation] in operator requires values array');
-        return false;
-      }
-      return filter.values.includes(strValue);
-
-    case 'notIn':
-      if (!filter.values || filter.values.length === 0) {
-        console.warn('[filterEvaluation] notIn operator requires values array');
-        return false;
-      }
-      return !filter.values.includes(strValue);
-
-    default:
-      console.warn('[filterEvaluation] Unknown categorical operator:', filter.operator);
-      return false;
+  // Look up operator config and use its evaluate function
+  const operatorConfig = getCategoricalOperatorConfig(filter.operator);
+  if (!operatorConfig) {
+    console.warn('[filterEvaluation] Unknown categorical operator:', filter.operator);
+    return false;
   }
+
+  // Check for required values array on 'in'/'notIn' operators
+  if ((filter.operator === 'in' || filter.operator === 'notIn') && (!filter.values || filter.values.length === 0)) {
+    console.warn(`[filterEvaluation] ${filter.operator} operator requires values array`);
+    return false;
+  }
+
+  return operatorConfig.evaluate(strValue, filter.value, filter.values);
 }
 
 /**
