@@ -17,13 +17,14 @@ import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterIdForCategory, getClusterLabel } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 import { hexToRgba } from './utils/displayModeStyles';
+import { getTopNSourceData } from './utils/topNFilter';
 
 const { Text } = Typography;
 
 const TOP_N_OPTIONS = [10, 20, 50, 100, 200, 'All'] as const;
 
 export default function RangePlot() {
-  const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
+  const { data, displayMode, getPointStyle } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const clusterColors = useClusterColors();
   const hasSelection = categoryState.selectedIds.size > 0;
@@ -33,12 +34,16 @@ export default function RangePlot() {
   // BMD metric selection (all three bases share the same stat)
   const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('median');
 
-  // Filter top N categories by p-value, then sort alphabetically for display
-  // Track p-value rank for each category
+  // Filter top N categories by BMD value (smallest first), then sort alphabetically for display
+  // In isolate mode, Top N is computed from focused items only
+  // Track BMD rank for each category
   const topCategories = useMemo(() => {
     if (!data || data.length === 0) return [];
 
-    const validData = data.filter(row => {
+    // In isolate mode, compute Top N from focused items only
+    const sourceData = getTopNSourceData(data, displayMode);
+
+    const validData = sourceData.filter(row => {
       const bmdVal = bmd.getValue(row);
       const bmdlVal = bmdl.getValue(row);
       const bmduVal = bmdu.getValue(row);
@@ -46,18 +51,18 @@ export default function RangePlot() {
              bmdVal > 0 && bmdlVal > 0 && bmduVal > 0;
     });
 
-    // First sort by p-value to get top N most significant
-    const sortedByPValue = [...validData].sort((a, b) => {
-      const pA = a.fishersExactTwoTailPValue ?? 1;
-      const pB = b.fishersExactTwoTailPValue ?? 1;
-      return pA - pB;
+    // Sort by BMD value ascending (smallest = most sensitive pathways first)
+    const sortedByBmd = [...validData].sort((a, b) => {
+      const bmdA = bmd.getValue(a) ?? Infinity;
+      const bmdB = bmd.getValue(b) ?? Infinity;
+      return bmdA - bmdB;
     });
 
-    // Take top N and assign p-value rank
-    const topN_categories = (topN === 'All' ? sortedByPValue : sortedByPValue.slice(0, topN))
+    // Take top N (smallest BMD values) and assign BMD rank
+    const topN_categories = (topN === 'All' ? sortedByBmd : sortedByBmd.slice(0, topN))
       .map((row, index) => ({
         ...row,
-        pValueRank: index + 1, // 1-based rank
+        bmdRank: index + 1, // 1-based rank by BMD value
       }));
 
     // Then sort alphabetically by category description for display
@@ -66,7 +71,7 @@ export default function RangePlot() {
       const nameB = (b.categoryDescription || b.categoryId || '').toLowerCase();
       return nameA.localeCompare(nameB);
     });
-  }, [data, topN, bmd, bmdl, bmdu]);
+  }, [data, displayMode, topN, bmd, bmdl, bmdu]);
 
   // Calculate max display name length from ALL valid categories (not just topN)
   // This ensures consistent axis width regardless of how many categories are shown
@@ -104,34 +109,24 @@ export default function RangePlot() {
   // Truncated width for display (1/3 of full width)
   const truncatedDisplayLen = Math.ceil(maxDisplayNameLen / 3);
 
-  // Filter categories for display - in isolate mode, hide out-of-focus rows entirely
-  const categoriesForDisplay = useMemo(() => {
-    if (displayMode === 'isolate') {
-      return topCategories.filter(row => row.inFocus);
-    }
-    return topCategories;
-  }, [topCategories, displayMode]);
-
   // Build display names for visible categories (truncated for axis)
   const displayNamesList = useMemo(() => {
-    const maxIndexDigits = String(topCategories.length).length; // Use full count for consistent numbering
-    return categoriesForDisplay.map((row) => {
-      // Find original alphabetical index from topCategories
-      const originalIdx = topCategories.findIndex(tc => tc.categoryId === row.categoryId);
+    const maxIndexDigits = String(topCategories.length).length;
+    return topCategories.map((row, idx) => {
       const baseName = row.categoryDescription || row.categoryId || 'Unknown';
-      const indexStr = String(originalIdx + 1).padStart(maxIndexDigits, ' ');
-      const fullName = `${indexStr}. ${baseName} (${row.pValueRank})`;
+      const indexStr = String(idx + 1).padStart(maxIndexDigits, ' ');
+      const fullName = `${indexStr}. ${baseName} (${row.bmdRank})`;
       // Truncate to 1/3 width, add ellipsis if needed
       if (fullName.length > truncatedDisplayLen) {
         return fullName.substring(0, truncatedDisplayLen - 3) + '...';
       }
       return fullName.padEnd(truncatedDisplayLen, ' ');
     });
-  }, [topCategories, categoriesForDisplay, truncatedDisplayLen]);
+  }, [topCategories, truncatedDisplayLen]);
 
   // Group categories by cluster with inFocus state
-  // Format display names with alphabetical index and p-value rank
-  // Uses categoriesForDisplay which is filtered in isolate mode
+  // Format display names with alphabetical index and BMD rank
+  // topCategories is already filtered for isolate mode via getTopNSourceData
   const clusterData = useMemo(() => {
     const byCluster = new Map<number, Array<{
       categoryId: string;
@@ -143,22 +138,20 @@ export default function RangePlot() {
       bmdu: number;
       inFocus: boolean;
       alphabeticalIndex: number;
-      pValueRank: number;
+      bmdRank: number;
     }>>();
 
     const maxIndexDigits = String(topCategories.length).length;
 
-    categoriesForDisplay.forEach((row) => {
-      // Find original alphabetical index from topCategories
-      const originalIdx = topCategories.findIndex(tc => tc.categoryId === row.categoryId);
+    topCategories.forEach((row, idx) => {
       const clusterId = getClusterIdForCategory(row.categoryId);
       if (!byCluster.has(clusterId)) {
         byCluster.set(clusterId, []);
       }
       const baseName = row.categoryDescription || row.categoryId || 'Unknown';
-      // Format: "N. Category Name (R)" where N is alphabetical order, R is p-value rank
-      const indexStr = String(originalIdx + 1).padStart(maxIndexDigits, ' ');
-      const fullDisplayName = `${indexStr}. ${baseName} (${row.pValueRank})`;
+      // Format: "N. Category Name (R)" where N is alphabetical order, R is BMD rank
+      const indexStr = String(idx + 1).padStart(maxIndexDigits, ' ');
+      const fullDisplayName = `${indexStr}. ${baseName} (${row.bmdRank})`;
 
       // Truncate for axis display (1/3 width)
       let displayName: string;
@@ -177,13 +170,13 @@ export default function RangePlot() {
         bmdl: bmdl.getValue(row)!,
         bmdu: bmdu.getValue(row)!,
         inFocus: row.inFocus,
-        alphabeticalIndex: originalIdx + 1,
-        pValueRank: row.pValueRank
+        alphabeticalIndex: idx + 1,
+        bmdRank: row.bmdRank
       });
     });
 
     return byCluster;
-  }, [topCategories, categoriesForDisplay, truncatedDisplayLen, bmd, bmdl, bmdu]);
+  }, [topCategories, truncatedDisplayLen, bmd, bmdl, bmdu]);
 
   // Create traces with inFocus-based per-point styling
   const plotData = useMemo(() => {
@@ -200,10 +193,7 @@ export default function RangePlot() {
       const items = clusterData.get(clusterId)!;
       const baseColor = clusterColors[clusterId] || '#999999';
 
-      // Filter points based on displayMode (isolate mode hides out-of-focus)
-      const visibleItems = items.filter(item => !shouldHidePoint(item.inFocus));
-
-      if (visibleItems.length === 0) {
+      if (items.length === 0) {
         return; // Skip empty cluster traces
       }
 
@@ -214,7 +204,7 @@ export default function RangePlot() {
       const markerLineColors: string[] = [];
       const errorBarColors: string[] = [];
 
-      visibleItems.forEach(item => {
+      items.forEach(item => {
         const isSelected = categoryState.selectedIds.has(item.categoryId);
         const focusStyle = getPointStyle(item.inFocus, baseColor);
 
@@ -244,11 +234,11 @@ export default function RangePlot() {
       });
 
       // Calculate error bar extents
-      const errorMinus = visibleItems.map(item => item.bmd - item.bmdl);
-      const errorPlus = visibleItems.map(item => item.bmdu - item.bmd);
+      const errorMinus = items.map(item => item.bmd - item.bmdl);
+      const errorPlus = items.map(item => item.bmdu - item.bmd);
 
       // Create individual traces per point to support per-point error bar colors
-      visibleItems.forEach((item, idx) => {
+      items.forEach((item, idx) => {
         traces.push({
           type: 'scatter',
           mode: 'markers',
@@ -277,7 +267,7 @@ export default function RangePlot() {
             `<b>${item.fullDisplayName}</b><br>` +
             `${item.categoryName}<br>` +
             `${getClusterLabel(clusterId)}<br>` +
-            `Alphabetical: #${item.alphabeticalIndex} | P-value Rank: #${item.pValueRank}<br>` +
+            `Alphabetical: #${item.alphabeticalIndex} | BMD Rank: #${item.bmdRank}<br>` +
             `${bmd.label}: %{x:.4f}<br>` +
             `${bmdl.label}: ${item.bmdl.toFixed(4)}<br>` +
             `${bmdu.label}: ${item.bmdu.toFixed(4)}<br>` +
@@ -288,7 +278,7 @@ export default function RangePlot() {
     });
 
     return traces;
-  }, [clusterData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, shouldHidePoint, bmd.label, bmdl.label, bmdu.label]);
+  }, [clusterData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, bmd.label, bmdl.label, bmdu.label]);
 
   if (!data || data.length === 0) {
     return (
@@ -306,8 +296,8 @@ export default function RangePlot() {
     );
   }
 
-  // Calculate height based on visible categories (categoriesForDisplay)
-  const visibleCount = categoriesForDisplay.length;
+  // Calculate height based on visible categories (topCategories)
+  const visibleCount = topCategories.length;
   const plotHeight = Math.max(300, visibleCount * 22 + 80);
 
   // Get display names for y-axis (based on visible categories)
@@ -353,22 +343,20 @@ export default function RangePlot() {
   const rowHeight = chartAreaHeight / visibleCount;
 
   // Build labels to match chart order (A at top)
-  // Uses categoriesForDisplay which is filtered in isolate mode
+  // topCategories is already filtered for isolate mode via getTopNSourceData
   // HTML table: first row is at top, matching alphabetical order
   const labelsForDisplay = useMemo(() => {
-    const maxIndexDigits = String(topCategories.length).length; // Use full count for consistent numbering
-    return categoriesForDisplay.map((row) => {
-      // Find original alphabetical index from topCategories
-      const originalIdx = topCategories.findIndex(tc => tc.categoryId === row.categoryId);
+    const maxIndexDigits = String(topCategories.length).length;
+    return topCategories.map((row, idx) => {
       const baseName = row.categoryDescription || row.categoryId || 'Unknown';
-      const indexStr = String(originalIdx + 1).padStart(maxIndexDigits, ' ');
-      const fullName = `${indexStr}. ${baseName} (${row.pValueRank})`;
+      const indexStr = String(idx + 1).padStart(maxIndexDigits, ' ');
+      const fullName = `${indexStr}. ${baseName} (${row.bmdRank})`;
       const truncated = fullName.length > truncatedDisplayLen
         ? fullName.substring(0, truncatedDisplayLen - 3) + '...'
         : fullName;
       return { truncated, fullName };
     });
-  }, [topCategories, categoriesForDisplay, truncatedDisplayLen]);
+  }, [topCategories, truncatedDisplayLen]);
 
   return (
     <div style={{ width: '100%' }}>
