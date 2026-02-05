@@ -36,6 +36,69 @@ import type { BmdStatType } from './charts/utils/bmdMetricConfig';
 
 const { Text } = Typography;
 
+/**
+ * Chart Configuration
+ * Single source of truth for all chart definitions.
+ * Each chart has a semantic ID, display label, and rendering info.
+ */
+interface ChartConfig {
+  id: string;           // Semantic ID (e.g., 'bmd-histograms')
+  label: string;        // Display label for checkbox and collapse
+  // Component is rendered dynamically based on id in renderChart function
+  // Some charts need extra props (projectId, resultName) which are passed at render time
+  keyPostfix?: string;  // Optional postfix for React key (e.g., '-cluster-heatmap')
+}
+
+const CHART_CONFIG: ChartConfig[] = [
+  { id: 'default-charts', label: 'Default Charts (Scatter & Box)' },
+  { id: 'umap-scatter', label: 'UMAP Scatter Plot' },
+  { id: 'curve-overlay', label: 'Curve Overlay' },
+  { id: 'range-plot', label: 'Range Plot' },
+  { id: 'bubble-chart', label: 'Bubble Chart' },
+  { id: 'best-models-pie', label: 'Best Models Pie Chart' },
+  { id: 'bar-charts', label: 'Bar Charts' },
+  { id: 'accumulation-charts', label: 'Accumulation Charts' },
+  { id: 'bmd-histograms', label: 'BMD(L/U) Histograms' },
+  { id: 'bmd-vs-bmdl-scatter', label: 'BMD vs BMDL Scatter' },
+  { id: 'violin-per-category', label: 'Violin Plot Per Category' },
+  { id: 'cluster-heatmap', label: 'Gene Cluster Heatmap', keyPostfix: '-cluster-heatmap' },
+  { id: 'cluster-scatter', label: 'Gene Cluster Scatter', keyPostfix: '-cluster-scatter' },
+];
+
+// Map for backwards compatibility with stored visibility state (numeric IDs)
+const LEGACY_ID_MAP: Record<string, string> = {
+  '1': 'default-charts',
+  '2': 'umap-scatter',
+  '3': 'curve-overlay',
+  '4': 'range-plot',
+  '5': 'bubble-chart',
+  '6': 'best-models-pie',
+  '7': 'bar-charts',
+  '8': 'accumulation-charts',
+  '9': 'bmd-histograms',
+  '11': 'bmd-vs-bmdl-scatter',
+  '12': 'violin-per-category',
+  '14': 'cluster-heatmap',
+  '15': 'cluster-scatter',
+};
+
+// Reverse map for checkbox values (to support existing Redux state)
+const SEMANTIC_TO_LEGACY_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(LEGACY_ID_MAP).map(([k, v]) => [v, k])
+);
+
+// Helper to get chart key for collapse
+const getChartKey = (chartId: string) => `chart-${chartId}`;
+
+// Helper to check if chart is visible (handles both legacy and semantic IDs)
+const isChartVisible = (chartId: string, visibleCharts: string[]) => {
+  const legacyId = SEMANTIC_TO_LEGACY_MAP[chartId];
+  return visibleCharts.includes(chartId) || (legacyId && visibleCharts.includes(legacyId));
+};
+
+// Helper to get legacy ID for a semantic ID (for Redux compatibility)
+const getLegacyId = (chartId: string) => SEMANTIC_TO_LEGACY_MAP[chartId] || chartId;
+
 interface CategoryResultsViewProps {
   projectId: string;
   resultName: string;
@@ -118,6 +181,87 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
 
   // Shared BMD stat for BMD Overview section (controls both scatter and box plot)
   const [bmdOverviewStat, setBmdOverviewStat] = useState<BmdStatType>('fifthPercentile');
+
+  // Render chart content based on chart ID
+  const renderChartContent = (chartId: string) => {
+    const chartKey = `${projectId}-${resultName}`;
+    const config = CHART_CONFIG.find(c => c.id === chartId);
+    const keyPostfix = config?.keyPostfix || '';
+
+    switch (chartId) {
+      case 'default-charts':
+        return (
+          <div>
+            <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px' }}>
+              <Space>
+                <Text>BMD Statistic:</Text>
+                <BmdStatSelector stat={bmdOverviewStat} onStatChange={setBmdOverviewStat} />
+              </Space>
+            </div>
+            <Row gutter={16} key={chartKey}>
+              <Col xs={24} xl={12}>
+                <BMDvsPValueScatter key={`${chartKey}-scatter`} stat={bmdOverviewStat} hideControls />
+              </Col>
+              <Col xs={24} xl={12}>
+                <BMDBoxPlot key={`${chartKey}-box`} stat={bmdOverviewStat} hideControls />
+              </Col>
+            </Row>
+          </div>
+        );
+      case 'umap-scatter':
+        return <UmapScatterPlot key={chartKey} />;
+      case 'curve-overlay':
+        return <PathwayCurveViewer key={chartKey} projectId={projectId} resultName={resultName} />;
+      case 'range-plot':
+        return <RangePlot key={chartKey} />;
+      case 'bubble-chart':
+        return <BubbleChart key={chartKey} />;
+      case 'best-models-pie':
+        return <BestModelsPieChart key={chartKey} projectId={projectId} resultName={resultName} />;
+      case 'bar-charts':
+        return <BarCharts key={chartKey} />;
+      case 'accumulation-charts':
+        return <AccumulationCharts key={chartKey} />;
+      case 'bmd-histograms':
+        return <StatHistograms key={chartKey} />;
+      case 'bmd-vs-bmdl-scatter':
+        return <BMDvsBMDLScatter key={chartKey} />;
+      case 'violin-per-category':
+        return <ViolinPlotPerCategory key={chartKey} />;
+      case 'cluster-heatmap':
+        return <ClusterHeatmap key={`${chartKey}${keyPostfix}`} />;
+      case 'cluster-scatter':
+        return <ClusterScatterPlot key={`${chartKey}${keyPostfix}`} />;
+      default:
+        return null;
+    }
+  };
+
+  // Render a chart collapse panel
+  const renderChartCollapse = (chartId: string) => {
+    const config = CHART_CONFIG.find(c => c.id === chartId);
+    if (!config) return null;
+
+    const legacyId = getLegacyId(chartId);
+    // Use legacy key format for backwards compatibility with stored Redux state
+    const collapseKey = `chart-${legacyId}`;
+
+    if (!isChartVisible(chartId, visibleCharts)) return null;
+
+    return (
+      <div key={chartId} style={{ marginBottom: '4px' }}>
+        <Collapse
+          activeKey={openChartCollapses}
+          onChange={handleChartCollapseChange(collapseKey)}
+          items={[{
+            key: collapseKey,
+            label: <span style={{ lineHeight: '22px' }}>{config.label}</span>,
+            children: renderChartContent(chartId)
+          }]}
+        />
+      </div>
+    );
+  };
 
   // Load all annotations for the project
   useEffect(() => {
@@ -221,12 +365,10 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   // When a NEW chart is selected (not previously visible), auto-expand it
   // Charts that were already visible keep their current collapse state
   useEffect(() => {
-    const chartKeyMap: Record<string, string> = {
-      '1': 'chart-1', '2': 'chart-2', '3': 'chart-3', '4': 'chart-4',
-      '5': 'chart-5', '6': 'chart-6', '7': 'chart-7', '8': 'chart-8',
-      '9': 'chart-9', '11': 'chart-11', '12': 'chart-12',
-      '14': 'chart-14', '15': 'chart-15'
-    };
+    // Generate chartKeyMap from config - maps legacy numeric IDs to semantic chart keys
+    const chartKeyMap: Record<string, string> = Object.fromEntries(
+      Object.entries(LEGACY_ID_MAP).map(([legacyId, semanticId]) => [legacyId, getChartKey(semanticId)])
+    );
 
     // Find charts that are newly selected (in current but not in previous)
     const newlySelected = visibleCharts.filter(v => !prevVisibleChartsRef.current.includes(v));
@@ -583,204 +725,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                   paddingLeft: '50px'
                 }}>
                   {/* Charts - Direct rendering based on checkbox selection (Power User mode only) */}
-                  {viewMode === 'power' && visibleCharts.includes('1') && (
-                    <div style={{ marginBottom: '4px' }}>
-                      <Collapse
-                        activeKey={openChartCollapses}
-                        onChange={handleChartCollapseChange('chart-1')}
-                        items={[{
-                          key: 'chart-1',
-                          label: <span style={{ lineHeight: '22px' }}>BMD Overview (Scatter & Box Plot)</span>,
-                          children: (
-                            <div>
-                              <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px' }}>
-                                <Space>
-                                  <Text>BMD Statistic:</Text>
-                                  <BmdStatSelector stat={bmdOverviewStat} onStatChange={setBmdOverviewStat} />
-                                </Space>
-                              </div>
-                              <Row gutter={16} key={`${projectId}-${resultName}`}>
-                                <Col xs={24} xl={12}>
-                                  <BMDvsPValueScatter key={`${projectId}-${resultName}-scatter`} stat={bmdOverviewStat} hideControls />
-                                </Col>
-                                <Col xs={24} xl={12}>
-                                  <BMDBoxPlot key={`${projectId}-${resultName}-box`} stat={bmdOverviewStat} hideControls />
-                                </Col>
-                              </Row>
-                            </div>
-                          )
-                        }]}
-                      />
-                    </div>
-                  )}
-
-                  {viewMode === 'power' && visibleCharts.includes('2') && (
-                    <div style={{ marginBottom: '4px' }}>
-                      <Collapse
-                        activeKey={openChartCollapses}
-                        onChange={handleChartCollapseChange('chart-2')}
-                        items={[{
-                          key: 'chart-2',
-                          label: <span style={{ lineHeight: '22px' }}>UMAP Scatter Plot</span>,
-                          children: <UmapScatterPlot key={`${projectId}-${resultName}`} />
-                        }]}
-                      />
-                    </div>
-                  )}
-
-                  {viewMode === 'power' && visibleCharts.includes('3') && (
-                    <div style={{ marginBottom: '4px' }}>
-                      <Collapse
-                        activeKey={openChartCollapses}
-                        onChange={handleChartCollapseChange('chart-3')}
-                        items={[{
-                          key: 'chart-3',
-                          label: <span style={{ lineHeight: '22px' }}>Curve Overlay</span>,
-                          children: <PathwayCurveViewer key={`${projectId}-${resultName}`} projectId={projectId} resultName={resultName} />
-                        }]}
-                      />
-                    </div>
-                  )}
-
-                  {viewMode === 'power' && visibleCharts.includes('4') && (
-                    <div style={{ marginBottom: '4px' }}>
-                      <Collapse
-                        activeKey={openChartCollapses}
-                        onChange={handleChartCollapseChange('chart-4')}
-                        items={[{
-                          key: 'chart-4',
-                          label: <span style={{ lineHeight: '22px' }}>Range Plot</span>,
-                          children: <RangePlot key={`${projectId}-${resultName}`} />
-                        }]}
-                      />
-                    </div>
-                  )}
-
-                  {viewMode === 'power' && visibleCharts.includes('5') && (
-                    <div style={{ marginBottom: '4px' }}>
-                      <Collapse
-                        activeKey={openChartCollapses}
-                        onChange={handleChartCollapseChange('chart-5')}
-                        items={[{
-                          key: 'chart-5',
-                          label: <span style={{ lineHeight: '22px' }}>Bubble Chart</span>,
-                          children: <BubbleChart key={`${projectId}-${resultName}`} />
-                        }]}
-                      />
-                    </div>
-                  )}
-
-                  {viewMode === 'power' && visibleCharts.includes('6') && (
-                    <div style={{ marginBottom: '4px' }}>
-                      <Collapse
-                        activeKey={openChartCollapses}
-                        onChange={handleChartCollapseChange('chart-6')}
-                        items={[{
-                          key: 'chart-6',
-                          label: <span style={{ lineHeight: '22px' }}>Best Models Pie Chart</span>,
-                          children: <BestModelsPieChart key={`${projectId}-${resultName}`} projectId={projectId} resultName={resultName} />
-                        }]}
-                      />
-                    </div>
-                  )}
-
-                  {viewMode === 'power' && visibleCharts.includes('7') && (
-                    <div style={{ marginBottom: '4px' }}>
-                      <Collapse
-                        activeKey={openChartCollapses}
-                        onChange={handleChartCollapseChange('chart-7')}
-                        items={[{
-                          key: 'chart-7',
-                          label: <span style={{ lineHeight: '22px' }}>Bar Charts</span>,
-                          children: <BarCharts key={`${projectId}-${resultName}`} />
-                        }]}
-                      />
-                    </div>
-                  )}
-
-                  {viewMode === 'power' && visibleCharts.includes('8') && (
-                    <div style={{ marginBottom: '4px' }}>
-                      <Collapse
-                        activeKey={openChartCollapses}
-                        onChange={handleChartCollapseChange('chart-8')}
-                        items={[{
-                          key: 'chart-8',
-                          label: <span style={{ lineHeight: '22px' }}>Accumulation Charts</span>,
-                          children: <AccumulationCharts key={`${projectId}-${resultName}`} />
-                        }]}
-                      />
-                    </div>
-                  )}
-
-                  {viewMode === 'power' && visibleCharts.includes('9') && (
-                    <div style={{ marginBottom: '4px' }}>
-                      <Collapse
-                        activeKey={openChartCollapses}
-                        onChange={handleChartCollapseChange('chart-9')}
-                        items={[{
-                          key: 'chart-9',
-                          label: <span style={{ lineHeight: '22px' }}>BMD(L/U) Histograms</span>,
-                          children: <StatHistograms key={`${projectId}-${resultName}`} />
-                        }]}
-                      />
-                    </div>
-                  )}
-
-                  {viewMode === 'power' && visibleCharts.includes('11') && (
-                    <div style={{ marginBottom: '4px' }}>
-                      <Collapse
-                        activeKey={openChartCollapses}
-                        onChange={handleChartCollapseChange('chart-11')}
-                        items={[{
-                          key: 'chart-11',
-                          label: <span style={{ lineHeight: '22px' }}>BMD vs BMDL Scatter</span>,
-                          children: <BMDvsBMDLScatter key={`${projectId}-${resultName}`} />
-                        }]}
-                      />
-                    </div>
-                  )}
-
-                  {viewMode === 'power' && visibleCharts.includes('12') && (
-                    <div style={{ marginBottom: '4px' }}>
-                      <Collapse
-                        activeKey={openChartCollapses}
-                        onChange={handleChartCollapseChange('chart-12')}
-                        items={[{
-                          key: 'chart-12',
-                          label: <span style={{ lineHeight: '22px' }}>Violin Plot Per Category</span>,
-                          children: <ViolinPlotPerCategory key={`${projectId}-${resultName}`} />
-                        }]}
-                      />
-                    </div>
-                  )}
-
-                  {viewMode === 'power' && visibleCharts.includes('14') && (
-                    <div style={{ marginBottom: '4px' }}>
-                      <Collapse
-                        activeKey={openChartCollapses}
-                        onChange={handleChartCollapseChange('chart-14')}
-                        items={[{
-                          key: 'chart-14',
-                          label: <span style={{ lineHeight: '22px' }}>Gene Cluster Histogram</span>,
-                          children: <ClusterHeatmap key={`${projectId}-${resultName}-cluster-heatmap`} />
-                        }]}
-                      />
-                    </div>
-                  )}
-
-                  {viewMode === 'power' && visibleCharts.includes('15') && (
-                    <div style={{ marginBottom: '4px' }}>
-                      <Collapse
-                        activeKey={openChartCollapses}
-                        onChange={handleChartCollapseChange('chart-15')}
-                        items={[{
-                          key: 'chart-15',
-                          label: <span style={{ lineHeight: '22px' }}>Gene Cluster Scatter</span>,
-                          children: <ClusterScatterPlot key={`${projectId}-${resultName}-cluster-scatter`} />
-                        }]}
-                      />
-                    </div>
-                  )}
+                  {viewMode === 'power' && CHART_CONFIG.map(config => renderChartCollapse(config.id))}
 
                   {/* Table */}
                   <CategoryResultsGrid
@@ -878,204 +823,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           paddingLeft: '50px'
         }}>
         {/* Charts - Direct rendering based on checkbox selection (Power User mode only) */}
-        {viewMode === 'power' && visibleCharts.includes('1') && (
-          <div style={{ marginBottom: '4px' }}>
-            <Collapse
-              activeKey={openChartCollapses}
-              onChange={handleChartCollapseChange('chart-1')}
-              items={[{
-                key: 'chart-1',
-                label: <span style={{ lineHeight: '22px' }}>BMD Overview (Scatter & Box Plot)</span>,
-                children: (
-                  <div>
-                    <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px' }}>
-                      <Space>
-                        <Text>BMD Statistic:</Text>
-                        <BmdStatSelector stat={bmdOverviewStat} onStatChange={setBmdOverviewStat} />
-                      </Space>
-                    </div>
-                    <Row gutter={16} key={`${projectId}-${resultName}`}>
-                      <Col xs={24} xl={12}>
-                        <BMDvsPValueScatter key={`${projectId}-${resultName}-scatter`} stat={bmdOverviewStat} hideControls />
-                      </Col>
-                      <Col xs={24} xl={12}>
-                        <BMDBoxPlot key={`${projectId}-${resultName}-box`} stat={bmdOverviewStat} hideControls />
-                      </Col>
-                    </Row>
-                  </div>
-                )
-              }]}
-            />
-          </div>
-        )}
-
-        {viewMode === 'power' && visibleCharts.includes('2') && (
-          <div style={{ marginBottom: '4px' }}>
-            <Collapse
-              activeKey={openChartCollapses}
-              onChange={handleChartCollapseChange('chart-2')}
-              items={[{
-                key: 'chart-2',
-                label: <span style={{ lineHeight: '22px' }}>UMAP Scatter Plot</span>,
-                children: <UmapScatterPlot key={`${projectId}-${resultName}`} />
-              }]}
-            />
-          </div>
-        )}
-
-        {viewMode === 'power' && visibleCharts.includes('3') && (
-          <div style={{ marginBottom: '4px' }}>
-            <Collapse
-              activeKey={openChartCollapses}
-              onChange={handleChartCollapseChange('chart-3')}
-              items={[{
-                key: 'chart-3',
-                label: <span style={{ lineHeight: '22px' }}>Curve Overlay</span>,
-                children: <PathwayCurveViewer key={`${projectId}-${resultName}`} projectId={projectId} resultName={resultName} />
-              }]}
-            />
-          </div>
-        )}
-
-        {viewMode === 'power' && visibleCharts.includes('4') && (
-          <div style={{ marginBottom: '4px' }}>
-            <Collapse
-              activeKey={openChartCollapses}
-              onChange={handleChartCollapseChange('chart-4')}
-              items={[{
-                key: 'chart-4',
-                label: <span style={{ lineHeight: '22px' }}>Range Plot</span>,
-                children: <RangePlot key={`${projectId}-${resultName}`} />
-              }]}
-            />
-          </div>
-        )}
-
-        {viewMode === 'power' && visibleCharts.includes('5') && (
-          <div style={{ marginBottom: '4px' }}>
-            <Collapse
-              activeKey={openChartCollapses}
-              onChange={handleChartCollapseChange('chart-5')}
-              items={[{
-                key: 'chart-5',
-                label: <span style={{ lineHeight: '22px' }}>Bubble Chart</span>,
-                children: <BubbleChart key={`${projectId}-${resultName}`} />
-              }]}
-            />
-          </div>
-        )}
-
-        {viewMode === 'power' && visibleCharts.includes('6') && (
-          <div style={{ marginBottom: '4px' }}>
-            <Collapse
-              activeKey={openChartCollapses}
-              onChange={handleChartCollapseChange('chart-6')}
-              items={[{
-                key: 'chart-6',
-                label: <span style={{ lineHeight: '22px' }}>Best Models Pie Chart</span>,
-                children: <BestModelsPieChart key={`${projectId}-${resultName}`} projectId={projectId} resultName={resultName} />
-              }]}
-            />
-          </div>
-        )}
-
-        {viewMode === 'power' && visibleCharts.includes('7') && (
-          <div style={{ marginBottom: '4px' }}>
-            <Collapse
-              activeKey={openChartCollapses}
-              onChange={handleChartCollapseChange('chart-7')}
-              items={[{
-                key: 'chart-7',
-                label: <span style={{ lineHeight: '22px' }}>Bar Charts</span>,
-                children: <BarCharts key={`${projectId}-${resultName}`} />
-              }]}
-            />
-          </div>
-        )}
-
-        {viewMode === 'power' && visibleCharts.includes('8') && (
-          <div style={{ marginBottom: '4px' }}>
-            <Collapse
-              activeKey={openChartCollapses}
-              onChange={handleChartCollapseChange('chart-8')}
-              items={[{
-                key: 'chart-8',
-                label: <span style={{ lineHeight: '22px' }}>Accumulation Charts</span>,
-                children: <AccumulationCharts key={`${projectId}-${resultName}`} />
-              }]}
-            />
-          </div>
-        )}
-
-        {viewMode === 'power' && visibleCharts.includes('9') && (
-          <div style={{ marginBottom: '4px' }}>
-            <Collapse
-              activeKey={openChartCollapses}
-              onChange={handleChartCollapseChange('chart-9')}
-              items={[{
-                key: 'chart-9',
-                label: <span style={{ lineHeight: '22px' }}>BMD(L/U) Histograms</span>,
-                children: <StatHistograms key={`${projectId}-${resultName}`} />
-              }]}
-            />
-          </div>
-        )}
-
-        {viewMode === 'power' && visibleCharts.includes('11') && (
-          <div style={{ marginBottom: '4px' }}>
-            <Collapse
-              activeKey={openChartCollapses}
-              onChange={handleChartCollapseChange('chart-11')}
-              items={[{
-                key: 'chart-11',
-                label: <span style={{ lineHeight: '22px' }}>BMD vs BMDL Scatter</span>,
-                children: <BMDvsBMDLScatter key={`${projectId}-${resultName}`} />
-              }]}
-            />
-          </div>
-        )}
-
-        {viewMode === 'power' && visibleCharts.includes('12') && (
-          <div style={{ marginBottom: '4px' }}>
-            <Collapse
-              activeKey={openChartCollapses}
-              onChange={handleChartCollapseChange('chart-12')}
-              items={[{
-                key: 'chart-12',
-                label: <span style={{ lineHeight: '22px' }}>Violin Plot Per Category</span>,
-                children: <ViolinPlotPerCategory key={`${projectId}-${resultName}`} />
-              }]}
-            />
-          </div>
-        )}
-
-        {viewMode === 'power' && visibleCharts.includes('14') && (
-          <div style={{ marginBottom: '4px' }}>
-            <Collapse
-              activeKey={openChartCollapses}
-              onChange={handleChartCollapseChange('chart-14')}
-              items={[{
-                key: 'chart-14',
-                label: <span style={{ lineHeight: '22px' }}>Gene Cluster Histogram</span>,
-                children: <ClusterHeatmap key={`${projectId}-${resultName}-cluster-heatmap`} />
-              }]}
-            />
-          </div>
-        )}
-
-        {viewMode === 'power' && visibleCharts.includes('15') && (
-          <div style={{ marginBottom: '4px' }}>
-            <Collapse
-              activeKey={openChartCollapses}
-              onChange={handleChartCollapseChange('chart-15')}
-              items={[{
-                key: 'chart-15',
-                label: <span style={{ lineHeight: '22px' }}>Gene Cluster Scatter</span>,
-                children: <ClusterScatterPlot key={`${projectId}-${resultName}-cluster-scatter`} />
-              }]}
-            />
-          </div>
-        )}
+        {viewMode === 'power' && CHART_CONFIG.map(config => renderChartCollapse(config.id))}
 
         {/* Table */}
         <CategoryResultsGrid
@@ -1272,19 +1020,11 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
             style={{ width: '100%' }}
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <Checkbox value="1">Default Charts</Checkbox>
-              <Checkbox value="2">UMAP Semantic Space</Checkbox>
-              <Checkbox value="3">Curve Overlay</Checkbox>
-              <Checkbox value="4">Range Plot</Checkbox>
-              <Checkbox value="5">Bubble Chart</Checkbox>
-              <Checkbox value="6">Best Models Pie</Checkbox>
-              <Checkbox value="7">Bar Charts</Checkbox>
-              <Checkbox value="8">Accumulation Charts</Checkbox>
-              <Checkbox value="9">BMD(L/U) Histograms</Checkbox>
-              <Checkbox value="11">BMD vs BMDL Scatter</Checkbox>
-              <Checkbox value="12">Violin Per Category</Checkbox>
-              <Checkbox value="14">Gene Cluster Heatmap</Checkbox>
-              <Checkbox value="15">Gene Cluster Scatter</Checkbox>
+              {CHART_CONFIG.map(config => (
+                <Checkbox key={config.id} value={getLegacyId(config.id)}>
+                  {config.label}
+                </Checkbox>
+              ))}
             </div>
           </Checkbox.Group>
         )}
