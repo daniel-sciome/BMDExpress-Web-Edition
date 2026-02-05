@@ -18,6 +18,7 @@ import { useClusterColors, getClusterIdForCategory, getClusterLabel } from './ut
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 import { hexToRgba } from './utils/displayModeStyles';
 import { getTopNSourceData } from './utils/topNFilter';
+import { wrapTextWithSuffix } from './utils/categoryLabelUtils';
 
 const { Text } = Typography;
 
@@ -34,7 +35,7 @@ export default function RangePlot() {
   // BMD metric selection (all three bases share the same stat)
   const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple();
 
-  // Filter top N categories by BMD value (smallest first), then sort alphabetically for display
+  // Filter top N categories by BMD value (smallest first), keep sorted by BMD rank for display
   // In isolate mode, Top N is computed from focused items only
   // Track BMD rank for each category
   const topCategories = useMemo(() => {
@@ -59,89 +60,29 @@ export default function RangePlot() {
     });
 
     // Take top N (smallest BMD values) and assign BMD rank
-    const topN_categories = (topN === 'All' ? sortedByBmd : sortedByBmd.slice(0, topN))
+    // Keep sorted by BMD rank (rank 1 = smallest BMD at top)
+    return (topN === 'All' ? sortedByBmd : sortedByBmd.slice(0, topN))
       .map((row, index) => ({
         ...row,
         bmdRank: index + 1, // 1-based rank by BMD value
       }));
-
-    // Then sort alphabetically by category description for display
-    return topN_categories.sort((a, b) => {
-      const nameA = (a.categoryDescription || a.categoryId || '').toLowerCase();
-      const nameB = (b.categoryDescription || b.categoryId || '').toLowerCase();
-      return nameA.localeCompare(nameB);
-    });
   }, [data, displayMode, topN, bmd, bmdl, bmdu]);
 
-  // Calculate max display name length from ALL valid categories (not just topN)
-  // This ensures consistent axis width regardless of how many categories are shown
-  const maxDisplayNameLen = useMemo(() => {
-    if (!data || data.length === 0) return 0;
-
-    const validData = data.filter(row => {
-      const bmdVal = bmd.getValue(row);
-      const bmdlVal = bmdl.getValue(row);
-      const bmduVal = bmdu.getValue(row);
-      return bmdVal != null && bmdlVal != null && bmduVal != null &&
-             bmdVal > 0 && bmdlVal > 0 && bmduVal > 0;
-    });
-
-    // Calculate what the longest label would be if ALL categories were shown
-    // Format: "N. Category Name (R)" where N could be up to validData.length digits
-    const maxIndex = validData.length;
-    const maxIndexDigits = String(maxIndex).length;
-
-    let maxLen = 0;
-    validData.forEach((row, idx) => {
-      const baseName = row.categoryDescription || row.categoryId || 'Unknown';
-      // Simulate the full format with max possible index width
-      const indexStr = String(idx + 1).padStart(maxIndexDigits, ' ');
-      const rankStr = String(idx + 1); // Rank could also be up to maxIndex
-      const displayName = `${indexStr}. ${baseName} (${rankStr})`;
-      if (displayName.length > maxLen) {
-        maxLen = displayName.length;
-      }
-    });
-
-    return maxLen;
-  }, [data, bmd, bmdl, bmdu]);
-
-  // Truncated width for display (1/3 of full width)
-  const truncatedDisplayLen = Math.ceil(maxDisplayNameLen / 3);
-
-  // Build display names for visible categories (truncated for axis)
-  const displayNamesList = useMemo(() => {
-    const maxIndexDigits = String(topCategories.length).length;
-    return topCategories.map((row, idx) => {
-      const baseName = row.categoryDescription || row.categoryId || 'Unknown';
-      const indexStr = String(idx + 1).padStart(maxIndexDigits, ' ');
-      const fullName = `${indexStr}. ${baseName} (${row.bmdRank})`;
-      // Truncate to 1/3 width, add ellipsis if needed
-      if (fullName.length > truncatedDisplayLen) {
-        return fullName.substring(0, truncatedDisplayLen - 3) + '...';
-      }
-      return fullName.padEnd(truncatedDisplayLen, ' ');
-    });
-  }, [topCategories, truncatedDisplayLen]);
 
   // Group categories by cluster with inFocus state
-  // Format display names with alphabetical index and BMD rank
+  // Use numeric y positions for Plotly (matching annotation positions)
   // topCategories is already filtered for isolate mode via getTopNSourceData
   const clusterData = useMemo(() => {
     const byCluster = new Map<number, Array<{
       categoryId: string;
       categoryName: string;
-      displayName: string;
-      fullDisplayName: string;
+      yPosition: number;
       bmd: number;
       bmdl: number;
       bmdu: number;
       inFocus: boolean;
-      alphabeticalIndex: number;
       bmdRank: number;
     }>>();
-
-    const maxIndexDigits = String(topCategories.length).length;
 
     topCategories.forEach((row, idx) => {
       const clusterId = getClusterIdForCategory(row.categoryId);
@@ -149,34 +90,21 @@ export default function RangePlot() {
         byCluster.set(clusterId, []);
       }
       const baseName = row.categoryDescription || row.categoryId || 'Unknown';
-      // Format: "N. Category Name (R)" where N is alphabetical order, R is BMD rank
-      const indexStr = String(idx + 1).padStart(maxIndexDigits, ' ');
-      const fullDisplayName = `${indexStr}. ${baseName} (${row.bmdRank})`;
-
-      // Truncate for axis display (1/3 width)
-      let displayName: string;
-      if (fullDisplayName.length > truncatedDisplayLen) {
-        displayName = fullDisplayName.substring(0, truncatedDisplayLen - 3) + '...';
-      } else {
-        displayName = fullDisplayName.padEnd(truncatedDisplayLen, ' ');
-      }
 
       byCluster.get(clusterId)!.push({
         categoryId: row.categoryId || '',
         categoryName: baseName,
-        displayName,
-        fullDisplayName,
+        yPosition: idx, // Numeric position for Plotly (same as BMD rank - 1)
         bmd: bmd.getValue(row)!,
         bmdl: bmdl.getValue(row)!,
         bmdu: bmdu.getValue(row)!,
         inFocus: row.inFocus,
-        alphabeticalIndex: idx + 1,
         bmdRank: row.bmdRank
       });
     });
 
     return byCluster;
-  }, [topCategories, truncatedDisplayLen, bmd, bmdl, bmdu]);
+  }, [topCategories, bmd, bmdl, bmdu]);
 
   // Create traces with inFocus-based per-point styling
   const plotData = useMemo(() => {
@@ -243,7 +171,7 @@ export default function RangePlot() {
           type: 'scatter',
           mode: 'markers',
           x: [item.bmd],
-          y: [item.displayName],
+          y: [item.yPosition], // Use numeric y position
           error_x: {
             type: 'data',
             symmetric: false,
@@ -264,10 +192,9 @@ export default function RangePlot() {
           },
           name: getClusterLabel(clusterId),
           hovertemplate:
-            `<b>${item.fullDisplayName}</b><br>` +
-            `${item.categoryName}<br>` +
+            `<b>${item.categoryName}</b><br>` +
             `${getClusterLabel(clusterId)}<br>` +
-            `Alphabetical: #${item.alphabeticalIndex} | BMD Rank: #${item.bmdRank}<br>` +
+            `BMD Rank: #${item.bmdRank}<br>` +
             `${bmd.label}: %{x:.4f}<br>` +
             `${bmdl.label}: ${item.bmdl.toFixed(4)}<br>` +
             `${bmdu.label}: ${item.bmdu.toFixed(4)}<br>` +
@@ -296,18 +223,33 @@ export default function RangePlot() {
     );
   }
 
-  // Calculate height based on visible categories (topCategories)
+  // Calculate height based on visible categories - more vertical space for word-wrapped labels
   const visibleCount = topCategories.length;
-  const plotHeight = Math.max(300, visibleCount * 22 + 80);
-
-  // Get display names for y-axis (based on visible categories)
-  // Use truncated names padded to consistent width for left-justified appearance
-  const paddedDisplayNames = displayNamesList.map(name => name.padEnd(truncatedDisplayLen, ' '));
-  const reversedNames = [...paddedDisplayNames].reverse(); // A at top
+  const rowHeight = 50; // Increased from 22 to accommodate word-wrapped labels
+  const plotHeight = Math.max(300, visibleCount * rowHeight + 140);
 
   const titleText = topN === 'All'
     ? `Range Plot: ${bmd.label} with Confidence Intervals (All Pathways)`
     : `Range Plot: ${bmd.label} with Confidence Intervals (Top ${topN} Pathways)`;
+
+  // Create annotations for y-axis labels with word wrapping (like ViolinPlotPerCategory)
+  const yAxisAnnotations = topCategories.map((row, idx) => {
+    const baseName = row.categoryDescription || row.categoryId || 'Unknown';
+    const suffix = `(BMD Rank: ${row.bmdRank})`;
+    return {
+      x: 0,
+      y: idx,
+      xref: 'paper' as const,
+      yref: 'y' as const,
+      text: wrapTextWithSuffix(baseName, suffix, 35),
+      showarrow: false,
+      xanchor: 'center' as const,
+      yanchor: 'middle' as const,
+      align: 'center' as const,
+      font: { size: 11 },
+      xshift: -140, // Center in the margin area
+    };
+  });
 
   const layout: any = {
     title: {
@@ -319,44 +261,26 @@ export default function RangePlot() {
       type: useLogScale ? 'log' : 'linear',
       autorange: true,
       gridcolor: DEFAULT_GRID_COLOR,
+      showline: true,
+      linecolor: '#000',
+      linewidth: 1,
     },
     yaxis: {
       title: '',
-      type: 'category',
-      categoryorder: 'array',
-      categoryarray: reversedNames,
-      range: [-0.5, reversedNames.length - 0.5], // Tight range around categories
+      showticklabels: false,
+      ticklen: 0,
+      range: [visibleCount - 0.5, -0.5], // Reversed so first category is at top
       gridcolor: DEFAULT_GRID_COLOR,
-      showticklabels: false, // Hide tick labels - we'll render them as HTML for hover support
+      zeroline: false, // Don't show line at y=0 (would overlap with rank 1)
+      showline: false,
     },
+    annotations: yAxisAnnotations,
     height: plotHeight,
-    margin: { l: 10, r: 30, t: 50, b: 40 }, // Minimal left margin, automargin handles the rest
+    margin: { l: 280, r: 50, t: 80, b: 60 }, // Large left margin for wrapped labels
     hovermode: 'closest',
     ...DEFAULT_LAYOUT_STYLES,
     showlegend: false,
   };
-
-  // Calculate dimensions for the HTML label column
-  const topMargin = 50; // Must match layout.margin.t
-  const bottomMargin = 40; // Must match layout.margin.b
-  const chartAreaHeight = plotHeight - topMargin - bottomMargin;
-  const rowHeight = chartAreaHeight / visibleCount;
-
-  // Build labels to match chart order (A at top)
-  // topCategories is already filtered for isolate mode via getTopNSourceData
-  // HTML table: first row is at top, matching alphabetical order
-  const labelsForDisplay = useMemo(() => {
-    const maxIndexDigits = String(topCategories.length).length;
-    return topCategories.map((row, idx) => {
-      const baseName = row.categoryDescription || row.categoryId || 'Unknown';
-      const indexStr = String(idx + 1).padStart(maxIndexDigits, ' ');
-      const fullName = `${indexStr}. ${baseName} (${row.bmdRank})`;
-      const truncated = fullName.length > truncatedDisplayLen
-        ? fullName.substring(0, truncatedDisplayLen - 3) + '...'
-        : fullName;
-      return { truncated, fullName };
-    });
-  }, [topCategories, truncatedDisplayLen]);
 
   return (
     <div style={{ width: '100%' }}>
@@ -383,51 +307,13 @@ export default function RangePlot() {
           />
         </Space>
       </div>
-      <div style={{ display: 'flex', width: '100%' }}>
-        {/* HTML table label column with hover tooltips */}
-        <table style={{
-          borderCollapse: 'collapse',
-          marginTop: topMargin,
-          marginBottom: bottomMargin,
-          flexShrink: 0,
-        }}>
-          <tbody>
-            {labelsForDisplay.map((label, idx) => (
-              <tr key={idx}>
-                <td
-                  title={label.fullName}
-                  style={{
-                    height: rowHeight,
-                    fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-                    fontSize: 10,
-                    whiteSpace: 'nowrap',
-                    paddingRight: 8,
-                    paddingLeft: 0,
-                    paddingTop: 0,
-                    paddingBottom: 0,
-                    verticalAlign: 'middle',
-                    textAlign: 'left',
-                    cursor: 'default',
-                    border: 'none',
-                  }}
-                >
-                  {label.truncated}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {/* Plotly chart */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <Plot
-            data={plotData}
-            layout={layout}
-            config={createPlotlyConfig()}
-            style={{ width: '100%', height: plotHeight }}
-            useResizeHandler={true}
-          />
-        </div>
-      </div>
+      <Plot
+        data={plotData}
+        layout={layout}
+        config={createPlotlyConfig()}
+        style={{ width: '100%', height: plotHeight }}
+        useResizeHandler={true}
+      />
     </div>
   );
 }
