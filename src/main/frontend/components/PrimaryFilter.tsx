@@ -18,47 +18,89 @@ const { Text } = Typography;
 
 const STORAGE_KEY = 'bmdexpress_primary_filters_v2';
 
-// Default filter configurations
-const DEFAULT_FILTER_CONFIGS: FilterConfig[] = [
+/**
+ * Primary Filter Configuration
+ * Single source of truth for filter definitions and Redux state mapping
+ */
+interface PrimaryFilterDefinition {
+  id: string;
+  label: string;
+  defaultOperator: string;
+  defaultValue: number;
+  defaultMaxValue?: number;
+  step: number;
+  precision: number;
+  min: number;
+  max?: number;
+  /** Redux state key for minimum value */
+  reduxMinKey: string;
+  /** Redux state key for maximum value */
+  reduxMaxKey: string;
+}
+
+const PRIMARY_FILTER_DEFINITIONS: PrimaryFilterDefinition[] = [
   {
     id: 'percentage',
     label: 'Percentage',
-    operator: '>=',
-    value: 5,
+    defaultOperator: '>=',
+    defaultValue: 5,
     step: 0.1,
     precision: 1,
     min: 0,
     max: 100,
+    reduxMinKey: 'percentageMin',
+    reduxMaxKey: 'percentageMax',
   },
   {
     id: 'genesPassed',
     label: 'Genes Passed',
-    operator: '>=',
-    value: 3,
+    defaultOperator: '>=',
+    defaultValue: 3,
     step: 1,
     precision: 0,
     min: 0,
+    reduxMinKey: 'genesPassedFiltersMin',
+    reduxMaxKey: 'genesPassedFiltersMax',
   },
   {
     id: 'allGenes',
     label: 'All Genes',
-    operator: '[between]',
-    value: 40,
-    maxValue: 500,
+    defaultOperator: '[between]',
+    defaultValue: 40,
+    defaultMaxValue: 500,
     step: 1,
     precision: 0,
     min: 0,
+    reduxMinKey: 'allGenesMin',
+    reduxMaxKey: 'allGenesMax',
   },
 ];
 
+// Lookup map for filter definitions by ID
+const FILTER_DEF_MAP = new Map(PRIMARY_FILTER_DEFINITIONS.map(d => [d.id, d]));
+
+// Generate default filter configs from definitions
+const DEFAULT_FILTER_CONFIGS: FilterConfig[] = PRIMARY_FILTER_DEFINITIONS.map(def => ({
+  id: def.id,
+  label: def.label,
+  operator: def.defaultOperator as FilterConfig['operator'],
+  value: def.defaultValue,
+  maxValue: def.defaultMaxValue,
+  step: def.step,
+  precision: def.precision,
+  min: def.min,
+  max: def.max,
+}));
+
 interface PrimaryFilterProps {
-  hideCard?: boolean; // When true, renders content without Card wrapper
-  showComparisonMode?: boolean; // When true, shows Multi-Dataset Comparison Mode controls
-  vertical?: boolean; // When true, renders fields in a vertical stack for sidebar
+  hideCard?: boolean;
+  showComparisonMode?: boolean;
+  vertical?: boolean;
 }
 
 /**
  * Convert FilterConfig[] to Redux-compatible filter state
+ * Uses centralized filter definitions for key mapping
  */
 function configsToReduxState(configs: FilterConfig[]): Record<string, number | undefined> {
   const state: Record<string, number | undefined> = {};
@@ -67,34 +109,18 @@ function configsToReduxState(configs: FilterConfig[]): Record<string, number | u
     // Skip if no value set (means "all" - no filtering)
     if (config.value === undefined) continue;
 
-    // Map config IDs to Redux state keys based on operator
-    if (config.id === 'percentage') {
-      if (config.operator === '>=' || config.operator === '>') {
-        state.percentageMin = config.value;
-      } else if (config.operator === '<=' || config.operator === '<') {
-        state.percentageMax = config.value;
-      } else if (isBetweenOperator(config.operator)) {
-        state.percentageMin = config.value;
-        state.percentageMax = config.maxValue;
-      }
-    } else if (config.id === 'genesPassed') {
-      if (config.operator === '>=' || config.operator === '>') {
-        state.genesPassedFiltersMin = config.value;
-      } else if (config.operator === '<=' || config.operator === '<') {
-        state.genesPassedFiltersMax = config.value;
-      } else if (isBetweenOperator(config.operator)) {
-        state.genesPassedFiltersMin = config.value;
-        state.genesPassedFiltersMax = config.maxValue;
-      }
-    } else if (config.id === 'allGenes') {
-      if (config.operator === '>=' || config.operator === '>') {
-        state.allGenesMin = config.value;
-      } else if (config.operator === '<=' || config.operator === '<') {
-        state.allGenesMax = config.value;
-      } else if (isBetweenOperator(config.operator)) {
-        state.allGenesMin = config.value;
-        state.allGenesMax = config.maxValue;
-      }
+    // Look up filter definition for Redux key mapping
+    const def = FILTER_DEF_MAP.get(config.id);
+    if (!def) continue;
+
+    // Map operator to appropriate Redux keys
+    if (config.operator === '>=' || config.operator === '>') {
+      state[def.reduxMinKey] = config.value;
+    } else if (config.operator === '<=' || config.operator === '<') {
+      state[def.reduxMaxKey] = config.value;
+    } else if (isBetweenOperator(config.operator)) {
+      state[def.reduxMinKey] = config.value;
+      state[def.reduxMaxKey] = config.maxValue;
     }
   }
 
