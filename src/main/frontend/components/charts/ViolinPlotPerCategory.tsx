@@ -40,7 +40,7 @@ export default function ViolinPlotPerCategory() {
   const hasSelection = categoryState.selectedIds.size > 0;
 
   // Parse BMD list and prepare violin plot data
-  const { violinData, yTickVals, yTickText } = useMemo(() => {
+  const { violinData, yTickVals, yTickText, inFocusCount, dimmedCount } = useMemo(() => {
     // Filter based on displayMode
     const visibleData = data.filter((row) => {
       // Filter by displayMode (isolate mode hides out-of-focus)
@@ -60,6 +60,8 @@ export default function ViolinPlotPerCategory() {
     const traces: any[] = [];
     const yTickVals: number[] = [];
     const yTickText: { desc: string; suffix: string }[] = [];
+    let inFocusCount = 0;
+    let dimmedCount = 0;
 
     limitedData.forEach((row, index) => {
       const categoryId = row.categoryId || '';
@@ -101,14 +103,28 @@ export default function ViolinPlotPerCategory() {
       const baseColor = getClusterColor(clusterId);
       const isSelected = categoryState.selectedIds.has(categoryId);
 
-      // Determine opacity - keep minimum of 0.7 for visibility
-      let opacity: number;
+      // Track counts for the info box based on whether category is in selected experiment
+      const isInSelectedExperiment = row.inFocus;
+      if (isInSelectedExperiment) {
+        inFocusCount++;
+      } else {
+        dimmedCount++;
+      }
+
+      // Categories not in selected experiment get gray fill (regardless of display mode)
+      // Outline always stays cluster color
+      const fillColor = isInSelectedExperiment ? baseColor : '#b0b0b0';
+      const outlineColor = baseColor;
+
+      // Determine line width based on selection
+      const lineWidth = isSelected && hasSelection ? 3 : 1.5;
+
+      // Opacity for selection state (not focus state - that's handled by fill color)
+      let opacity = 0.7;
       if (isSelected && hasSelection) {
         opacity = 1.0;
       } else if (hasSelection) {
-        opacity = 0.4; // Dim non-selected but keep visible
-      } else {
-        opacity = 0.7; // Default opacity for good visibility
+        opacity = 0.4;
       }
 
       // Store description and gene count separately for smart wrapping
@@ -139,13 +155,13 @@ export default function ViolinPlotPerCategory() {
           visible: true
         },
         marker: {
-          color: baseColor
+          color: fillColor
         },
         line: {
-          color: baseColor,
-          width: isSelected && hasSelection ? 3 : 1,
+          color: outlineColor,  // Outline always cluster color
+          width: lineWidth,
         },
-        fillcolor: baseColor,
+        fillcolor: fillColor,  // White for dimmed, cluster color for in-focus
         opacity: opacity,
         hoverinfo: 'x+name',
         hovertemplate: `<b>${categoryDesc}</b><br>Value: %{x:.4f}<extra></extra>`,
@@ -153,7 +169,7 @@ export default function ViolinPlotPerCategory() {
       });
     });
 
-    return { violinData: traces, yTickVals, yTickText };
+    return { violinData: traces, yTickVals, yTickText, inFocusCount, dimmedCount };
   }, [data, selectedBase, getSortValue, shouldHidePoint, categoryState.selectedIds, hasSelection, numCategories]);
 
   if (!data || data.length === 0) {
@@ -259,10 +275,26 @@ export default function ViolinPlotPerCategory() {
         </Checkbox>
       </div>
 
-      {data.length > numCategories && (
+      {(data.length > numCategories || dimmedCount > 0) && (
         <Alert
-          message={`Showing ${numCategories} of ${data.length} categories`}
-          description={`Displaying the ${numCategories} categories with lowest ${metricLabel} values. Use filters to refine the selection.`}
+          message={`Showing ${violinData.length} of ${data.length} categories`}
+          description={
+            <>
+              {data.length > numCategories && (
+                <div>Displaying the {numCategories === Infinity ? 'all' : numCategories} categories with lowest {metricLabel} values.</div>
+              )}
+              {inFocusCount > 0 && dimmedCount > 0 && (
+                <div style={{ marginTop: '0.25rem' }}>
+                  <strong>{inFocusCount}</strong> in selected experiment, <strong>{dimmedCount}</strong> not in selected experiment (shown with <span style={{ color: '#b0b0b0', fontWeight: 'bold' }}>gray</span> fill with cluster color border).
+                </div>
+              )}
+              {inFocusCount === 0 && dimmedCount > 0 && (
+                <div style={{ marginTop: '0.25rem' }}>
+                  All <strong>{dimmedCount}</strong> categories are not in the selected experiment (shown with <span style={{ color: '#b0b0b0', fontWeight: 'bold' }}>gray</span> fill with cluster color border).
+                </div>
+              )}
+            </>
+          }
           type="info"
           showIcon
           closable
