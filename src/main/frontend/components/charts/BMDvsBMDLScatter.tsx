@@ -34,7 +34,7 @@ export default function BMDvsBMDLScatter() {
   const [useLogY, setUseLogY] = useState(true);
 
   // BMD vs BMDL paired metric selection (same stat for both axes)
-  const { stat, setStat, metric1: bmdMetric, metric2: bmdlMetric } = useBmdMetricPair('bmd', 'bmdl', 'median');
+  const { stat, setStat, metric1: bmdMetric, metric2: bmdlMetric } = useBmdMetricPair('bmd', 'bmdl');
 
   const hasSelection = categoryState.selectedIds.size > 0;
 

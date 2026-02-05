@@ -26,7 +26,7 @@ export default function BubbleChart() {
   const hasSelection = categoryState.selectedIds.size > 0;
 
   // BMD metric selection (base fixed to 'bmd', stat selectable)
-  const { stat, setStat, label: metricLabel, getValue } = useBmdMetric('bmd', 'median');
+  const { stat, setStat, label: metricLabel, getValue } = useBmdMetric();
 
   // Group data by cluster with inFocus state
   const bubbleData = useMemo(() => {

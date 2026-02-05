@@ -48,7 +48,7 @@ export default function GlobalViolinComparison({
   const [useLogScale, setUseLogScale] = useState(true);
 
   // BMD metric selection (all three bases share the same stat)
-  const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('median');
+  const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple();
 
   // Get the appropriate metric based on selected base
   const selectedMetric = selectedBase === 'bmd' ? bmd : selectedBase === 'bmdl' ? bmdl : bmdu;

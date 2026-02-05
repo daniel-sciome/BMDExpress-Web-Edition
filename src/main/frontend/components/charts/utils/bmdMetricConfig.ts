@@ -160,9 +160,21 @@ export function createSpec(base: BmdBaseType, stat: BmdStatType): BmdMetricSpec 
 }
 
 /**
+ * Primary Metric Configuration
+ *
+ * Single source of truth for the default BMD metric used across all charts.
+ * The 5th percentile is preferred as it represents the most sensitive response
+ * (lowest effective dose) in the pathway.
+ */
+export const PRIMARY_BASE: BmdBaseType = 'bmd';
+export const PRIMARY_STAT: BmdStatType = 'fifthPercentile';
+export const PRIMARY_SPEC: BmdMetricSpec = { base: PRIMARY_BASE, stat: PRIMARY_STAT };
+
+/**
  * Default metric specs for common use cases.
  */
 export const DEFAULT_SPECS = {
+  primary: PRIMARY_SPEC,
   bmdMedian: createSpec('bmd', 'median'),
   bmdMean: createSpec('bmd', 'mean'),
   bmdlMedian: createSpec('bmdl', 'median'),

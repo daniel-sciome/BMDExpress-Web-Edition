@@ -11,6 +11,8 @@ import {
   BmdBaseType,
   BmdStatType,
   BmdMetricSpec,
+  PRIMARY_BASE,
+  PRIMARY_STAT,
   getFieldName,
   getMetricLabel,
   getMetricShortLabel,
@@ -46,12 +48,12 @@ export interface UseBmdMetricResult {
  * Supports controlled mode: if controlledStat is provided, it overrides internal state.
  */
 export function useBmdMetric(
-  initialBase: BmdBaseType = 'bmd',
-  initialStat: BmdStatType = 'median',
+  initialBase?: BmdBaseType,
+  initialStat?: BmdStatType,
   controlledStat?: BmdStatType
 ): UseBmdMetricResult {
-  const [base, setBase] = useState<BmdBaseType>(initialBase);
-  const [internalStat, setInternalStat] = useState<BmdStatType>(initialStat);
+  const [base, setBase] = useState<BmdBaseType>(initialBase ?? PRIMARY_BASE);
+  const [internalStat, setInternalStat] = useState<BmdStatType>(initialStat ?? PRIMARY_STAT);
 
   // Use controlled stat if provided, otherwise use internal state
   const stat = controlledStat ?? internalStat;
@@ -118,9 +120,9 @@ export interface UseBmdMetricPairResult {
 export function useBmdMetricPair(
   base1: BmdBaseType,
   base2: BmdBaseType,
-  initialStat: BmdStatType = 'median'
+  initialStat?: BmdStatType
 ): UseBmdMetricPairResult {
-  const [stat, setStat] = useState<BmdStatType>(initialStat);
+  const [stat, setStat] = useState<BmdStatType>(initialStat ?? PRIMARY_STAT);
 
   const spec1: BmdMetricSpec = useMemo(() => ({ base: base1, stat }), [base1, stat]);
   const spec2: BmdMetricSpec = useMemo(() => ({ base: base2, stat }), [base2, stat]);
@@ -182,10 +184,10 @@ export interface UseBmdMetricTripleResult {
 }
 
 export function useBmdMetricTriple(
-  initialStat: BmdStatType = 'median',
+  initialStat?: BmdStatType,
   controlledStat?: BmdStatType
 ): UseBmdMetricTripleResult {
-  const [internalStat, setInternalStat] = useState<BmdStatType>(initialStat);
+  const [internalStat, setInternalStat] = useState<BmdStatType>(initialStat ?? PRIMARY_STAT);
 
   // Use controlled stat if provided, otherwise use internal state
   const stat = controlledStat ?? internalStat;
