@@ -33,6 +33,7 @@ import GlobalViolinComparison from './charts/GlobalViolinComparison';
 import ComparisonTable from './charts/ComparisonTable';
 import { BmdStatSelector } from './charts/BmdMetricSelector';
 import type { BmdStatType } from './charts/utils/bmdMetricConfig';
+import { getAnalysisTypeDisplayName } from '../utils/analysisTypeConfig';
 
 const { Text } = Typography;
 
@@ -285,22 +286,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
     }
   }, [comparatorDatasets.length]);
 
-  // Helper function to get friendly name for analysis type
-  const getAnalysisTypeDisplayName = (analysisType: string | undefined): string => {
-    if (!analysisType) return 'Other';
-    const typeMap: Record<string, string> = {
-      'GO_BP': 'GO Biological Process',
-      'GO_MF': 'GO Molecular Function',
-      'GO_CC': 'GO Cellular Component',
-      'GO_ALL': 'GO All Terms',
-      'KEGG': 'KEGG Pathways',
-      'Reactome': 'Reactome Pathways',
-      'BioPlanet': 'BioPlanet Pathways',
-      'Pathway': 'Pathways',
-      'GENE': 'Genes',
-    };
-    return typeMap[analysisType] || analysisType;
-  };
+  // Note: getAnalysisTypeDisplayName imported from analysisTypeConfig.ts
 
   // Group annotations by analysis type
   const groupedAnnotations = allAnnotations.reduce((acc, ann) => {
