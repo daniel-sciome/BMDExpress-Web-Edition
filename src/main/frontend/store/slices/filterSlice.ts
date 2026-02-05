@@ -5,626 +5,156 @@
  */
 
 import { createSlice, createSelector, PayloadAction } from '@reduxjs/toolkit';
-import type { FilterState, FilterGroup, Filter } from '../../types/filterTypes';
+import type { FilterState, FilterGroup, Filter, NumericOperator, FilterableFieldName } from '../../types/filterTypes';
 import { nanoid } from '@reduxjs/toolkit';
 import { loadFilterGroups, saveFilterGroups, getRememberFiltersPreference } from '../../utils/filterGroupPersistence';
 
 /**
- * Create standard/preset filter groups that correspond to the 3 column categories
- * Each filter group includes filters for ALL columns in that category
+ * Filter Group Definition Configuration
+ * Single source of truth for standard filter groups and their field memberships
+ */
+interface FilterGroupDefinition {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  /** Field names to include in this group */
+  fields: FilterableFieldName[];
+  /** Default operator for filters (can be overridden per-field) */
+  defaultOperator?: NumericOperator;
+  /** Default value for filters (can be overridden per-field) */
+  defaultValue?: number;
+  /** Field-specific overrides for operator and value */
+  fieldOverrides?: Partial<Record<FilterableFieldName, { operator?: NumericOperator; value?: number }>>;
+}
+
+/**
+ * Standard filter group definitions
+ * Fields are listed by name - Filter objects are generated automatically
+ */
+const FILTER_GROUP_DEFINITIONS: FilterGroupDefinition[] = [
+  {
+    id: 'standard-statistics',
+    name: 'Statistics',
+    description: "Filters for all Statistics columns (Fisher's Full + BMD/BMDL/BMDU Extended + Confidence Intervals)",
+    color: '#52c41a',
+    defaultOperator: 'greaterThanOrEqual',
+    defaultValue: 0,
+    fieldOverrides: {
+      // Fisher's p-values use lessThanOrEqual with value 1
+      fishersExactLeftPValue: { operator: 'lessThanOrEqual', value: 1 },
+      fishersExactRightPValue: { operator: 'lessThanOrEqual', value: 1 },
+    },
+    fields: [
+      // Fisher's (2 commonly used)
+      'fishersExactLeftPValue', 'fishersExactRightPValue',
+      // BMD Extended + Confidence
+      'bmdMinimum', 'bmdSD', 'bmdWMean', 'bmdWSD', 'bmdLower95', 'bmdUpper95',
+      // BMDL Stats + Confidence
+      'bmdlMean', 'bmdlMedian', 'bmdlMinimum', 'bmdlSD', 'bmdlWMean', 'bmdlWSD', 'bmdlLower95', 'bmdlUpper95',
+      // BMDU Stats + Confidence
+      'bmduMean', 'bmduMedian', 'bmduMinimum', 'bmduSD', 'bmduWMean', 'bmduWSD', 'bmduLower95', 'bmduUpper95',
+    ],
+  },
+  {
+    id: 'standard-advanced-counts',
+    name: 'Counts & Percentiles',
+    description: 'Filters for Filter Counts (12) and Percentile Values (6)',
+    color: '#722ed1',
+    defaultOperator: 'greaterThanOrEqual',
+    defaultValue: 0,
+    fields: [
+      // Filter Counts
+      'genesWithBMDRSquaredValueGreaterEqualValue', 'genesWithBMDBMDLRatioBelowValue',
+      'genesWithBMDUBMDLRatioBelowValue', 'genesWithBMDUBMDRatioBelowValue',
+      'genesWithNFoldBelowLowPostiveDoseValue', 'genesWithPrefilterPValueAboveValue',
+      'genesWithPrefilterAdjustedPValueAboveValue', 'genesNotStepFunction',
+      'genesNotStepFunctionWithBMDLower', 'genesNotAdverseDirection',
+      'genesWithABSZScoreAboveValue', 'genesWithABSModelFCAboveValue',
+      // Percentiles
+      'bmdFifthPercentileTotalGenes', 'bmdTenthPercentileTotalGenes',
+      'bmdlFifthPercentileTotalGenes', 'bmdlTenthPercentileTotalGenes',
+      'bmduFifthPercentileTotalGenes', 'bmduTenthPercentileTotalGenes',
+    ],
+  },
+  {
+    id: 'standard-advanced-directional',
+    name: 'Direction',
+    description: 'Filters for Directional UP (9), DOWN (9), and Analysis (3)',
+    color: '#fa8c16',
+    defaultOperator: 'greaterThanOrEqual',
+    defaultValue: 0,
+    fields: [
+      // Directional UP
+      'genesUpBMDMean', 'genesUpBMDMedian', 'genesUpBMDSD',
+      'genesUpBMDLMean', 'genesUpBMDLMedian', 'genesUpBMDLSD',
+      'genesUpBMDUMean', 'genesUpBMDUMedian', 'genesUpBMDUSD',
+      // Directional DOWN
+      'genesDownBMDMean', 'genesDownBMDMedian', 'genesDownBMDSD',
+      'genesDownBMDLMean', 'genesDownBMDLMedian', 'genesDownBMDLSD',
+      'genesDownBMDUMean', 'genesDownBMDUMedian', 'genesDownBMDUSD',
+      // Directional Analysis
+      'percentWithOverallDirectionUP', 'percentWithOverallDirectionDOWN', 'percentWithOverallDirectionConflict',
+    ],
+  },
+  {
+    id: 'standard-advanced-foldchange',
+    name: 'FC & Scores',
+    description: 'Filters for Fold Change (6), Z-Scores (4), and Model Fold Change (4)',
+    color: '#13c2c2',
+    defaultOperator: 'greaterThanOrEqual',
+    defaultValue: 0,
+    fields: [
+      // Fold Change
+      'totalFoldChange', 'meanFoldChange', 'medianFoldChange',
+      'maxFoldChange', 'minFoldChange', 'stdDevFoldChange',
+      // Z-Scores
+      'minZScore', 'medianZScore', 'maxZScore', 'meanZScore',
+      // Model Fold Change
+      'minModelFoldChange', 'medianModelFoldChange', 'maxModelFoldChange', 'meanModelFoldChange',
+    ],
+  },
+];
+
+/**
+ * Generate a Filter object from a field name and definition
+ */
+function createFilterFromField(
+  field: FilterableFieldName,
+  definition: FilterGroupDefinition
+): Filter {
+  const override = definition.fieldOverrides?.[field];
+  return {
+    id: nanoid(),
+    field,
+    operator: override?.operator ?? definition.defaultOperator ?? 'greaterThanOrEqual',
+    value: override?.value ?? definition.defaultValue ?? 0,
+    enabled: false,
+  } as Filter;
+}
+
+/**
+ * Generate a FilterGroup from a definition
+ */
+function createFilterGroupFromDefinition(definition: FilterGroupDefinition): FilterGroup {
+  const now = Date.now();
+  return {
+    id: definition.id,
+    name: definition.name,
+    description: definition.description,
+    enabled: false,
+    filters: definition.fields.map(field => createFilterFromField(field, definition)),
+    color: definition.color,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Create standard/preset filter groups from definitions
  */
 function createStandardFilterGroups(): FilterGroup[] {
-  const now = Date.now();
-
-  return [
-    // 1. Statistics Columns: Fisher's, BMD, BMDL, BMDU
-    // Note: Essential/Gene Counts filters (percentage, genesThatPassedAllFilters, geneAllCount)
-    // are handled by Primary Filters and not duplicated here
-    {
-      id: 'standard-statistics',
-      name: 'Statistics',
-      description: 'Filters for all Statistics columns (Fisher\'s Full + BMD/BMDL/BMDU Extended + Confidence Intervals)',
-      enabled: false,
-      filters: [
-        // Fisher's Full (6 fields)
-        {
-          id: nanoid(),
-          field: 'fishersExactLeftPValue',
-          operator: 'lessThanOrEqual',
-          value: 1,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'fishersExactRightPValue',
-          operator: 'lessThanOrEqual',
-          value: 1,
-          enabled: false,
-        },
-        // BMD Extended (4 fields)
-        {
-          id: nanoid(),
-          field: 'bmdMinimum',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmdSD',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmdWMean',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmdWSD',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        // BMD Confidence (2 fields)
-        {
-          id: nanoid(),
-          field: 'bmdLower95',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmdUpper95',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        // BMDL Stats (6 fields)
-        {
-          id: nanoid(),
-          field: 'bmdlMean',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmdlMedian',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmdlMinimum',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmdlSD',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmdlWMean',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmdlWSD',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        // BMDL Confidence (2 fields)
-        {
-          id: nanoid(),
-          field: 'bmdlLower95',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmdlUpper95',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        // BMDU Stats (6 fields)
-        {
-          id: nanoid(),
-          field: 'bmduMean',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmduMedian',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmduMinimum',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmduSD',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmduWMean',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmduWSD',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        // BMDU Confidence (2 fields)
-        {
-          id: nanoid(),
-          field: 'bmduLower95',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmduUpper95',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-      ],
-      color: '#52c41a',
-      createdAt: now,
-      updatedAt: now,
-    },
-
-    // 3. Advanced Columns - Filter Counts & Percentiles
-    {
-      id: 'standard-advanced-counts',
-      name: 'Counts & Percentiles',
-      description: 'Filters for Filter Counts (12) and Percentile Values (6)',
-      enabled: false,
-      filters: [
-        // Filter Counts (12 fields)
-        {
-          id: nanoid(),
-          field: 'genesWithBMDRSquaredValueGreaterEqualValue',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesWithBMDBMDLRatioBelowValue',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesWithBMDUBMDLRatioBelowValue',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesWithBMDUBMDRatioBelowValue',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesWithNFoldBelowLowPostiveDoseValue',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesWithPrefilterPValueAboveValue',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesWithPrefilterAdjustedPValueAboveValue',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesNotStepFunction',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesNotStepFunctionWithBMDLower',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesNotAdverseDirection',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesWithABSZScoreAboveValue',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesWithABSModelFCAboveValue',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        // Percentiles (6 fields)
-        {
-          id: nanoid(),
-          field: 'bmdFifthPercentileTotalGenes',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmdTenthPercentileTotalGenes',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmdlFifthPercentileTotalGenes',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmdlTenthPercentileTotalGenes',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmduFifthPercentileTotalGenes',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'bmduTenthPercentileTotalGenes',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-      ],
-      color: '#722ed1',
-      createdAt: now,
-      updatedAt: now,
-    },
-
-    // 4. Advanced Columns - Directional Analysis
-    {
-      id: 'standard-advanced-directional',
-      name: 'Direction',
-      description: 'Filters for Directional UP (9), DOWN (9), and Analysis (3)',
-      enabled: false,
-      filters: [
-        // Directional UP (9 fields)
-        {
-          id: nanoid(),
-          field: 'genesUpBMDMean',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesUpBMDMedian',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesUpBMDSD',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesUpBMDLMean',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesUpBMDLMedian',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesUpBMDLSD',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesUpBMDUMean',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesUpBMDUMedian',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesUpBMDUSD',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        // Directional DOWN (9 fields)
-        {
-          id: nanoid(),
-          field: 'genesDownBMDMean',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesDownBMDMedian',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesDownBMDSD',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesDownBMDLMean',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesDownBMDLMedian',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesDownBMDLSD',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesDownBMDUMean',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesDownBMDUMedian',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'genesDownBMDUSD',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        // Directional Analysis (3 numeric fields)
-        {
-          id: nanoid(),
-          field: 'percentWithOverallDirectionUP',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'percentWithOverallDirectionDOWN',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'percentWithOverallDirectionConflict',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-      ],
-      color: '#fa8c16',
-      createdAt: now,
-      updatedAt: now,
-    },
-
-    // 5. Advanced Columns - Fold Change & Scores
-    {
-      id: 'standard-advanced-foldchange',
-      name: 'FC & Scores',
-      description: 'Filters for Fold Change (6), Z-Scores (4), and Model Fold Change (4)',
-      enabled: false,
-      filters: [
-        // Fold Change (6 fields)
-        {
-          id: nanoid(),
-          field: 'totalFoldChange',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'meanFoldChange',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'medianFoldChange',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'maxFoldChange',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'minFoldChange',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'stdDevFoldChange',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        // Z-Scores (4 fields)
-        {
-          id: nanoid(),
-          field: 'minZScore',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'medianZScore',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'maxZScore',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'meanZScore',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        // Model Fold Change (4 fields)
-        {
-          id: nanoid(),
-          field: 'minModelFoldChange',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'medianModelFoldChange',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'maxModelFoldChange',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-        {
-          id: nanoid(),
-          field: 'meanModelFoldChange',
-          operator: 'greaterThanOrEqual',
-          value: 0,
-          enabled: false,
-        },
-      ],
-      color: '#13c2c2',
-      createdAt: now,
-      updatedAt: now,
-    },
-  ];
+  return FILTER_GROUP_DEFINITIONS.map(createFilterGroupFromDefinition);
 }
 
 // Create initial state with enabled groups automatically activated
