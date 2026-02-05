@@ -17,7 +17,7 @@ import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterIdForCategory, getClusterLabel } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 import { hexToRgba } from './utils/displayModeStyles';
-import { getTopNSourceData } from './utils/topNFilter';
+import { computeTopNRanked } from './utils/topNFilter';
 import { wrapTextWithSuffix } from './utils/categoryLabelUtils';
 
 const { Text } = Typography;
@@ -35,38 +35,24 @@ export default function RangePlot() {
   // BMD metric selection (all three bases share the same stat)
   const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple();
 
-  // Filter top N categories by BMD value (smallest first), keep sorted by BMD rank for display
-  // In isolate mode, Top N is computed from focused items only
-  // Track BMD rank for each category
-  const topCategories = useMemo(() => {
+  // Filter to categories with valid BMD/BMDL/BMDU (required for range plot)
+  const validData = useMemo(() => {
     if (!data || data.length === 0) return [];
 
-    // In isolate mode, compute Top N from focused items only
-    const sourceData = getTopNSourceData(data, displayMode);
-
-    const validData = sourceData.filter(row => {
+    return data.filter(row => {
       const bmdVal = bmd.getValue(row);
       const bmdlVal = bmdl.getValue(row);
       const bmduVal = bmdu.getValue(row);
       return bmdVal != null && bmdlVal != null && bmduVal != null &&
              bmdVal > 0 && bmdlVal > 0 && bmduVal > 0;
     });
+  }, [data, bmd, bmdl, bmdu]);
 
-    // Sort by BMD value ascending (smallest = most sensitive pathways first)
-    const sortedByBmd = [...validData].sort((a, b) => {
-      const bmdA = bmd.getValue(a) ?? Infinity;
-      const bmdB = bmd.getValue(b) ?? Infinity;
-      return bmdA - bmdB;
-    });
-
-    // Take top N (smallest BMD values) and assign BMD rank
-    // Keep sorted by BMD rank (rank 1 = smallest BMD at top)
-    return (topN === 'All' ? sortedByBmd : sortedByBmd.slice(0, topN))
-      .map((row, index) => ({
-        ...row,
-        bmdRank: index + 1, // 1-based rank by BMD value
-      }));
-  }, [data, displayMode, topN, bmd, bmdl, bmdu]);
+  // Compute Top N with BMD rank (display-mode aware)
+  // Rank 1 = smallest BMD (most sensitive pathway)
+  const topCategories = useMemo(() => {
+    return computeTopNRanked(validData, displayMode, bmd.getValue, topN);
+  }, [validData, displayMode, bmd, topN]);
 
 
   // Group categories by cluster with inFocus state

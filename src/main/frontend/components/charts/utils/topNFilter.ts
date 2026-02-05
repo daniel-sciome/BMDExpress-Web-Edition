@@ -7,6 +7,7 @@
  */
 
 import type { DisplayMode } from 'Frontend/types/visibilityTypes';
+import { computeTopNWithRank, type WithBmdRank } from './bmdRankUtils';
 
 /**
  * Item with inFocus state (matches CategoryWithFocus pattern)
@@ -104,3 +105,45 @@ export function computeTopN<T extends FocusableItem>(
   }
   return sorted.slice(0, n);
 }
+
+/**
+ * Compute Top N items with BMD rank, respecting display mode.
+ *
+ * Combines:
+ * 1. Display mode filtering (isolate mode uses only focused items)
+ * 2. BMD-based ranking (rank 1 = smallest value)
+ * 3. Top N slicing
+ *
+ * @param data - Array of items with inFocus property
+ * @param displayMode - Current display mode
+ * @param getValue - Function to extract BMD value for ranking
+ * @param n - Number of items to return, or 'All'
+ * @returns Top N items with bmdRank property attached
+ *
+ * @example
+ * ```tsx
+ * const topCategories = useMemo(() => computeTopNRanked(
+ *   data,
+ *   displayMode,
+ *   (row) => bmd.getValue(row),
+ *   topN
+ * ), [data, displayMode, bmd, topN]);
+ *
+ * // topCategories[0].bmdRank === 1 (smallest BMD in the filtered set)
+ * ```
+ */
+export function computeTopNRanked<T extends FocusableItem>(
+  data: T[],
+  displayMode: DisplayMode,
+  getValue: (item: any) => number | undefined | null,
+  n: number | 'All'
+): WithBmdRank<T>[] {
+  // Step 1: Get source data based on display mode
+  const sourceData = getTopNSourceData(data, displayMode);
+
+  // Step 2: Compute rank and take Top N
+  return computeTopNWithRank(sourceData, getValue, n);
+}
+
+// Re-export for convenience
+export { computeBmdRank, computeTopNWithRank, type WithBmdRank } from './bmdRankUtils';
