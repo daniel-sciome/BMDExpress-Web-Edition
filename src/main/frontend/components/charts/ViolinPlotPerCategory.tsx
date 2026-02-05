@@ -17,53 +17,22 @@ import Plot from 'react-plotly.js';
 import { Alert, Checkbox, Select, Space } from 'antd';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useReactiveState } from './hooks/useReactiveState';
-import { useClusterColors, getClusterIdForCategory } from './utils/clusterColors';
+import { getClusterIdForCategory, getClusterColor } from './utils/clusterColors';
 import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES } from './utils/plotlyConfig';
 import { parseSemicolonNumericList } from 'Frontend/utils/dtoParsingUtils';
 
 const { Option } = Select;
 
 export default function ViolinPlotPerCategory() {
-  const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
+  const { data, shouldHidePoint } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const [selectedMetric, setSelectedMetric] = useState<'bmd' | 'bmdl' | 'bmdu'>('bmd');
   const [useLogScale, setUseLogScale] = useState(true);
 
-  // Get cluster colors using shared utility
-  const clusterColors = useClusterColors();
   const hasSelection = categoryState.selectedIds.size > 0;
 
   // Parse BMD list and prepare violin plot data
-  const { violinData, yAxisRange } = useMemo(() => {
-    const traces: any[] = [];
-    let globalMin = Infinity;
-    let globalMax = -Infinity;
-
-    // First pass: calculate min/max from ENTIRE dataset for consistent axis range
-    data.forEach((row) => {
-      let bmdListStr: string | undefined;
-      switch (selectedMetric) {
-        case 'bmd':
-          bmdListStr = row.bmdList;
-          break;
-        case 'bmdl':
-          bmdListStr = row.bmdlList;
-          break;
-        case 'bmdu':
-          bmdListStr = row.bmduList;
-          break;
-      }
-
-      if (!bmdListStr) return;
-
-      const values = parseSemicolonNumericList(bmdListStr);
-
-      values.forEach(v => {
-        if (v < globalMin) globalMin = v;
-        if (v > globalMax) globalMax = v;
-      });
-    });
-
+  const { violinData, yTickVals, yTickText } = useMemo(() => {
     // Filter based on displayMode
     const visibleData = data.filter((row) => {
       // Filter by displayMode (isolate mode hides out-of-focus)
@@ -80,7 +49,12 @@ export default function ViolinPlotPerCategory() {
     });
     const limitedData = sortedData.slice(0, MAX_CATEGORIES);
 
-    limitedData.forEach((row) => {
+    // Build traces - one per category with numeric y positions
+    const traces: any[] = [];
+    const yTickVals: number[] = [];
+    const yTickText: { desc: string; suffix: string }[] = [];
+
+    limitedData.forEach((row, index) => {
       const categoryId = row.categoryId || '';
       const categoryDesc = row.categoryDescription || categoryId || 'Unknown';
 
@@ -105,31 +79,39 @@ export default function ViolinPlotPerCategory() {
 
       if (values.length === 0) return;
 
-      // Get cluster color and apply styling
+      // Get cluster-based color for this category
       const clusterId = getClusterIdForCategory(categoryId);
-      const baseColor = clusterColors[clusterId] || '#999999';
-      const focusStyle = getPointStyle(row.inFocus, baseColor);
+      const baseColor = getClusterColor(clusterId);
       const isSelected = categoryState.selectedIds.has(categoryId);
 
-      // Determine opacity based on selection state
+      // Determine opacity - keep minimum of 0.7 for visibility
       let opacity: number;
       if (isSelected && hasSelection) {
         opacity = 1.0;
       } else if (hasSelection) {
-        opacity = 0.2; // Dim non-selected when something is selected
+        opacity = 0.4; // Dim non-selected but keep visible
       } else {
-        opacity = focusStyle.opacity;
+        opacity = 0.7; // Default opacity for good visibility
       }
 
-      // Truncate category description to 20 characters for x-axis label
-      const truncatedDesc = categoryDesc.length > 20 ? categoryDesc.substring(0, 20) + '...' : categoryDesc;
+      // Store description and gene count separately for smart wrapping
+      const geneCountSuffix = `(${values.length} genes in category)`;
+      const labelWithCount = { desc: categoryDesc, suffix: geneCountSuffix };
 
-      // Create violin trace for this category
+      // Use numeric y position
+      const yPos = index;
+      yTickVals.push(yPos);
+      yTickText.push(labelWithCount);
+
+      // Create horizontal violin trace with numeric y position
       traces.push({
         type: 'violin',
-        y: values,
-        x: Array(values.length).fill(truncatedDesc),
-        name: truncatedDesc,
+        x: values,
+        y0: yPos,
+        name: categoryDesc,
+        orientation: 'h',
+        width: 0.8,
+        scalemode: 'width', // Each violin uses full width - better for comparing shapes
         box: {
           visible: true
         },
@@ -137,36 +119,21 @@ export default function ViolinPlotPerCategory() {
           visible: true
         },
         marker: {
-          color: focusStyle.color
+          color: baseColor
         },
         line: {
-          color: focusStyle.color,
-          width: isSelected && hasSelection ? 3 : 1, // Thicker line for selected
+          color: baseColor,
+          width: isSelected && hasSelection ? 3 : 1,
         },
-        fillcolor: focusStyle.color,
+        fillcolor: baseColor,
         opacity: opacity,
-        hoverinfo: 'y+name',
-        hovertemplate: `<b>${categoryDesc}</b><br>Value: %{y:.4f}<extra></extra>`,
+        hoverinfo: 'x+name',
+        hovertemplate: `<b>${categoryDesc}</b><br>Value: %{x:.4f}<extra></extra>`,
       });
     });
 
-    // Calculate y-axis range with fake zero at bottom
-    let yRange: [number, number] | undefined;
-    if (globalMin !== Infinity && globalMax !== -Infinity) {
-      // Fake zero: one order of magnitude less than the decade of the minimum value
-      const minDecade = Math.floor(Math.log10(globalMin));
-      const fakeZero = Math.pow(10, minDecade - 1);
-
-      const logMin = Math.log10(fakeZero);
-      const logMax = Math.log10(globalMax);
-      const rangeSize = logMax - logMin;
-      const bottomPadding = rangeSize * 0.05; // 5% padding at bottom to show fake zero gridline
-      const topPadding = rangeSize * 0.1; // 10% padding at top
-      yRange = [logMin - bottomPadding, logMax + topPadding];
-    }
-
-    return { violinData: traces, yAxisRange: yRange };
-  }, [data, clusterColors, selectedMetric, displayMode, getPointStyle, shouldHidePoint, categoryState.selectedIds, hasSelection]);
+    return { violinData: traces, yTickVals, yTickText };
+  }, [data, selectedMetric, shouldHidePoint, categoryState.selectedIds, hasSelection]);
 
   if (!data || data.length === 0) {
     return (
@@ -192,6 +159,48 @@ export default function ViolinPlotPerCategory() {
   }
 
   const metricLabel = selectedMetric === 'bmd' ? 'BMD' : selectedMetric === 'bmdl' ? 'BMDL' : 'BMDU';
+
+  // Helper to wrap text at specified character width, keeping suffix intact
+  const wrapTextWithSuffix = (text: string, suffix: string, maxWidth: number): string => {
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let currentLine = '';
+
+    words.forEach(word => {
+      if (currentLine.length + word.length + 1 <= maxWidth) {
+        currentLine += (currentLine ? ' ' : '') + word;
+      } else {
+        if (currentLine) lines.push(currentLine);
+        currentLine = word;
+      }
+    });
+
+    // Check if suffix fits on current line
+    if (currentLine.length + suffix.length + 1 <= maxWidth) {
+      currentLine += ' ' + suffix;
+      lines.push(currentLine);
+    } else {
+      if (currentLine) lines.push(currentLine);
+      lines.push(suffix);
+    }
+
+    return lines.join('<br>');
+  };
+
+  // Create annotations for centered y-axis labels with wrapped text
+  const yAxisAnnotations = yTickVals.map((yVal, i) => ({
+    x: 0,
+    y: yVal,
+    xref: 'paper' as const,
+    yref: 'y' as const,
+    text: wrapTextWithSuffix(yTickText[i].desc, yTickText[i].suffix, 35),
+    showarrow: false,
+    xanchor: 'center' as const,
+    yanchor: 'middle' as const,
+    align: 'center' as const,
+    font: { size: 11 },
+    xshift: -140,  // Center in the margin area
+  }));
 
   return (
     <div style={{ width: '100%' }}>
@@ -230,28 +239,27 @@ export default function ViolinPlotPerCategory() {
             font: { size: 14 },
           },
           xaxis: {
-            title: { text: 'Category' },
-            tickangle: -45,
-            automargin: true,
-            ticklen: 0,
-            standoff: 30,
-          },
-          yaxis: {
             title: { text: `${metricLabel} Value` },
             type: useLogScale ? 'log' : 'linear',
-            ...(useLogScale ? { range: yAxisRange, dtick: 1, tick0: 0 } : { autorange: true }),
+            autorange: true,
             showgrid: true,
             gridcolor: '#d0d0d0',
             gridwidth: 1,
           },
-          height: 600,
-          margin: { l: 70, r: 50, t: 80, b: 350 },
+          yaxis: {
+            title: { text: '' },
+            showticklabels: false,
+            ticklen: 0,
+            range: [-0.5, Math.max(4, yTickVals.length - 0.5)],
+          },
+          annotations: yAxisAnnotations,
+          autosize: true,
+          margin: { l: 280, r: 50, t: 80, b: 60 },
           ...DEFAULT_LAYOUT_STYLES,
-          showlegend: false, // Each violin is unique, no need for legend
-          violinmode: 'group',
+          showlegend: false,
         } as any}
         config={createPlotlyConfigWithExport('violin_plot_per_category', 'wide') as any}
-        style={{ width: '100%', height: '100%' }}
+        style={{ width: '100%', height: '500px' }}
         useResizeHandler={true}
       />
 
