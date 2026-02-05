@@ -80,51 +80,14 @@ export default function BMDvsBMDLScatter() {
     return byCluster;
   }, [data, bmdMetric, bmdlMetric]);
 
-  if (!scatterData || scatterData.size === 0) {
-    return (
-      <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-        No valid BMD vs BMDL data available for scatter plot
-      </div>
-    );
-  }
-
-  // Calculate axis ranges for log scale
-  const getAllValues = (byCluster: Map<number, Array<{x: number, y: number, categoryId: string, categoryName: string, inFocus: boolean}>>, axis: 'x' | 'y'): number[] => {
-    const values: number[] = [];
-    byCluster.forEach(points => {
-      points.forEach(point => values.push(point[axis]));
-    });
-    return values;
-  };
-
-  const getAxisConfig = (values: number[], useLog: boolean) => {
-    if (values.length === 0) return { type: 'linear' as const };
-
-    if (useLog) {
-      const minVal = Math.min(...values);
-      const maxVal = Math.max(...values);
-      const minDecade = Math.floor(Math.log10(minVal));
-      const maxDecade = Math.ceil(Math.log10(maxVal));
-      return {
-        type: 'log' as const,
-        range: [minDecade - 0.5, maxDecade + 0.5]
-      };
-    }
-    return {
-      type: 'linear' as const
-    };
-  };
-
-  const allXValues = getAllValues(scatterData, 'x');
-  const allYValues = getAllValues(scatterData, 'y');
-  const xAxisConfig = getAxisConfig(allXValues, useLogX);
-  const yAxisConfig = getAxisConfig(allYValues, useLogY);
-
   // Get label from the stat (e.g., "Median", "Mean", "5th Percentile")
   const statLabel = stat.charAt(0).toUpperCase() + stat.slice(1).replace(/([A-Z])/g, ' $1');
 
   // Create traces with inFocus-based per-point styling
+  // Must be called before early return to satisfy React hooks rules
   const traces = useMemo(() => {
+    if (!scatterData || scatterData.size === 0) return [];
+
     const result: any[] = [];
 
     // Sort clusters (outliers last)
@@ -209,6 +172,47 @@ export default function BMDvsBMDLScatter() {
 
     return result;
   }, [scatterData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, shouldHidePoint, bmdMetric.label, bmdlMetric.label]);
+
+  // Early return after all hooks
+  if (!scatterData || scatterData.size === 0) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+        No valid BMD vs BMDL data available for scatter plot
+      </div>
+    );
+  }
+
+  // Calculate axis ranges for log scale
+  const getAllValues = (byCluster: Map<number, Array<{x: number, y: number, categoryId: string, categoryName: string, inFocus: boolean}>>, axis: 'x' | 'y'): number[] => {
+    const values: number[] = [];
+    byCluster.forEach(points => {
+      points.forEach(point => values.push(point[axis]));
+    });
+    return values;
+  };
+
+  const getAxisConfig = (values: number[], useLog: boolean) => {
+    if (values.length === 0) return { type: 'linear' as const };
+
+    if (useLog) {
+      const minVal = Math.min(...values);
+      const maxVal = Math.max(...values);
+      const minDecade = Math.floor(Math.log10(minVal));
+      const maxDecade = Math.ceil(Math.log10(maxVal));
+      return {
+        type: 'log' as const,
+        range: [minDecade - 0.5, maxDecade + 0.5]
+      };
+    }
+    return {
+      type: 'linear' as const
+    };
+  };
+
+  const allXValues = getAllValues(scatterData, 'x');
+  const allYValues = getAllValues(scatterData, 'y');
+  const xAxisConfig = getAxisConfig(allXValues, useLogX);
+  const yAxisConfig = getAxisConfig(allYValues, useLogY);
 
   return (
     <div style={{ width: '100%' }}>
