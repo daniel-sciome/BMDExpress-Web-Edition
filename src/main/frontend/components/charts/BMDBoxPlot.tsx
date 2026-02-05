@@ -9,7 +9,7 @@
 
 import React, { useMemo, useState } from 'react';
 import Plot from 'react-plotly.js';
-import { Button, Space, Typography } from 'antd';
+import { Button, Checkbox, Space, Typography } from 'antd';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useReactiveState } from './hooks/useReactiveState';
 import { useBmdMetricTriple } from './hooks/useBmdMetric';
@@ -45,6 +45,7 @@ export default function BMDBoxPlot({ stat: externalStat, hideControls = false }:
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const [useFixedScale, setUseFixedScale] = useState(true);
+  const [useLogScale, setUseLogScale] = useState(true);
   const clusterColors = useClusterColors();
   const hasSelection = categoryState.selectedIds.size > 0;
 
@@ -278,6 +279,9 @@ export default function BMDBoxPlot({ stat: externalStat, hideControls = false }:
             <BmdStatSelector stat={stat} onStatChange={setStat} />
           </Space>
         )}
+        <Checkbox checked={useLogScale} onChange={(e) => setUseLogScale(e.target.checked)}>
+          Log₁₀ Scale
+        </Checkbox>
         <Button
           size="small"
           onClick={() => setUseFixedScale(!useFixedScale)}
@@ -292,8 +296,9 @@ export default function BMDBoxPlot({ stat: externalStat, hideControls = false }:
             title: `BMD Distribution (Colored by Cluster)<br><sub>${subtitle}</sub>`,
             yaxis: {
               title: { text: 'Dose Value' },
+              type: useLogScale ? 'log' : 'linear',
               gridcolor: '#e0e0e0',
-              ...(useFixedScale && yAxisRange ? { range: yAxisRange } : { autorange: true }),
+              ...(useFixedScale && yAxisRange && !useLogScale ? { range: yAxisRange } : { autorange: true }),
             },
             xaxis: {
               title: '',

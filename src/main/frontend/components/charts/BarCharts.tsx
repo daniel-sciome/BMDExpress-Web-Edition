@@ -7,9 +7,9 @@
  * Uses inFocus-based display mode styling (highlight/dim/isolate).
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import Plot from 'react-plotly.js';
-import { Row, Col, Space, Typography } from 'antd';
+import { Checkbox, Row, Col, Space, Typography } from 'antd';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useReactiveState } from './hooks/useReactiveState';
 import { useBmdMetricTriple } from './hooks/useBmdMetric';
@@ -24,6 +24,7 @@ export default function BarCharts() {
   const categoryState = useReactiveState('categoryId');
   const clusterColors = useClusterColors();
   const hasSelection = categoryState.selectedIds.size > 0;
+  const [useLogScale, setUseLogScale] = useState(true);
 
   // BMD metric selection (all three bases share the same stat)
   const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('median');
@@ -193,6 +194,9 @@ export default function BarCharts() {
           <Text>BMD Statistic:</Text>
           <BmdStatSelector stat={stat} onStatChange={setStat} />
         </Space>
+        <Checkbox checked={useLogScale} onChange={(e) => setUseLogScale(e.target.checked)}>
+          Log₁₀ Scale
+        </Checkbox>
       </div>
       <Row gutter={[16, 16]}>
         {styledCharts.map((chart, index) => (
@@ -206,7 +210,7 @@ export default function BarCharts() {
                 },
                 xaxis: {
                   title: { text: 'Value' },
-                  type: 'log',
+                  type: useLogScale ? 'log' : 'linear',
                   gridcolor: DEFAULT_GRID_COLOR,
                 },
                 yaxis: {

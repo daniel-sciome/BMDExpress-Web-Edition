@@ -14,7 +14,7 @@
 
 import React, { useMemo, useState } from 'react';
 import Plot from 'react-plotly.js';
-import { Alert, Select } from 'antd';
+import { Alert, Checkbox, Select, Space } from 'antd';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useReactiveState } from './hooks/useReactiveState';
 import { useClusterColors, getClusterIdForCategory } from './utils/clusterColors';
@@ -27,6 +27,7 @@ export default function ViolinPlotPerCategory() {
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const [selectedMetric, setSelectedMetric] = useState<'bmd' | 'bmdl' | 'bmdu'>('bmd');
+  const [useLogScale, setUseLogScale] = useState(true);
 
   // Get cluster colors using shared utility
   const clusterColors = useClusterColors();
@@ -194,7 +195,7 @@ export default function ViolinPlotPerCategory() {
 
   return (
     <div style={{ width: '100%' }}>
-      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
         <h4 style={{ margin: 0 }}>Violin Plot Per Category - {metricLabel} Distribution</h4>
         <Select
           value={selectedMetric}
@@ -205,6 +206,9 @@ export default function ViolinPlotPerCategory() {
           <Option value="bmdl">BMDL</Option>
           <Option value="bmdu">BMDU</Option>
         </Select>
+        <Checkbox checked={useLogScale} onChange={(e) => setUseLogScale(e.target.checked)}>
+          Log₁₀ Scale
+        </Checkbox>
       </div>
 
       {data.length > 5 && (
@@ -234,13 +238,11 @@ export default function ViolinPlotPerCategory() {
           },
           yaxis: {
             title: { text: `${metricLabel} Value` },
-            type: 'log',
-            range: yAxisRange,
+            type: useLogScale ? 'log' : 'linear',
+            ...(useLogScale ? { range: yAxisRange, dtick: 1, tick0: 0 } : { autorange: true }),
             showgrid: true,
             gridcolor: '#d0d0d0',
             gridwidth: 1,
-            dtick: 1,
-            tick0: 0,
           },
           height: 600,
           margin: { l: 70, r: 50, t: 80, b: 350 },
