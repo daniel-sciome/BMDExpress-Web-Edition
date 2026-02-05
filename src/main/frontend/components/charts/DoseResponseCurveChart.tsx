@@ -1,11 +1,14 @@
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
-import { Checkbox, Collapse } from 'antd';
+import { Checkbox, Collapse, Space, Typography } from 'antd';
 import Plot from 'react-plotly.js';
 import type CurveDataDto from 'Frontend/generated/com/sciome/dto/CurveDataDto';
 import { useReactiveState } from './hooks/useReactiveState';
 import { useClusterLegendInteraction, getClusterMarkerStyle } from './hooks/useClusterLegendInteraction';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
+import { prepareLogScaleValues, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
+
+const { Text } = Typography;
 
 interface DoseResponseCurveChartProps {
   curves: CurveDataDto[];
@@ -15,6 +18,7 @@ interface DoseResponseCurveChartProps {
 export default function DoseResponseCurveChart({ curves, selectedCategories }: DoseResponseCurveChartProps) {
   const clusterColors = useClusterColors();
   const categoryState = useReactiveState('categoryId');
+  const [useLogScale, setUseLogScale] = useState(true);
 
   // Get top 3 categories by lowest BMD for default overlay selection
   const defaultOverlayCategories = useMemo(() => {
@@ -102,6 +106,58 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
     return byCategory;
   }, [curves]);
 
+  // Collect all dose values and compute zero position for log scale
+  const doseTransform = useMemo(() => {
+    const allDoses: number[] = [];
+
+    curves.forEach(curve => {
+      if (curve.curvePoints) {
+        curve.curvePoints.filter(p => p).forEach(p => allDoses.push(p!.dose));
+      }
+      if (curve.measuredPoints) {
+        curve.measuredPoints.filter(p => p).forEach(p => allDoses.push(p!.dose));
+      }
+    });
+
+    const { zeroPosition, minNonZero, maxValue } = prepareLogScaleValues(allDoses);
+    const hasZeros = allDoses.some(d => d === 0);
+
+    // Generate tick values and labels for log scale with zero
+    let tickvals: number[] = [];
+    let ticktext: string[] = [];
+
+    if (useLogScale && zeroPosition && minNonZero && maxValue) {
+      if (hasZeros) {
+        tickvals.push(zeroPosition);
+        ticktext.push('0');
+      }
+
+      // Add decade ticks
+      const minDecade = Math.floor(Math.log10(minNonZero));
+      const maxDecade = Math.ceil(Math.log10(maxValue));
+
+      for (let decade = minDecade; decade <= maxDecade; decade++) {
+        const tickValue = Math.pow(10, decade);
+        if (!hasZeros || Math.abs(Math.log10(tickValue) - Math.log10(zeroPosition)) > 0.5) {
+          tickvals.push(tickValue);
+          ticktext.push(tickValue >= 1 ? tickValue.toString() : tickValue.toFixed(-decade + 1));
+        }
+      }
+    }
+
+    return {
+      zeroPosition,
+      hasZeros,
+      tickvals,
+      ticktext,
+      transformDose: (dose: number) => {
+        if (!useLogScale) return dose;
+        if (dose === 0 && zeroPosition) return zeroPosition;
+        return dose;
+      },
+    };
+  }, [curves, useLogScale]);
+
   // Create base traces grouped by cluster (for overlay plot)
   const baseTraces = useMemo(() => {
     console.log('[DoseResponseCurveChart] Recalculating baseTraces with', overlayCurves.length, 'overlay curves');
@@ -139,17 +195,19 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
 
         // Add interpolated curve line
         if (curve.curvePoints && curve.curvePoints.length > 0) {
-          const xValues = curve.curvePoints.filter(p => p).map((p) => p!.dose);
+          const xValues = curve.curvePoints.filter(p => p).map((p) => doseTransform.transformDose(p!.dose));
           const yValues = curve.curvePoints.filter(p => p).map((p) => p!.response);
+          const originalDoses = curve.curvePoints.filter(p => p).map((p) => p!.dose);
 
           traces.push({
             x: xValues,
             y: yValues,
+            customdata: originalDoses,
             type: 'scatter',
             mode: 'lines',
             name: getClusterLabel(clusterId),
             line: { width: 2 },
-            hovertemplate: `${curveName}<br>${getClusterLabel(clusterId)}<br>Dose: %{x}<br>Response: %{y:.3f}<extra></extra>`,
+            hovertemplate: `${curveName}<br>${getClusterLabel(clusterId)}<br>Dose: %{customdata}<br>Response: %{y:.3f}<extra></extra>`,
             showlegend: false,
             clusterId: clusterId,
             pathwayDescription: curve.pathwayDescription,
@@ -160,18 +218,20 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
 
         // Add measured data points
         if (curve.measuredPoints && curve.measuredPoints.length > 0) {
-          const xMeasured = curve.measuredPoints.filter(p => p).map((p) => p!.dose);
+          const xMeasured = curve.measuredPoints.filter(p => p).map((p) => doseTransform.transformDose(p!.dose));
           const yMeasured = curve.measuredPoints.filter(p => p).map((p) => p!.response);
+          const originalDoses = curve.measuredPoints.filter(p => p).map((p) => p!.dose);
 
           traces.push({
             x: xMeasured,
             y: yMeasured,
+            customdata: originalDoses,
             type: 'scatter',
             mode: 'markers',
             name: `${curveName} (data)`,
             marker: { size: 8, symbol: 'circle' },
             showlegend: false,
-            hovertemplate: `${curveName} (measured)<br>Dose: %{x}<br>Response: %{y:.3f}<extra></extra>`,
+            hovertemplate: `${curveName} (measured)<br>Dose: %{customdata}<br>Response: %{y:.3f}<extra></extra>`,
             legendgroup: `cluster_${clusterId}`,
             clusterId: clusterId,
           });
@@ -248,7 +308,7 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
     });
 
     return traces;
-  }, [overlayCurves, curvesByCluster, pathwayToCluster]);
+  }, [overlayCurves, curvesByCluster, pathwayToCluster, doseTransform]);
 
   // Set up cluster legend interaction (synchronizes with all other views)
   const { handleLegendClick, nonSelectedDisplayMode, hasSelection } = useClusterLegendInteraction({
@@ -399,16 +459,22 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
     },
     xaxis: {
       title: { text: 'Dose' },
-      type: 'log' as const,
-      autorange: true,
+      type: useLogScale ? 'log' as const : 'linear' as const,
+      ...(useLogScale && doseTransform.tickvals.length > 0 ? {
+        tickmode: 'array' as const,
+        tickvals: doseTransform.tickvals,
+        ticktext: doseTransform.ticktext,
+      } : {
+        autorange: true,
+      }),
       showgrid: true,
-      gridcolor: '#e5e5e5',
+      gridcolor: DEFAULT_GRID_COLOR,
     },
     yaxis: {
       title: { text: 'Log(Expression)' },
       autorange: true,
       showgrid: true,
-      gridcolor: '#e5e5e5',
+      gridcolor: DEFAULT_GRID_COLOR,
     },
     hovermode: 'closest' as const,
     showlegend: false,
@@ -419,10 +485,22 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
       b: 60,
     },
     height: 500,
-  }), []);
+  }), [useLogScale, doseTransform]);
 
   return (
     <div style={{ width: '100%' }}>
+      {/* Controls */}
+      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+        <Checkbox checked={useLogScale} onChange={(e) => setUseLogScale(e.target.checked)}>
+          Log₁₀ Scale (Dose)
+        </Checkbox>
+        {useLogScale && doseTransform.hasZeros && (
+          <Text type="secondary" style={{ fontSize: '0.85em' }}>
+            Zero doses shown at pseudo-position, labeled as "0"
+          </Text>
+        )}
+      </div>
+
       {/* Overlay plot */}
       <div style={{ marginBottom: 24 }}>
         <Plot
@@ -484,34 +562,38 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
 
               // Curve line
               if (curve.curvePoints && curve.curvePoints.length > 0) {
-                const xValues = curve.curvePoints.filter(p => p).map(p => p!.dose);
+                const xValues = curve.curvePoints.filter(p => p).map(p => doseTransform.transformDose(p!.dose));
                 const yValues = curve.curvePoints.filter(p => p).map(p => p!.response);
+                const originalDoses = curve.curvePoints.filter(p => p).map(p => p!.dose);
 
                 categoryTraces.push({
                   x: xValues,
                   y: yValues,
+                  customdata: originalDoses,
                   type: 'scatter',
                   mode: 'lines',
                   name: curveName,
                   line: { width: 2, color: clusterColor },
                   showlegend: false,
-                  hovertemplate: `${curveName}<br>Dose: %{x}<br>Response: %{y:.3f}<extra></extra>`,
+                  hovertemplate: `${curveName}<br>Dose: %{customdata}<br>Response: %{y:.3f}<extra></extra>`,
                 });
               }
 
               // Measured points
               if (curve.measuredPoints && curve.measuredPoints.length > 0) {
-                const xMeasured = curve.measuredPoints.filter(p => p).map(p => p!.dose);
+                const xMeasured = curve.measuredPoints.filter(p => p).map(p => doseTransform.transformDose(p!.dose));
                 const yMeasured = curve.measuredPoints.filter(p => p).map(p => p!.response);
+                const originalDoses = curve.measuredPoints.filter(p => p).map(p => p!.dose);
 
                 categoryTraces.push({
                   x: xMeasured,
                   y: yMeasured,
+                  customdata: originalDoses,
                   type: 'scatter',
                   mode: 'markers',
                   marker: { size: 8, symbol: 'circle', color: clusterColor },
                   showlegend: false,
-                  hovertemplate: `${curveName} (measured)<br>Dose: %{x}<br>Response: %{y:.3f}<extra></extra>`,
+                  hovertemplate: `${curveName} (measured)<br>Dose: %{customdata}<br>Response: %{y:.3f}<extra></extra>`,
                 });
               }
 
@@ -564,14 +646,19 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
             const categoryLayout = {
               xaxis: {
                 title: { text: 'Dose' },
-                type: 'log' as const,
+                type: useLogScale ? 'log' as const : 'linear' as const,
+                ...(useLogScale && doseTransform.tickvals.length > 0 ? {
+                  tickmode: 'array' as const,
+                  tickvals: doseTransform.tickvals,
+                  ticktext: doseTransform.ticktext,
+                } : {}),
                 showgrid: true,
-                gridcolor: '#e5e5e5',
+                gridcolor: DEFAULT_GRID_COLOR,
               },
               yaxis: {
                 title: { text: 'Log(Expression)' },
                 showgrid: true,
-                gridcolor: '#e5e5e5',
+                gridcolor: DEFAULT_GRID_COLOR,
               },
               height: 350,
               margin: { l: 60, r: 20, t: 20, b: 60 },
