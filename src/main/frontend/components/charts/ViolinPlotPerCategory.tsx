@@ -22,7 +22,7 @@ import { BmdStatSelector } from './BmdMetricSelector';
 import { getClusterIdForCategory, getClusterColor } from './utils/clusterColors';
 import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES } from './utils/plotlyConfig';
 import { parseSemicolonNumericList } from 'Frontend/utils/dtoParsingUtils';
-import { getTopNSourceData } from './utils/topNFilter';
+import { computeTopNRanked } from './utils/topNFilter';
 import type { BmdBaseType } from './utils/bmdMetricConfig';
 
 const { Option } = Select;
@@ -40,19 +40,15 @@ export default function ViolinPlotPerCategory() {
 
   const hasSelection = categoryState.selectedIds.size > 0;
 
-  // Parse BMD list and prepare violin plot data
-  // In isolate mode, Top N is computed from focused items only
-  const { violinData, yTickVals, yTickText, inFocusCount, dimmedCount } = useMemo(() => {
-    // In isolate mode, compute Top N from focused items only
-    const sourceData = getTopNSourceData(data, displayMode);
+  // Compute Top N categories with BMD rank (display-mode aware)
+  // Rank 1 = smallest BMD (most sensitive pathway)
+  const rankedCategories = useMemo(() => {
+    return computeTopNRanked(data, displayMode, getSortValue, numCategories);
+  }, [data, displayMode, getSortValue, numCategories]);
 
-    // Sort by selected metric ascending and take N categories with lowest values
-    const sortedData = [...sourceData].sort((a, b) => {
-      const aValue = getSortValue(a) || Infinity;
-      const bValue = getSortValue(b) || Infinity;
-      return aValue - bValue; // Ascending order (lowest first)
-    });
-    const limitedData = sortedData.slice(0, numCategories);
+  // Parse BMD list and prepare violin plot data
+  const { violinData, yTickVals, yTickText, inFocusCount, dimmedCount } = useMemo(() => {
+    const limitedData = rankedCategories;
 
     // Build traces - one per category with numeric y positions
     const traces: any[] = [];
@@ -125,9 +121,9 @@ export default function ViolinPlotPerCategory() {
         opacity = 0.4;
       }
 
-      // Store description and gene count separately for smart wrapping
-      const geneCountSuffix = `(${values.length} genes in category)`;
-      const labelWithCount = { desc: categoryDesc, suffix: geneCountSuffix };
+      // Store description with BMD rank and gene count for smart wrapping
+      const suffix = `(BMD Rank: ${row.bmdRank}, ${values.length} genes)`;
+      const labelWithCount = { desc: categoryDesc, suffix };
 
       // Use numeric y position
       const yPos = index;
@@ -162,13 +158,13 @@ export default function ViolinPlotPerCategory() {
         fillcolor: fillColor,  // White for dimmed, cluster color for in-focus
         opacity: opacity,
         hoverinfo: 'x+name',
-        hovertemplate: `<b>${categoryDesc}</b><br>Value: %{x:.4f}<extra></extra>`,
+        hovertemplate: `<b>${categoryDesc}</b><br>BMD Rank: #${row.bmdRank}<br>Value: %{x:.4f}<extra></extra>`,
         cliponaxis: false,
       });
     });
 
     return { violinData: traces, yTickVals, yTickText, inFocusCount, dimmedCount };
-  }, [data, displayMode, selectedBase, getSortValue, categoryState.selectedIds, hasSelection, numCategories]);
+  }, [rankedCategories, selectedBase, categoryState.selectedIds, hasSelection]);
 
   if (!data || data.length === 0) {
     return (
