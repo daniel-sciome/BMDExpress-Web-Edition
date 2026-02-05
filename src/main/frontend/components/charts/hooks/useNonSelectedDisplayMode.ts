@@ -5,14 +5,14 @@
  * It integrates with the global displayMode from visibilitySlice while allowing
  * per-chart override via legend interaction.
  *
- * Global displayMode mapping:
+ * Global displayMode mapping (from displayModeConfig.ts):
  * - 'highlight' → 'full': Show all normally, just highlight selected
  * - 'dim' → 'outline': Dim non-selected (hollow markers with colored borders)
  * - 'isolate' → 'hidden': Hide non-selected (opacity 0)
  *
  * The hook:
  * 1. Reads global displayMode from visibilitySlice
- * 2. Maps to chart-level NonSelectedDisplayMode
+ * 2. Maps to chart-level NonSelectedDisplayMode using centralized config
  * 3. Allows local override via setNonSelectedDisplayMode
  * 4. Auto-resets to global mode when selection is cleared
  *
@@ -37,33 +37,18 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAppSelector } from 'Frontend/store/hooks';
 import { selectDisplayMode } from 'Frontend/store/slices/visibilitySlice';
-import type { DisplayMode } from 'Frontend/types/visibilityTypes';
+import { displayModeToChartMode, type NonSelectedDisplayMode } from '../utils/displayModeConfig';
 
-export type NonSelectedDisplayMode = 'full' | 'outline' | 'hidden';
-
-/**
- * Map global displayMode to chart-level NonSelectedDisplayMode
- */
-function mapDisplayModeToChartMode(displayMode: DisplayMode): NonSelectedDisplayMode {
-  switch (displayMode) {
-    case 'highlight':
-      return 'full';
-    case 'dim':
-      return 'outline';
-    case 'isolate':
-      return 'hidden';
-    default:
-      return 'outline'; // Default to dim behavior
-  }
-}
+// Re-export type for consumers
+export type { NonSelectedDisplayMode } from '../utils/displayModeConfig';
 
 export function useNonSelectedDisplayMode(hasSelection: boolean) {
   // Get global display mode from Redux
   const globalDisplayMode = useAppSelector(selectDisplayMode);
 
-  // Calculate the default mode from global state
+  // Calculate the default mode from global state using centralized config
   const defaultMode = useMemo(
-    () => mapDisplayModeToChartMode(globalDisplayMode),
+    () => displayModeToChartMode(globalDisplayMode),
     [globalDisplayMode]
   );
 
