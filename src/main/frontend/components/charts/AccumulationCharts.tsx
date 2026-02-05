@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import Plot from 'react-plotly.js';
-import { Row, Col, Space, Typography } from 'antd';
+import { Checkbox, Row, Col, Space, Typography } from 'antd';
 import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveState';
 import { useFocusAwareStyling } from 'Frontend/components/charts/hooks/useFocusAwareStyling';
 import { useBmdMetricTriple } from './hooks/useBmdMetric';
@@ -18,6 +18,7 @@ export default function AccumulationCharts() {
   const categoryState = useReactiveState('categoryId');
 
   const [charts, setCharts] = useState<any[]>([]);
+  const [useLogScale, setUseLogScale] = useState(true);
 
   // BMD metric selection (all three bases share the same stat)
   const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('median');
@@ -187,8 +188,8 @@ export default function AccumulationCharts() {
           },
           xaxis: {
             title: { text: config.xAxisLabel },
-            type: 'log',
-            range: xAxisRange,
+            type: useLogScale ? 'log' : 'linear',
+            ...(useLogScale ? { range: xAxisRange } : { autorange: true }),
             gridcolor: DEFAULT_GRID_COLOR,
           },
           yaxis: {
@@ -206,7 +207,7 @@ export default function AccumulationCharts() {
     }).filter(chart => chart !== null);
 
     setCharts(chartsData as any[]);
-  }, [allData, clusterColors, categoryState.selectedIds, displayMode, getPointStyle, shouldHidePoint, bmd, bmdl, bmdu]);
+  }, [allData, clusterColors, categoryState.selectedIds, displayMode, getPointStyle, shouldHidePoint, bmd, bmdl, bmdu, useLogScale]);
 
   if (!allData || allData.length === 0) {
     return (
@@ -239,6 +240,9 @@ export default function AccumulationCharts() {
           <Text>BMD Statistic:</Text>
           <BmdStatSelector stat={stat} onStatChange={setStat} />
         </Space>
+        <Checkbox checked={useLogScale} onChange={(e) => setUseLogScale(e.target.checked)}>
+          Log₁₀ Scale
+        </Checkbox>
       </div>
       <Row gutter={[16, 16]}>
         {charts.map((chart, index) => (

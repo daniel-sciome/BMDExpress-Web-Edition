@@ -13,7 +13,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Select, Button, Alert, Spin, Space, Typography } from 'antd';
+import { Checkbox, Select, Button, Alert, Spin, Space, Typography } from 'antd';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import Plot from 'react-plotly.js';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
@@ -45,6 +45,7 @@ export default function GlobalViolinComparison({
   const [error, setError] = useState<string | null>(null);
   const [selectedBase, setSelectedBase] = useState<BmdBaseType>('bmd');
   const [activeResults, setActiveResults] = useState<string[]>(selectedResults);
+  const [useLogScale, setUseLogScale] = useState(true);
 
   // BMD metric selection (all three bases share the same stat)
   const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('median');
@@ -275,6 +276,9 @@ export default function GlobalViolinComparison({
             <Text>Statistic:</Text>
             <BmdStatSelector stat={stat} onStatChange={setStat} />
           </Space>
+          <Checkbox checked={useLogScale} onChange={(e) => setUseLogScale(e.target.checked)}>
+            Log₁₀ Scale
+          </Checkbox>
         </div>
 
         {otherResults.length > 0 && (
@@ -343,13 +347,11 @@ export default function GlobalViolinComparison({
               },
               yaxis: {
                 title: { text: metricLabel },
-                type: 'log',
-                range: violinPlotData.yRange,
+                type: useLogScale ? 'log' : 'linear',
+                ...(useLogScale ? { range: violinPlotData.yRange, dtick: 1, tick0: 0 } : { autorange: true }),
                 showgrid: true,
                 gridcolor: DEFAULT_GRID_COLOR,
                 gridwidth: 1,
-                dtick: 1,
-                tick0: 0,
               },
               height: 600,
               margin: { l: 70, r: 50, t: 80, b: 200 },

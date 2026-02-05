@@ -7,8 +7,8 @@
  * Uses inFocus-based display mode styling (highlight/dim/isolate).
  */
 
-import React, { useMemo, useCallback } from 'react';
-import { Space, Typography } from 'antd';
+import React, { useMemo, useCallback, useState } from 'react';
+import { Checkbox, Space, Typography } from 'antd';
 import Plot from 'react-plotly.js';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useReactiveState } from './hooks/useReactiveState';
@@ -32,6 +32,7 @@ export default function BMDvsPValueScatter({ stat: externalStat, hideControls = 
   const categoryState = useReactiveState('categoryId');
   const clusterColors = useClusterColors();
   const hasSelection = categoryState.selectedIds.size > 0;
+  const [useLogScale, setUseLogScale] = useState(true);
 
   // BMD metric selection (base fixed to 'bmd', stat selectable or externally controlled)
   // Pass externalStat as controlled value - hook will use it when provided
@@ -220,15 +221,18 @@ export default function BMDvsPValueScatter({ stat: externalStat, hideControls = 
 
   return (
     <div style={{ width: '100%' }}>
-      {/* Controls - hidden when externally controlled */}
-      {!hideControls && (
-        <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+      {/* Controls */}
+      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+        {!hideControls && (
           <Space>
             <Text>BMD Statistic:</Text>
             <BmdStatSelector stat={stat} onStatChange={setStat} />
           </Space>
-        </div>
-      )}
+        )}
+        <Checkbox checked={useLogScale} onChange={(e) => setUseLogScale(e.target.checked)}>
+          Log₁₀ Scale (Dose)
+        </Checkbox>
+      </div>
 
       {/* Chart */}
       <div style={{ height: '500px' }}>
@@ -238,8 +242,8 @@ export default function BMDvsPValueScatter({ stat: externalStat, hideControls = 
             title: `${metricLabel} vs Fisher Exact P-Value (Colored by Cluster)`,
             xaxis: {
               title: { text: metricLabel },
-              type: 'log',
-              range: xRange,
+              type: useLogScale ? 'log' : 'linear',
+              ...(useLogScale ? { range: xRange } : { autorange: true }),
               gridcolor: DEFAULT_GRID_COLOR,
             },
             yaxis: {

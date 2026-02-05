@@ -9,7 +9,7 @@
 
 import React, { useMemo, useState } from 'react';
 import Plot from 'react-plotly.js';
-import { Select, Space, Typography } from 'antd';
+import { Checkbox, Select, Space, Typography } from 'antd';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useReactiveState } from './hooks/useReactiveState';
 import { useBmdMetricTriple } from './hooks/useBmdMetric';
@@ -28,6 +28,7 @@ export default function RangePlot() {
   const clusterColors = useClusterColors();
   const hasSelection = categoryState.selectedIds.size > 0;
   const [topN, setTopN] = useState<number | 'All'>(20);
+  const [useLogScale, setUseLogScale] = useState(true);
 
   // BMD metric selection (all three bases share the same stat)
   const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('median');
@@ -325,7 +326,7 @@ export default function RangePlot() {
     },
     xaxis: {
       title: { text: bmd.label },
-      type: 'log',
+      type: useLogScale ? 'log' : 'linear',
       autorange: true,
       gridcolor: DEFAULT_GRID_COLOR,
     },
@@ -377,6 +378,9 @@ export default function RangePlot() {
           <Text>BMD Statistic:</Text>
           <BmdStatSelector stat={stat} onStatChange={setStat} />
         </Space>
+        <Checkbox checked={useLogScale} onChange={(e) => setUseLogScale(e.target.checked)}>
+          Log₁₀ Scale
+        </Checkbox>
         <Space>
           <Text>Show:</Text>
           <Select

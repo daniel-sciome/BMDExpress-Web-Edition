@@ -136,3 +136,169 @@ export function createAxisConfig(overrides?: any) {
     ...overrides,
   };
 }
+
+/**
+ * Log Scale with Zero Handling
+ *
+ * Provides utilities for displaying log-scale axes that include zero values.
+ * Zero is plotted at a pseudo-position (one decade below minimum non-zero value)
+ * and labeled appropriately using custom tick marks.
+ */
+
+/**
+ * Prepare values for log scale display, handling zeros.
+ * Zero values are replaced with a pseudo-value one decade below the minimum non-zero value.
+ *
+ * @param values - Array of numeric values (may include zeros)
+ * @returns Object with transformed values and the pseudo-zero position
+ *
+ * @example
+ * const { transformedValues, zeroPosition, minNonZero } = prepareLogScaleValues([0, 0.1, 1, 10]);
+ * // zeroPosition = 0.01 (one decade below 0.1)
+ * // transformedValues = [0.01, 0.1, 1, 10]
+ */
+export function prepareLogScaleValues(values: number[]): {
+  transformedValues: number[];
+  zeroPosition: number | null;
+  minNonZero: number | null;
+  maxValue: number | null;
+} {
+  const nonZeroValues = values.filter(v => v > 0 && isFinite(v));
+
+  if (nonZeroValues.length === 0) {
+    return {
+      transformedValues: values,
+      zeroPosition: null,
+      minNonZero: null,
+      maxValue: null,
+    };
+  }
+
+  const minNonZero = Math.min(...nonZeroValues);
+  const maxValue = Math.max(...nonZeroValues);
+  // Place zero one decade below the minimum non-zero value
+  const zeroPosition = minNonZero / 10;
+
+  const transformedValues = values.map(v =>
+    (v === 0 || !isFinite(v) || v < 0) ? zeroPosition : v
+  );
+
+  return {
+    transformedValues,
+    zeroPosition,
+    minNonZero,
+    maxValue,
+  };
+}
+
+/**
+ * Generate log scale axis configuration with proper handling of zero.
+ * Creates custom tick values and labels so zero appears correctly labeled.
+ *
+ * @param values - Array of values to be plotted on this axis
+ * @param options - Configuration options
+ * @returns Plotly axis configuration object
+ *
+ * @example
+ * const xAxisConfig = createLogAxisWithZero(doseValues, {
+ *   title: 'Dose',
+ *   zeroLabel: 'Control',
+ * });
+ */
+export function createLogAxisWithZero(
+  values: number[],
+  options: {
+    title?: string;
+    zeroLabel?: string;
+    showGrid?: boolean;
+  } = {}
+): {
+  axisConfig: any;
+  zeroPosition: number | null;
+  transformedValues: number[];
+} {
+  const { title, zeroLabel = '0', showGrid = true } = options;
+  const { transformedValues, zeroPosition, minNonZero, maxValue } = prepareLogScaleValues(values);
+
+  if (zeroPosition === null || minNonZero === null || maxValue === null) {
+    // No valid data, return basic config
+    return {
+      axisConfig: {
+        title: title ? { text: title } : undefined,
+        type: 'log',
+        gridcolor: showGrid ? DEFAULT_GRID_COLOR : undefined,
+        showgrid: showGrid,
+      },
+      zeroPosition: null,
+      transformedValues,
+    };
+  }
+
+  // Generate tick values: zero position + decade ticks
+  const tickvals: number[] = [];
+  const ticktext: string[] = [];
+
+  // Check if any original values were zero
+  const hasZeros = values.some(v => v === 0);
+
+  if (hasZeros) {
+    tickvals.push(zeroPosition);
+    ticktext.push(zeroLabel);
+  }
+
+  // Add decade ticks from min to max
+  const minDecade = Math.floor(Math.log10(minNonZero));
+  const maxDecade = Math.ceil(Math.log10(maxValue));
+
+  for (let decade = minDecade; decade <= maxDecade; decade++) {
+    const tickValue = Math.pow(10, decade);
+    // Don't duplicate if very close to zero position
+    if (!hasZeros || Math.abs(Math.log10(tickValue) - Math.log10(zeroPosition)) > 0.5) {
+      tickvals.push(tickValue);
+      // Format nicely: 0.01, 0.1, 1, 10, 100, etc.
+      ticktext.push(tickValue >= 1 ? tickValue.toString() : tickValue.toFixed(-decade + 1));
+    }
+  }
+
+  // Calculate range to include zero position with some padding
+  const rangeMin = Math.log10(zeroPosition) - 0.3;
+  const rangeMax = Math.log10(maxValue) + 0.3;
+
+  return {
+    axisConfig: {
+      title: title ? { text: title } : undefined,
+      type: 'log',
+      range: [rangeMin, rangeMax],
+      tickmode: 'array',
+      tickvals,
+      ticktext,
+      gridcolor: showGrid ? DEFAULT_GRID_COLOR : undefined,
+      showgrid: showGrid,
+    },
+    zeroPosition,
+    transformedValues,
+  };
+}
+
+/**
+ * Simple log axis configuration for data without zeros.
+ * Use this for BMD values which should always be positive.
+ *
+ * @param options - Configuration options
+ * @returns Plotly axis configuration object
+ */
+export function createSimpleLogAxis(options: {
+  title?: string;
+  showGrid?: boolean;
+  range?: [number, number];
+} = {}): any {
+  const { title, showGrid = true, range } = options;
+
+  return {
+    title: title ? { text: title } : undefined,
+    type: 'log',
+    gridcolor: showGrid ? DEFAULT_GRID_COLOR : undefined,
+    showgrid: showGrid,
+    ...(range ? { range: range.map(v => Math.log10(v)) } : { autorange: true }),
+  };
+}
