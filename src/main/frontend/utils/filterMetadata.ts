@@ -153,25 +153,176 @@ export const FIELD_METADATA: Record<FilterableFieldName, FieldMetadata> = {
 };
 
 /**
- * Operator metadata for displaying in UI
+ * Extended operator metadata with evaluation functions
+ * Single source of truth for operator definitions
  */
-export const NUMERIC_OPERATORS: OperatorMetadata[] = [
-  { operator: 'equals', label: 'Equals', symbol: '=', requiresValue: true, requiresMaxValue: false },
-  { operator: 'notEquals', label: 'Not Equals', symbol: '≠', requiresValue: true, requiresMaxValue: false },
-  { operator: 'lessThan', label: 'Less Than', symbol: '<', requiresValue: true, requiresMaxValue: false },
-  { operator: 'lessThanOrEqual', label: 'Less Than or Equal', symbol: '≤', requiresValue: true, requiresMaxValue: false },
-  { operator: 'greaterThan', label: 'Greater Than', symbol: '>', requiresValue: true, requiresMaxValue: false },
-  { operator: 'greaterThanOrEqual', label: 'Greater Than or Equal', symbol: '≥', requiresValue: true, requiresMaxValue: false },
-  { operator: 'between', label: 'Between', symbol: '≤ x ≤', requiresValue: true, requiresMaxValue: true },
-  { operator: 'notBetween', label: 'Not Between', symbol: '< x >', requiresValue: true, requiresMaxValue: true },
+interface NumericOperatorConfig extends OperatorMetadata {
+  /** Short symbol for compact UI (e.g., '>=') */
+  shortSymbol: string;
+  /** Evaluate the operator against a value */
+  evaluate: (value: number, threshold: number, maxThreshold?: number) => boolean;
+}
+
+interface CategoricalOperatorConfig extends OperatorMetadata {
+  /** Short symbol for compact UI */
+  shortSymbol: string;
+  /** Evaluate the operator against a string value */
+  evaluate: (value: string, target: string, targets?: string[]) => boolean;
+}
+
+/**
+ * Numeric operator configurations with evaluation functions
+ */
+export const NUMERIC_OPERATORS: NumericOperatorConfig[] = [
+  {
+    operator: 'equals',
+    label: 'Equals',
+    symbol: '=',
+    shortSymbol: '=',
+    requiresValue: true,
+    requiresMaxValue: false,
+    evaluate: (v, t) => v === t,
+  },
+  {
+    operator: 'notEquals',
+    label: 'Not Equals',
+    symbol: '≠',
+    shortSymbol: '!=',
+    requiresValue: true,
+    requiresMaxValue: false,
+    evaluate: (v, t) => v !== t,
+  },
+  {
+    operator: 'lessThan',
+    label: 'Less Than',
+    symbol: '<',
+    shortSymbol: '<',
+    requiresValue: true,
+    requiresMaxValue: false,
+    evaluate: (v, t) => v < t,
+  },
+  {
+    operator: 'lessThanOrEqual',
+    label: 'Less Than or Equal',
+    symbol: '≤',
+    shortSymbol: '<=',
+    requiresValue: true,
+    requiresMaxValue: false,
+    evaluate: (v, t) => v <= t,
+  },
+  {
+    operator: 'greaterThan',
+    label: 'Greater Than',
+    symbol: '>',
+    shortSymbol: '>',
+    requiresValue: true,
+    requiresMaxValue: false,
+    evaluate: (v, t) => v > t,
+  },
+  {
+    operator: 'greaterThanOrEqual',
+    label: 'Greater Than or Equal',
+    symbol: '≥',
+    shortSymbol: '>=',
+    requiresValue: true,
+    requiresMaxValue: false,
+    evaluate: (v, t) => v >= t,
+  },
+  {
+    operator: 'between',
+    label: 'Between',
+    symbol: '≤ x ≤',
+    shortSymbol: '[between]',
+    requiresValue: true,
+    requiresMaxValue: true,
+    evaluate: (v, min, max) => max !== undefined && v >= min && v <= max,
+  },
+  {
+    operator: 'notBetween',
+    label: 'Not Between',
+    symbol: '< x >',
+    shortSymbol: '![between]',
+    requiresValue: true,
+    requiresMaxValue: true,
+    evaluate: (v, min, max) => max !== undefined && (v < min || v > max),
+  },
 ];
 
-export const CATEGORICAL_OPERATORS: OperatorMetadata[] = [
-  { operator: 'equals', label: 'Equals', symbol: '=', requiresValue: true, requiresMaxValue: false },
-  { operator: 'notEquals', label: 'Not Equals', symbol: '≠', requiresValue: true, requiresMaxValue: false },
-  { operator: 'in', label: 'In', symbol: '∈', requiresValue: false, requiresMaxValue: false },
-  { operator: 'notIn', label: 'Not In', symbol: '∉', requiresValue: false, requiresMaxValue: false },
+/**
+ * Categorical operator configurations with evaluation functions
+ */
+export const CATEGORICAL_OPERATORS: CategoricalOperatorConfig[] = [
+  {
+    operator: 'equals',
+    label: 'Equals',
+    symbol: '=',
+    shortSymbol: '=',
+    requiresValue: true,
+    requiresMaxValue: false,
+    evaluate: (v, t) => v === t,
+  },
+  {
+    operator: 'notEquals',
+    label: 'Not Equals',
+    symbol: '≠',
+    shortSymbol: '!=',
+    requiresValue: true,
+    requiresMaxValue: false,
+    evaluate: (v, t) => v !== t,
+  },
+  {
+    operator: 'in',
+    label: 'In',
+    symbol: '∈',
+    shortSymbol: 'in',
+    requiresValue: false,
+    requiresMaxValue: false,
+    evaluate: (v, _, targets) => targets !== undefined && targets.includes(v),
+  },
+  {
+    operator: 'notIn',
+    label: 'Not In',
+    symbol: '∉',
+    shortSymbol: '!in',
+    requiresValue: false,
+    requiresMaxValue: false,
+    evaluate: (v, _, targets) => targets !== undefined && !targets.includes(v),
+  },
 ];
+
+/**
+ * Lookup helpers for operator configurations
+ */
+export function getNumericOperatorConfig(operator: string): NumericOperatorConfig | undefined {
+  return NUMERIC_OPERATORS.find(op => op.operator === operator);
+}
+
+export function getCategoricalOperatorConfig(operator: string): CategoricalOperatorConfig | undefined {
+  return CATEGORICAL_OPERATORS.find(op => op.operator === operator);
+}
+
+/**
+ * Convert between verbose operator names and short symbols
+ */
+export function operatorToShortSymbol(operator: string): string {
+  const numOp = getNumericOperatorConfig(operator);
+  if (numOp) return numOp.shortSymbol;
+  const catOp = getCategoricalOperatorConfig(operator);
+  if (catOp) return catOp.shortSymbol;
+  return '>='; // Default fallback
+}
+
+export function shortSymbolToOperator(shortSymbol: string): string {
+  // Handle various between formats
+  if (shortSymbol === '[between]' || shortSymbol === 'between' || shortSymbol === '[between' || shortSymbol === 'between]') {
+    return 'between';
+  }
+  const numOp = NUMERIC_OPERATORS.find(op => op.shortSymbol === shortSymbol);
+  if (numOp) return numOp.operator;
+  const catOp = CATEGORICAL_OPERATORS.find(op => op.shortSymbol === shortSymbol);
+  if (catOp) return catOp.operator;
+  return 'greaterThanOrEqual'; // Default fallback
+}
 
 /**
  * Get fields grouped by category
