@@ -9,39 +9,52 @@
 
 import React, { useMemo, useState } from 'react';
 import Plot from 'react-plotly.js';
-import { Checkbox, Row, Col, Space, Typography } from 'antd';
+import { Checkbox, Row, Col, Select, Space, Typography } from 'antd';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useReactiveState } from './hooks/useReactiveState';
 import { useBmdMetricTriple } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { getTopNSourceData } from './utils/topNFilter';
 
 const { Text } = Typography;
 
+const TOP_N_OPTIONS = [10, 20, 50, 100, 200, 'All'] as const;
+
 export default function BarCharts() {
-  const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
+  const { data, displayMode, getPointStyle } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const clusterColors = useClusterColors();
   const hasSelection = categoryState.selectedIds.size > 0;
   const [useLogScale, setUseLogScale] = useState(true);
+  const [topN, setTopN] = useState<number | 'All'>(20);
 
   // BMD metric selection (all three bases share the same stat)
   const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('median');
 
-  // Get top 20 categories sorted by p-value
+  // Get top N categories sorted by BMD value (smallest first)
+  // In isolate mode, Top N is computed from focused items only
   const topCategories = useMemo(() => {
     if (!data || data.length === 0) return [];
 
-    return data
-      .filter(row => row.fishersExactTwoTailPValue != null)
-      .sort((a, b) => {
-        const pA = a.fishersExactTwoTailPValue ?? 1;
-        const pB = b.fishersExactTwoTailPValue ?? 1;
-        return pA - pB;
-      })
-      .slice(0, 20);
-  }, [data]);
+    // In isolate mode, compute Top N from focused items only
+    const sourceData = getTopNSourceData(data, displayMode);
+
+    const validData = sourceData.filter(row => {
+      const bmdVal = bmd.getValue(row);
+      return bmdVal != null && bmdVal > 0;
+    });
+
+    // Sort by BMD value ascending (smallest = most sensitive pathways first)
+    const sorted = [...validData].sort((a, b) => {
+      const bmdA = bmd.getValue(a) ?? Infinity;
+      const bmdB = bmd.getValue(b) ?? Infinity;
+      return bmdA - bmdB;
+    });
+
+    return topN === 'All' ? sorted : sorted.slice(0, topN);
+  }, [data, displayMode, topN, bmd]);
 
   // Define chart configs based on selected stat
   const chartConfigs = useMemo(() => [
@@ -102,10 +115,7 @@ export default function BarCharts() {
         const items = clusterData.get(clusterId)!;
         const baseColor = clusterColors[clusterId] || '#999999';
 
-        // Filter items based on displayMode (isolate mode hides out-of-focus)
-        const visibleItems = items.filter(item => !shouldHidePoint(item.inFocus));
-
-        if (visibleItems.length === 0) {
+        if (items.length === 0) {
           return; // Skip empty cluster traces
         }
 
@@ -115,7 +125,7 @@ export default function BarCharts() {
         const barLineWidths: number[] = [];
         const barLineColors: string[] = [];
 
-        visibleItems.forEach(item => {
+        items.forEach(item => {
           const isSelected = categoryState.selectedIds.has(item.categoryId);
           const focusStyle = getPointStyle(item.inFocus, baseColor);
 
@@ -143,8 +153,8 @@ export default function BarCharts() {
 
         traces.push({
           type: 'bar',
-          y: visibleItems.map(item => item.categoryName),
-          x: visibleItems.map(item => config.getVal(item)),
+          y: items.map(item => item.categoryName),
+          x: items.map(item => config.getVal(item)),
           orientation: 'h',
           name: getClusterLabel(clusterId),
           marker: {
@@ -167,7 +177,7 @@ export default function BarCharts() {
         data: traces,
       };
     });
-  }, [clusterData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, shouldHidePoint, bmd.label, bmdl.label, bmdu.label]);
+  }, [clusterData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, bmd.label, bmdl.label, bmdu.label]);
 
   if (!data || data.length === 0) {
     return (
@@ -189,7 +199,9 @@ export default function BarCharts() {
     <div style={{ width: '100%' }}>
       {/* Controls */}
       <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
-        <h4 style={{ margin: 0 }}>BMD Bar Charts (Top 20 Pathways)</h4>
+        <h4 style={{ margin: 0 }}>
+          BMD Bar Charts ({topN === 'All' ? 'All Pathways' : `Top ${topN} Pathways`})
+        </h4>
         <Space>
           <Text>BMD Statistic:</Text>
           <BmdStatSelector stat={stat} onStatChange={setStat} />
@@ -197,6 +209,19 @@ export default function BarCharts() {
         <Checkbox checked={useLogScale} onChange={(e) => setUseLogScale(e.target.checked)}>
           Log₁₀ Scale
         </Checkbox>
+        <Space>
+          <Text>Show:</Text>
+          <Select
+            value={topN}
+            onChange={setTopN}
+            style={{ width: 100 }}
+            size="small"
+            options={TOP_N_OPTIONS.map(opt => ({
+              value: opt,
+              label: opt === 'All' ? 'All' : `Top ${opt}`,
+            }))}
+          />
+        </Space>
       </div>
       <Row gutter={[16, 16]}>
         {styledCharts.map((chart, index) => (

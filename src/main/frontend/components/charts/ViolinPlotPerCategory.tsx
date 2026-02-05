@@ -22,13 +22,14 @@ import { BmdStatSelector } from './BmdMetricSelector';
 import { getClusterIdForCategory, getClusterColor } from './utils/clusterColors';
 import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES } from './utils/plotlyConfig';
 import { parseSemicolonNumericList } from 'Frontend/utils/dtoParsingUtils';
+import { getTopNSourceData } from './utils/topNFilter';
 import type { BmdBaseType } from './utils/bmdMetricConfig';
 
 const { Option } = Select;
 const { Text } = Typography;
 
 export default function ViolinPlotPerCategory() {
-  const { data, shouldHidePoint } = useFocusAwareStyling();
+  const { data, displayMode } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const [selectedBase, setSelectedBase] = useState<BmdBaseType>('bmd');
   const [useLogScale, setUseLogScale] = useState(true);
@@ -40,16 +41,13 @@ export default function ViolinPlotPerCategory() {
   const hasSelection = categoryState.selectedIds.size > 0;
 
   // Parse BMD list and prepare violin plot data
+  // In isolate mode, Top N is computed from focused items only
   const { violinData, yTickVals, yTickText, inFocusCount, dimmedCount } = useMemo(() => {
-    // Filter based on displayMode
-    const visibleData = data.filter((row) => {
-      // Filter by displayMode (isolate mode hides out-of-focus)
-      if (shouldHidePoint(row.inFocus)) return false;
-      return true;
-    });
+    // In isolate mode, compute Top N from focused items only
+    const sourceData = getTopNSourceData(data, displayMode);
 
     // Sort by selected metric ascending and take N categories with lowest values
-    const sortedData = [...visibleData].sort((a, b) => {
+    const sortedData = [...sourceData].sort((a, b) => {
       const aValue = getSortValue(a) || Infinity;
       const bValue = getSortValue(b) || Infinity;
       return aValue - bValue; // Ascending order (lowest first)
@@ -170,7 +168,7 @@ export default function ViolinPlotPerCategory() {
     });
 
     return { violinData: traces, yTickVals, yTickText, inFocusCount, dimmedCount };
-  }, [data, selectedBase, getSortValue, shouldHidePoint, categoryState.selectedIds, hasSelection, numCategories]);
+  }, [data, displayMode, selectedBase, getSortValue, categoryState.selectedIds, hasSelection, numCategories]);
 
   if (!data || data.length === 0) {
     return (
