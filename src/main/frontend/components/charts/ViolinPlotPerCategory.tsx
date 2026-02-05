@@ -14,20 +14,28 @@
 
 import React, { useMemo, useState } from 'react';
 import Plot from 'react-plotly.js';
-import { Alert, Checkbox, Select, Space } from 'antd';
+import { Alert, Checkbox, Select, Space, Typography } from 'antd';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useReactiveState } from './hooks/useReactiveState';
+import { useBmdMetric } from './hooks/useBmdMetric';
+import { BmdStatSelector } from './BmdMetricSelector';
 import { getClusterIdForCategory, getClusterColor } from './utils/clusterColors';
 import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES } from './utils/plotlyConfig';
 import { parseSemicolonNumericList } from 'Frontend/utils/dtoParsingUtils';
+import type { BmdBaseType } from './utils/bmdMetricConfig';
 
 const { Option } = Select;
+const { Text } = Typography;
 
 export default function ViolinPlotPerCategory() {
   const { data, shouldHidePoint } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
-  const [selectedMetric, setSelectedMetric] = useState<'bmd' | 'bmdl' | 'bmdu'>('bmd');
+  const [selectedBase, setSelectedBase] = useState<BmdBaseType>('bmd');
   const [useLogScale, setUseLogScale] = useState(true);
+  const [numCategories, setNumCategories] = useState(5);
+
+  // BMD metric for sorting (uses selected base + stat)
+  const { stat, setStat, getValue: getSortValue, label: metricLabel } = useBmdMetric(selectedBase, 'fifthPercentile');
 
   const hasSelection = categoryState.selectedIds.size > 0;
 
@@ -40,14 +48,13 @@ export default function ViolinPlotPerCategory() {
       return true;
     });
 
-    // Sort by BMD median descending and take top 5
-    const MAX_CATEGORIES = 5;
+    // Sort by selected metric ascending and take N categories with lowest values
     const sortedData = [...visibleData].sort((a, b) => {
-      const aMedian = a.bmdMedian || 0;
-      const bMedian = b.bmdMedian || 0;
-      return bMedian - aMedian; // Descending order
+      const aValue = getSortValue(a) || Infinity;
+      const bValue = getSortValue(b) || Infinity;
+      return aValue - bValue; // Ascending order (lowest first)
     });
-    const limitedData = sortedData.slice(0, MAX_CATEGORIES);
+    const limitedData = sortedData.slice(0, numCategories);
 
     // Build traces - one per category with numeric y positions
     const traces: any[] = [];
@@ -58,9 +65,9 @@ export default function ViolinPlotPerCategory() {
       const categoryId = row.categoryId || '';
       const categoryDesc = row.categoryDescription || categoryId || 'Unknown';
 
-      // Get the appropriate BMD list based on selected metric
+      // Get the appropriate BMD list based on selected base
       let bmdListStr: string | undefined;
-      switch (selectedMetric) {
+      switch (selectedBase) {
         case 'bmd':
           bmdListStr = row.bmdList;
           break;
@@ -78,6 +85,16 @@ export default function ViolinPlotPerCategory() {
       const values = parseSemicolonNumericList(bmdListStr);
 
       if (values.length === 0) return;
+
+      // Calculate min/max for this category's values (for span constraint)
+      let catMin = Infinity;
+      let catMax = -Infinity;
+      for (const v of values) {
+        if (v > 0 && isFinite(v)) {
+          if (v < catMin) catMin = v;
+          if (v > catMax) catMax = v;
+        }
+      }
 
       // Get cluster-based color for this category
       const clusterId = getClusterIdForCategory(categoryId);
@@ -110,8 +127,11 @@ export default function ViolinPlotPerCategory() {
         y0: yPos,
         name: categoryDesc,
         orientation: 'h',
+        side: 'both',
         width: 0.8,
         scalemode: 'width', // Each violin uses full width - better for comparing shapes
+        span: [catMin, catMax], // Constrain KDE to actual data range (no negative values)
+        spanmode: 'hard', // Hard cutoff at span boundaries
         box: {
           visible: true
         },
@@ -129,11 +149,12 @@ export default function ViolinPlotPerCategory() {
         opacity: opacity,
         hoverinfo: 'x+name',
         hovertemplate: `<b>${categoryDesc}</b><br>Value: %{x:.4f}<extra></extra>`,
+        cliponaxis: false,
       });
     });
 
     return { violinData: traces, yTickVals, yTickText };
-  }, [data, selectedMetric, shouldHidePoint, categoryState.selectedIds, hasSelection]);
+  }, [data, selectedBase, getSortValue, shouldHidePoint, categoryState.selectedIds, hasSelection, numCategories]);
 
   if (!data || data.length === 0) {
     return (
@@ -157,8 +178,6 @@ export default function ViolinPlotPerCategory() {
       />
     );
   }
-
-  const metricLabel = selectedMetric === 'bmd' ? 'BMD' : selectedMetric === 'bmdl' ? 'BMDL' : 'BMDU';
 
   // Helper to wrap text at specified character width, keeping suffix intact
   const wrapTextWithSuffix = (text: string, suffix: string, maxWidth: number): string => {
@@ -205,25 +224,45 @@ export default function ViolinPlotPerCategory() {
   return (
     <div style={{ width: '100%' }}>
       <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-        <h4 style={{ margin: 0 }}>Violin Plot Per Category - {metricLabel} Distribution</h4>
+        <h4 style={{ margin: 0 }}>Violin Plot Per Category</h4>
+        <Space>
+          <Text>Base:</Text>
+          <Select
+            value={selectedBase}
+            onChange={setSelectedBase}
+            style={{ width: 90 }}
+          >
+            <Option value="bmd">BMD</Option>
+            <Option value="bmdl">BMDL</Option>
+            <Option value="bmdu">BMDU</Option>
+          </Select>
+        </Space>
+        <Space>
+          <Text>Statistic:</Text>
+          <BmdStatSelector stat={stat} onStatChange={setStat} />
+        </Space>
         <Select
-          value={selectedMetric}
-          onChange={setSelectedMetric}
-          style={{ width: 120 }}
+          value={numCategories}
+          onChange={setNumCategories}
+          style={{ width: 150 }}
         >
-          <Option value="bmd">BMD</Option>
-          <Option value="bmdl">BMDL</Option>
-          <Option value="bmdu">BMDU</Option>
+          <Option value={3}>3 categories</Option>
+          <Option value={5}>5 categories</Option>
+          <Option value={10}>10 categories</Option>
+          <Option value={15}>15 categories</Option>
+          <Option value={20}>20 categories</Option>
+          <Option value={50}>50 categories</Option>
+          <Option value={Infinity}>All categories</Option>
         </Select>
         <Checkbox checked={useLogScale} onChange={(e) => setUseLogScale(e.target.checked)}>
           Log₁₀ Scale
         </Checkbox>
       </div>
 
-      {data.length > 5 && (
+      {data.length > numCategories && (
         <Alert
-          message={`Showing top 5 of ${data.length} categories`}
-          description="Displaying the 5 categories with highest BMD median values. Use filters to refine the selection."
+          message={`Showing ${numCategories} of ${data.length} categories`}
+          description={`Displaying the ${numCategories} categories with lowest ${metricLabel} values. Use filters to refine the selection.`}
           type="info"
           showIcon
           closable
@@ -235,11 +274,11 @@ export default function ViolinPlotPerCategory() {
         data={violinData}
         layout={{
           title: {
-            text: `${metricLabel} Distribution by Category (Colored by Cluster)`,
+            text: `${selectedBase.toUpperCase()} Gene Distribution by Category (${numCategories === Infinity ? 'All' : `${numCategories} Lowest by ${metricLabel}`})`,
             font: { size: 14 },
           },
           xaxis: {
-            title: { text: `${metricLabel} Value` },
+            title: { text: `${selectedBase.toUpperCase()} Value` },
             type: useLogScale ? 'log' : 'linear',
             autorange: true,
             showgrid: true,
@@ -250,7 +289,7 @@ export default function ViolinPlotPerCategory() {
             title: { text: '' },
             showticklabels: false,
             ticklen: 0,
-            range: [-0.5, Math.max(4, yTickVals.length - 0.5)],
+            range: [yTickVals.length - 0.5, -0.5],  // Reversed so lowest BMD is at top
           },
           annotations: yAxisAnnotations,
           autosize: true,
@@ -259,18 +298,18 @@ export default function ViolinPlotPerCategory() {
           showlegend: false,
         } as any}
         config={createPlotlyConfigWithExport('violin_plot_per_category', 'wide') as any}
-        style={{ width: '100%', height: '500px' }}
+        style={{ width: '100%', height: `${Math.max(300, yTickVals.length * 80 + 140)}px` }}
         useResizeHandler={true}
       />
 
       <div style={{ marginTop: '1rem', fontSize: '0.9em', color: '#666' }}>
         <p><strong>About this chart:</strong></p>
         <ul style={{ marginLeft: '1.5rem' }}>
-          <li>Each violin shows the distribution of {metricLabel} values across genes within that category</li>
+          <li>Each violin shows the distribution of individual gene {selectedBase.toUpperCase()} values within that category</li>
+          <li>Categories are ranked by {metricLabel} (ascending){numCategories !== Infinity && ` to select ${numCategories} with lowest values`}</li>
           <li>Colors correspond to UMAP cluster assignments (same as sidebar cluster picker)</li>
           <li>Box plot inside each violin shows median and quartiles</li>
           <li>Mean line is displayed as a dashed line</li>
-          <li>In-focus categories appear at full opacity; out-of-focus are dimmed/hidden based on display mode</li>
         </ul>
       </div>
     </div>
