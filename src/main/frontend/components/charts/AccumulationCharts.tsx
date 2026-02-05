@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import Plot from 'react-plotly.js';
 import { Checkbox, Row, Col, Space, Typography } from 'antd';
 import { useReactiveState } from 'Frontend/components/charts/hooks/useReactiveState';
@@ -7,42 +7,33 @@ import { useBmdMetricTriple } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { computeTopNRanked } from './utils/topNFilter';
 
 const { Text } = Typography;
 
 export default function AccumulationCharts() {
   // Get ALL data with inFocus state using shared hook
-  const { data: allData, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
+  const { data: allData, displayMode, getPointStyle } = useFocusAwareStyling();
 
   // Get selection state using reactive infrastructure
   const categoryState = useReactiveState('categoryId');
 
-  const [charts, setCharts] = useState<any[]>([]);
-  const [useLogScale, setUseLogScale] = useState(true);
+  const [useLogScale, setUseLogScale] = React.useState(true);
 
   // BMD metric selection (all three bases share the same stat)
   const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple();
 
-  // Debug logging
-  useEffect(() => {
-    console.log('[AccumulationCharts] categoryState changed:', {
-      selectedCount: categoryState.selectedIds.size,
-      source: categoryState.source,
-      selectedIds: Array.from(categoryState.selectedIds).slice(0, 5)
-    });
-  }, [categoryState.selectedIds, categoryState.source]);
-
   // Get cluster colors using shared utility
   const clusterColors = useClusterColors();
 
-  useEffect(() => {
-    if (!allData || allData.length === 0) {
-      console.log('[AccumulationCharts] No data available, clearing charts');
-      setCharts([]);
-      return;
-    }
+  const hasSelection = categoryState.selectedIds.size > 0;
 
-    const hasSelection = categoryState.selectedIds.size > 0;
+  // Build charts using ranked data (display-mode aware)
+  // In isolate mode, cumulative % is recalculated from focused subset only
+  const charts = useMemo(() => {
+    if (!allData || allData.length === 0) {
+      return [];
+    }
 
     // Define the 3 charts with their data fields (all using the selected stat)
     const chartConfigs = [
@@ -63,42 +54,47 @@ export default function AccumulationCharts() {
       },
     ];
 
-    const chartsData = chartConfigs.map(config => {
-      // Get all values for cumulative calculation, including inFocus state
-      const allValues = allData
-        .map((row) => ({
-          value: config.getValue(row),
-          categoryId: row.categoryId,
-          inFocus: row.inFocus
-        }))
-        .filter(item => item.value != null && item.value > 0)
-        .sort((a, b) => a.value - b.value);
+    return chartConfigs.map(config => {
+      // Use rank utility to get sorted data with BMD rank
+      // In isolate mode, this only includes focused items
+      const rankedData = computeTopNRanked(allData, displayMode, config.getValue, 'All');
 
-      if (allValues.length === 0) {
+      if (rankedData.length === 0) {
         return null;
       }
 
+      const totalCount = rankedData.length;
+
       // Calculate fixed x-axis range in log space
-      const allX = allValues.map(item => item.value);
+      const allX = rankedData.map(item => config.getValue(item)!);
       const xMin = Math.min(...allX);
       const xMax = Math.max(...allX);
       const xAxisRange: [number, number] = [Math.log10(xMin), Math.log10(xMax)];
 
-      // Group ALL categories by cluster with inFocus state
-      const byCluster = new Map<string | number, Array<{x: number, y: number, categoryId: string, inFocus: boolean}>>();
+      // Group categories by cluster
+      const byCluster = new Map<number, Array<{
+        x: number;
+        y: number;
+        categoryId: string;
+        inFocus: boolean;
+        bmdRank: number;
+      }>>();
 
-      allValues.forEach((item, index) => {
+      rankedData.forEach(item => {
         const clusterId = getClusterIdForCategory(item.categoryId);
-        const cumulativePercent = ((index + 1) / allValues.length) * 100;
+        const value = config.getValue(item)!;
+        // Cumulative % = rank / total * 100 (rank 1 = smallest value)
+        const cumulativePercent = (item.bmdRank / totalCount) * 100;
 
         if (!byCluster.has(clusterId)) {
           byCluster.set(clusterId, []);
         }
         byCluster.get(clusterId)!.push({
-          x: item.value,
+          x: value,
           y: cumulativePercent,
           categoryId: item.categoryId || '',
-          inFocus: item.inFocus
+          inFocus: item.inFocus,
+          bmdRank: item.bmdRank,
         });
       });
 
@@ -107,17 +103,14 @@ export default function AccumulationCharts() {
       const sortedClusters = Array.from(byCluster.keys()).sort((a, b) => {
         if (a === -1) return 1;
         if (b === -1) return -1;
-        return Number(a) - Number(b);
+        return a - b;
       });
 
       sortedClusters.forEach((clusterId) => {
         const points = byCluster.get(clusterId)!;
         const baseColor = clusterColors[clusterId] || '#999999';
 
-        // Filter points based on displayMode (isolate mode hides out-of-focus)
-        const visiblePoints = points.filter(p => !shouldHidePoint(p.inFocus));
-
-        if (visiblePoints.length === 0) {
+        if (points.length === 0) {
           return; // Skip empty cluster traces
         }
 
@@ -128,7 +121,7 @@ export default function AccumulationCharts() {
         const markerLineWidths: number[] = [];
         const markerLineColors: string[] = [];
 
-        visiblePoints.forEach(point => {
+        points.forEach(point => {
           const isSelected = categoryState.selectedIds.has(point.categoryId);
           const focusStyle = getPointStyle(point.inFocus, baseColor);
 
@@ -160,9 +153,9 @@ export default function AccumulationCharts() {
         traces.push({
           type: 'scatter',
           mode: 'markers',
-          x: visiblePoints.map(p => p.x),
-          y: visiblePoints.map(p => p.y),
-          customdata: visiblePoints.map(p => p.categoryId),
+          x: points.map(p => p.x),
+          y: points.map(p => p.y),
+          customdata: points.map(p => p.bmdRank),
           marker: {
             color: markerColors,
             size: markerSizes,
@@ -174,7 +167,7 @@ export default function AccumulationCharts() {
             }
           },
           name: getClusterLabel(clusterId),
-          hovertemplate: `${getClusterLabel(clusterId)}<br>Value: %{x:.4f}<br>Cumulative %: %{y:.1f}%<extra></extra>`,
+          hovertemplate: `${getClusterLabel(clusterId)}<br>BMD Rank: #%{customdata}<br>Value: %{x:.4f}<br>Cumulative %: %{y:.1f}%<extra></extra>`,
           showlegend: false,
         });
       });
@@ -204,10 +197,8 @@ export default function AccumulationCharts() {
         },
         config: createPlotlyConfig(),
       };
-    }).filter(chart => chart !== null);
-
-    setCharts(chartsData as any[]);
-  }, [allData, clusterColors, categoryState.selectedIds, displayMode, getPointStyle, shouldHidePoint, bmd, bmdl, bmdu, useLogScale]);
+    }).filter(chart => chart !== null) as any[];
+  }, [allData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, bmd, bmdl, bmdu, useLogScale]);
 
   if (!allData || allData.length === 0) {
     return (
@@ -235,7 +226,6 @@ export default function AccumulationCharts() {
     <div style={{ width: '100%' }}>
       {/* Controls */}
       <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
-        <h4 style={{ margin: 0 }}>Accumulation Charts (Cumulative Distribution Functions)</h4>
         <Space>
           <Text>BMD Statistic:</Text>
           <BmdStatSelector stat={stat} onStatChange={setStat} />
