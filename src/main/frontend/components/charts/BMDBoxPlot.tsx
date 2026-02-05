@@ -16,8 +16,16 @@ import { useBmdMetricTriple } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterIdForCategory, getClusterLabel } from './utils/clusterColors';
 import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES } from './utils/plotlyConfig';
+import type { BmdStatType } from './utils/bmdMetricConfig';
 
 const { Text } = Typography;
+
+interface BMDBoxPlotProps {
+  /** Externally controlled stat (when used in BMD Overview) */
+  stat?: BmdStatType;
+  /** Hide the stat selector (when controlled by parent) */
+  hideControls?: boolean;
+}
 
 /**
  * Generate deterministic jitter based on a string key.
@@ -33,15 +41,16 @@ function deterministicJitter(key: string, salt: number = 0): number {
   return (Math.abs(hash % 1000) / 1000) - 0.5;
 }
 
-export default function BMDBoxPlot() {
+export default function BMDBoxPlot({ stat: externalStat, hideControls = false }: BMDBoxPlotProps) {
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const [useFixedScale, setUseFixedScale] = useState(true);
   const clusterColors = useClusterColors();
   const hasSelection = categoryState.selectedIds.size > 0;
 
-  // BMD metric selection (all three bases share the same stat)
-  const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('mean');
+  // BMD metric selection (all three bases share the same stat, or externally controlled)
+  // Pass externalStat as controlled value - hook will use it when provided
+  const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('median', externalStat);
 
   // Build traces with inFocus-based styling
   const { traces, yAxisRange, bmdStats } = useMemo(() => {
@@ -263,10 +272,12 @@ export default function BMDBoxPlot() {
     <div style={{ width: '100%' }}>
       {/* Controls */}
       <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
-        <Space>
-          <Text>BMD Statistic:</Text>
-          <BmdStatSelector stat={stat} onStatChange={setStat} />
-        </Space>
+        {!hideControls && (
+          <Space>
+            <Text>BMD Statistic:</Text>
+            <BmdStatSelector stat={stat} onStatChange={setStat} />
+          </Space>
+        )}
         <Button
           size="small"
           onClick={() => setUseFixedScale(!useFixedScale)}
@@ -280,7 +291,7 @@ export default function BMDBoxPlot() {
           layout={{
             title: `BMD Distribution (Colored by Cluster)<br><sub>${subtitle}</sub>`,
             yaxis: {
-              title: 'Dose Value',
+              title: { text: 'Dose Value' },
               gridcolor: '#e0e0e0',
               ...(useFixedScale && yAxisRange ? { range: yAxisRange } : { autorange: true }),
             },

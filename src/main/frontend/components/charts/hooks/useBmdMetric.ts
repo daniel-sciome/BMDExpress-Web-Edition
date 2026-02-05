@@ -43,13 +43,19 @@ export interface UseBmdMetricResult {
 
 /**
  * Hook for managing a single BMD metric selection.
+ * Supports controlled mode: if controlledStat is provided, it overrides internal state.
  */
 export function useBmdMetric(
   initialBase: BmdBaseType = 'bmd',
-  initialStat: BmdStatType = 'median'
+  initialStat: BmdStatType = 'median',
+  controlledStat?: BmdStatType
 ): UseBmdMetricResult {
   const [base, setBase] = useState<BmdBaseType>(initialBase);
-  const [stat, setStat] = useState<BmdStatType>(initialStat);
+  const [internalStat, setInternalStat] = useState<BmdStatType>(initialStat);
+
+  // Use controlled stat if provided, otherwise use internal state
+  const stat = controlledStat ?? internalStat;
+  const setStat = setInternalStat;
 
   const spec: BmdMetricSpec = useMemo(() => ({ base, stat }), [base, stat]);
 
@@ -176,9 +182,14 @@ export interface UseBmdMetricTripleResult {
 }
 
 export function useBmdMetricTriple(
-  initialStat: BmdStatType = 'median'
+  initialStat: BmdStatType = 'median',
+  controlledStat?: BmdStatType
 ): UseBmdMetricTripleResult {
-  const [stat, setStat] = useState<BmdStatType>(initialStat);
+  const [internalStat, setInternalStat] = useState<BmdStatType>(initialStat);
+
+  // Use controlled stat if provided, otherwise use internal state
+  const stat = controlledStat ?? internalStat;
+  const setStat = setInternalStat;
 
   const createMetric = useCallback((base: BmdBaseType) => {
     const spec: BmdMetricSpec = { base, stat };

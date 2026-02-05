@@ -16,17 +16,26 @@ import { useBmdMetric } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import type { BmdStatType } from './utils/bmdMetricConfig';
 
 const { Text } = Typography;
 
-export default function BMDvsPValueScatter() {
+interface BMDvsPValueScatterProps {
+  /** Externally controlled stat (when used in BMD Overview) */
+  stat?: BmdStatType;
+  /** Hide the controls (when controlled by parent) */
+  hideControls?: boolean;
+}
+
+export default function BMDvsPValueScatter({ stat: externalStat, hideControls = false }: BMDvsPValueScatterProps) {
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const clusterColors = useClusterColors();
   const hasSelection = categoryState.selectedIds.size > 0;
 
-  // BMD metric selection (base fixed to 'bmd', stat selectable)
-  const { stat, setStat, label: metricLabel, getValue } = useBmdMetric('bmd', 'median');
+  // BMD metric selection (base fixed to 'bmd', stat selectable or externally controlled)
+  // Pass externalStat as controlled value - hook will use it when provided
+  const { stat, setStat, label: metricLabel, getValue } = useBmdMetric('bmd', 'median', externalStat);
 
   // Prepare data for plotting
   const scatterData = useMemo(() => {
@@ -211,13 +220,15 @@ export default function BMDvsPValueScatter() {
 
   return (
     <div style={{ width: '100%' }}>
-      {/* Controls */}
-      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
-        <Space>
-          <Text>BMD Statistic:</Text>
-          <BmdStatSelector stat={stat} onStatChange={setStat} />
-        </Space>
-      </div>
+      {/* Controls - hidden when externally controlled */}
+      {!hideControls && (
+        <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+          <Space>
+            <Text>BMD Statistic:</Text>
+            <BmdStatSelector stat={stat} onStatChange={setStat} />
+          </Space>
+        </div>
+      )}
 
       {/* Chart */}
       <div style={{ height: '500px' }}>
@@ -226,16 +237,16 @@ export default function BMDvsPValueScatter() {
           layout={{
             title: `${metricLabel} vs Fisher Exact P-Value (Colored by Cluster)`,
             xaxis: {
-              title: metricLabel,
+              title: { text: metricLabel },
               type: 'log',
               range: xRange,
               gridcolor: DEFAULT_GRID_COLOR,
             },
-          yaxis: {
-            title: '-log10(Fisher Exact P-Value)',
-            range: yRange,
-            gridcolor: DEFAULT_GRID_COLOR,
-          },
+            yaxis: {
+              title: { text: '-log₁₀(Fisher Exact P-Value)' },
+              range: yRange,
+              gridcolor: DEFAULT_GRID_COLOR,
+            },
           hovermode: 'closest',
           ...DEFAULT_LAYOUT_STYLES,
           margin: { l: 60, r: 30, t: 50, b: 60 },

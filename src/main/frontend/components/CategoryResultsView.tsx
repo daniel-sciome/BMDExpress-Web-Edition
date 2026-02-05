@@ -31,6 +31,8 @@ import VennDiagram from './charts/VennDiagram';
 import AccumulationChartsComparison from './charts/AccumulationChartsComparison';
 import GlobalViolinComparison from './charts/GlobalViolinComparison';
 import ComparisonTable from './charts/ComparisonTable';
+import { BmdStatSelector } from './charts/BmdMetricSelector';
+import type { BmdStatType } from './charts/utils/bmdMetricConfig';
 
 const { Text } = Typography;
 
@@ -113,6 +115,9 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   const [comparatorDatasets, setComparatorDatasets] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<string>('single');
   const [activePanel, setActivePanel] = useState<string | null>(null);
+
+  // Shared BMD stat for BMD Overview section (controls both scatter and box plot)
+  const [bmdOverviewStat, setBmdOverviewStat] = useState<BmdStatType>('fifthPercentile');
 
   // Load all annotations for the project
   useEffect(() => {
@@ -587,14 +592,22 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                           key: 'chart-1',
                           label: <span style={{ lineHeight: '22px' }}>BMD Overview (Scatter & Box Plot)</span>,
                           children: (
-                            <Row gutter={16} key={`${projectId}-${resultName}`}>
-                              <Col xs={24} xl={12}>
-                                <BMDvsPValueScatter key={`${projectId}-${resultName}-scatter`} />
-                              </Col>
-                              <Col xs={24} xl={12}>
-                                <BMDBoxPlot key={`${projectId}-${resultName}-box`} />
-                              </Col>
-                            </Row>
+                            <div>
+                              <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px' }}>
+                                <Space>
+                                  <Text>BMD Statistic:</Text>
+                                  <BmdStatSelector stat={bmdOverviewStat} onStatChange={setBmdOverviewStat} />
+                                </Space>
+                              </div>
+                              <Row gutter={16} key={`${projectId}-${resultName}`}>
+                                <Col xs={24} xl={12}>
+                                  <BMDvsPValueScatter key={`${projectId}-${resultName}-scatter`} stat={bmdOverviewStat} hideControls />
+                                </Col>
+                                <Col xs={24} xl={12}>
+                                  <BMDBoxPlot key={`${projectId}-${resultName}-box`} stat={bmdOverviewStat} hideControls />
+                                </Col>
+                              </Row>
+                            </div>
                           )
                         }]}
                       />
@@ -874,14 +887,22 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                 key: 'chart-1',
                 label: <span style={{ lineHeight: '22px' }}>BMD Overview (Scatter & Box Plot)</span>,
                 children: (
-                  <Row gutter={16} key={`${projectId}-${resultName}`}>
-                    <Col xs={24} xl={12}>
-                      <BMDvsPValueScatter key={`${projectId}-${resultName}-scatter`} />
-                    </Col>
-                    <Col xs={24} xl={12}>
-                      <BMDBoxPlot key={`${projectId}-${resultName}-box`} />
-                    </Col>
-                  </Row>
+                  <div>
+                    <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '24px' }}>
+                      <Space>
+                        <Text>BMD Statistic:</Text>
+                        <BmdStatSelector stat={bmdOverviewStat} onStatChange={setBmdOverviewStat} />
+                      </Space>
+                    </div>
+                    <Row gutter={16} key={`${projectId}-${resultName}`}>
+                      <Col xs={24} xl={12}>
+                        <BMDvsPValueScatter key={`${projectId}-${resultName}-scatter`} stat={bmdOverviewStat} hideControls />
+                      </Col>
+                      <Col xs={24} xl={12}>
+                        <BMDBoxPlot key={`${projectId}-${resultName}-box`} stat={bmdOverviewStat} hideControls />
+                      </Col>
+                    </Row>
+                  </div>
                 )
               }]}
             />

@@ -67,6 +67,7 @@ export const BASE_OPTIONS: { value: BmdBaseType; label: string }[] = [
 ];
 
 // Map stat type to field suffix
+// Note: Percentiles use "TotalGenes" suffix (e.g., bmdFifthPercentileTotalGenes)
 const STAT_SUFFIX_MAP: Record<BmdStatType, string> = {
   mean: 'Mean',
   median: 'Median',
@@ -75,8 +76,8 @@ const STAT_SUFFIX_MAP: Record<BmdStatType, string> = {
   sd: 'SD',
   wMean: 'WMean',
   wSd: 'WSD',
-  fifthPercentile: 'FifthPercentile',
-  tenthPercentile: 'TenthPercentile',
+  fifthPercentile: 'FifthPercentileTotalGenes',
+  tenthPercentile: 'TenthPercentileTotalGenes',
 };
 
 /**
