@@ -39,6 +39,7 @@ import ConfigurableChart from './charts/ConfigurableChart';
 import {
   saveConfiguration,
   selectUserConfigurations,
+  selectPresetConfigurations,
   deleteConfiguration,
   type ChartConfiguration,
   type ChartConfigurationInput,
@@ -161,8 +162,9 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   // Shared BMD stat for BMD Overview section (controls both scatter and box plot)
   const [bmdOverviewStat, setBmdOverviewStat] = useState<BmdStatType>('fifthPercentile');
 
-  // Custom chart configuration
+  // Chart configuration
   const userConfigurations = useAppSelector(selectUserConfigurations);
+  const presetConfigurations = useAppSelector(selectPresetConfigurations);
   const [chartEditorVisible, setChartEditorVisible] = useState(false);
   const [editingConfig, setEditingConfig] = useState<ChartConfiguration | null>(null);
 
@@ -1002,11 +1004,33 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                 style={{ width: '100%' }}
               >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {CHART_CONFIG.map(config => (
-                    <Checkbox key={config.id} value={config.id}>
-                      {config.label}
-                    </Checkbox>
-                  ))}
+                  {CHART_CONFIG.map(config => {
+                    // Find corresponding preset configuration for this chart
+                    const presetConfig = presetConfigurations.find(p => p.id === config.id);
+                    const isConfigurable = presetConfig && ['scatter', 'bubble', 'histogram', 'bar'].includes(presetConfig.chartType);
+
+                    return (
+                      <div key={config.id} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Checkbox value={config.id} style={{ flex: 1 }}>
+                          {config.label}
+                        </Checkbox>
+                        {isConfigurable && (
+                          <Tooltip title="Configure axes & options">
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<SettingOutlined />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingConfig(presetConfig);
+                                setChartEditorVisible(true);
+                              }}
+                            />
+                          </Tooltip>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </Checkbox.Group>
             </div>
