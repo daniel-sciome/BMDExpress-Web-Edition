@@ -145,7 +145,7 @@ export default function BubbleChart() {
         mode: 'markers',
         x: visibleItems.map(item => item.x),
         y: visibleItems.map(item => item.y),
-        customdata: visibleItems.map(item => item.categoryId),
+        customdata: visibleItems.map(item => ({ categoryId: item.categoryId, percentage: item.size })),
         text: visibleItems.map(item => item.categoryName),
         marker: {
           size: bubbleSizes,
@@ -163,7 +163,7 @@ export default function BubbleChart() {
           `${getClusterLabel(clusterId)}<br>` +
           `${metricLabel}: %{x:.4f}<br>` +
           '-log10(p-value): %{y:.2f}<br>' +
-          'Percentage: %{marker.size:.1f}%<br>' +
+          'Percentage: %{customdata.percentage:.1f}%<br>' +
           '<extra></extra>',
         showlegend: false,
       });
@@ -175,7 +175,7 @@ export default function BubbleChart() {
   const handlePlotClick = useCallback((event: any) => {
     if (event.points && event.points.length > 0) {
       const point = event.points[0];
-      const categoryId = point.customdata;
+      const categoryId = point.customdata?.categoryId;
 
       if (categoryId) {
         if (event.event?.ctrlKey || event.event?.metaKey) {
