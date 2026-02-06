@@ -41,6 +41,7 @@ import {
   selectUserConfigurations,
   selectPresetConfigurations,
   deleteConfiguration,
+  PRESET_CONFIGURATIONS,
   type ChartConfiguration,
   type ChartConfigurationInput,
 } from './charts/chartConfig';
@@ -1006,7 +1007,9 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {CHART_CONFIG.map(config => {
                     // Find corresponding preset configuration for this chart
-                    const presetConfig = presetConfigurations.find(p => p.id === config.id);
+                    // Use Redux state if available, otherwise fall back to static presets
+                    const presetConfig = presetConfigurations.find(p => p.id === config.id)
+                      || PRESET_CONFIGURATIONS.find(p => p.id === config.id);
                     const isConfigurable = presetConfig && ['scatter', 'bubble', 'histogram', 'bar'].includes(presetConfig.chartType);
 
                     return (
@@ -1022,7 +1025,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                               icon={<SettingOutlined />}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setEditingConfig(presetConfig);
+                                setEditingConfig(presetConfig!);
                                 setChartEditorVisible(true);
                               }}
                             />
