@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card, Radio, Button, Typography, Tabs, Drawer } from 'antd';
-import { FileTextOutlined, InfoCircleOutlined, LineChartOutlined, EyeOutlined, DatabaseOutlined, AppstoreOutlined, MinusSquareOutlined } from '@ant-design/icons';
+import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card, Radio, Button, Typography, Tabs, Drawer, Divider } from 'antd';
+import { FileTextOutlined, InfoCircleOutlined, LineChartOutlined, EyeOutlined, DatabaseOutlined, AppstoreOutlined, MinusSquareOutlined, PlusOutlined, EditOutlined, SettingOutlined } from '@ant-design/icons';
 import { Icon } from '@vaadin/react-components';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadCategoryResultsWithRenderState, loadAnalysisParameters, setAnalysisType } from '../store/slices/categoryResultsSlice';
@@ -34,6 +34,15 @@ import ComparisonTable from './charts/ComparisonTable';
 import { BmdStatSelector } from './charts/BmdMetricSelector';
 import type { BmdStatType } from './charts/utils/bmdMetricConfig';
 import { getAnalysisTypeDisplayName } from '../utils/analysisTypeConfig';
+import ChartConfigEditor from './charts/ChartConfigEditor';
+import ConfigurableChart from './charts/ConfigurableChart';
+import {
+  saveConfiguration,
+  selectUserConfigurations,
+  deleteConfiguration,
+  type ChartConfiguration,
+  type ChartConfigurationInput,
+} from './charts/chartConfig';
 
 const { Text } = Typography;
 
@@ -152,6 +161,23 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   // Shared BMD stat for BMD Overview section (controls both scatter and box plot)
   const [bmdOverviewStat, setBmdOverviewStat] = useState<BmdStatType>('fifthPercentile');
 
+  // Custom chart configuration
+  const userConfigurations = useAppSelector(selectUserConfigurations);
+  const [chartEditorVisible, setChartEditorVisible] = useState(false);
+  const [editingConfig, setEditingConfig] = useState<ChartConfiguration | null>(null);
+
+  // Handle save chart configuration
+  const handleSaveChartConfig = (config: ChartConfigurationInput) => {
+    dispatch(saveConfiguration(config));
+    setChartEditorVisible(false);
+    setEditingConfig(null);
+  };
+
+  // Handle delete custom chart
+  const handleDeleteCustomChart = (id: string) => {
+    dispatch(deleteConfiguration(id));
+  };
+
   // Render chart content based on chart ID
   const renderChartContent = (chartId: string) => {
     const chartKey = `${projectId}-${resultName}`;
@@ -203,6 +229,11 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
       case 'cluster-scatter':
         return <ClusterScatterPlot key={`${chartKey}${keyPostfix}`} />;
       default:
+        // Check if it's a custom chart
+        const customConfig = userConfigurations.find(c => c.id === chartId);
+        if (customConfig) {
+          return <ConfigurableChart key={`${chartKey}-${chartId}`} config={customConfig} showControls />;
+        }
         return null;
     }
   };
@@ -961,19 +992,90 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
 
         {/* Charts Panel */}
         {activePanel === 'charts' && (
-          <Checkbox.Group
-            value={visibleCharts}
-            onChange={(checkedValues) => dispatch(setVisibleCharts(checkedValues as string[]))}
-            style={{ width: '100%' }}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {CHART_CONFIG.map(config => (
-                <Checkbox key={config.id} value={config.id}>
-                  {config.label}
-                </Checkbox>
-              ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Built-in Charts */}
+            <div>
+              <Text strong style={{ display: 'block', marginBottom: '8px' }}>Built-in Charts</Text>
+              <Checkbox.Group
+                value={visibleCharts}
+                onChange={(checkedValues) => dispatch(setVisibleCharts(checkedValues as string[]))}
+                style={{ width: '100%' }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {CHART_CONFIG.map(config => (
+                    <Checkbox key={config.id} value={config.id}>
+                      {config.label}
+                    </Checkbox>
+                  ))}
+                </div>
+              </Checkbox.Group>
             </div>
-          </Checkbox.Group>
+
+            {/* Custom Charts Section */}
+            <Divider style={{ margin: '8px 0' }} />
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <Text strong>Custom Charts</Text>
+                <Button
+                  type="primary"
+                  size="small"
+                  icon={<PlusOutlined />}
+                  onClick={() => {
+                    setEditingConfig(null);
+                    setChartEditorVisible(true);
+                  }}
+                >
+                  Create
+                </Button>
+              </div>
+
+              {userConfigurations.length === 0 ? (
+                <Text type="secondary" style={{ fontSize: '12px' }}>
+                  No custom charts yet. Click "Create" to add one.
+                </Text>
+              ) : (
+                <Checkbox.Group
+                  value={visibleCharts}
+                  onChange={(checkedValues) => dispatch(setVisibleCharts(checkedValues as string[]))}
+                  style={{ width: '100%' }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {userConfigurations.map(config => (
+                      <div key={config.id} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Checkbox value={config.id} style={{ flex: 1 }}>
+                          {config.name}
+                        </Checkbox>
+                        <Tooltip title="Edit">
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<EditOutlined />}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingConfig(config);
+                              setChartEditorVisible(true);
+                            }}
+                          />
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <Button
+                            type="text"
+                            size="small"
+                            danger
+                            icon={<MinusSquareOutlined />}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteCustomChart(config.id);
+                            }}
+                          />
+                        </Tooltip>
+                      </div>
+                    ))}
+                  </div>
+                </Checkbox.Group>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Clusters Panel */}
@@ -981,6 +1083,18 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           <ClusterPicker />
         )}
       </Drawer>
+
+      {/* Chart Configuration Editor Modal */}
+      <ChartConfigEditor
+        visible={chartEditorVisible}
+        config={editingConfig}
+        onSave={handleSaveChartConfig}
+        onCancel={() => {
+          setChartEditorVisible(false);
+          setEditingConfig(null);
+        }}
+        isNew={editingConfig === null}
+      />
     </div>
     </>
   );
