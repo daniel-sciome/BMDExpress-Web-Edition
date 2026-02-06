@@ -250,6 +250,34 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
 
     if (!visibleCharts.includes(chartId)) return null;
 
+    // Check if this chart is configurable
+    const presetConfig = presetConfigurations.find(p => p.id === chartId)
+      || PRESET_CONFIGURATIONS.find(p => p.id === chartId);
+    const isConfigurable = presetConfig && ['scatter', 'bubble', 'histogram', 'bar'].includes(presetConfig.chartType);
+
+    // Build the label with optional gear icon (gear before title)
+    const labelContent = (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {isConfigurable && (
+          <Tooltip title="Configure chart axes & options">
+            <Button
+              type="text"
+              size="small"
+              icon={<SettingOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (presetConfig) {
+                  setEditingConfig(presetConfig);
+                  setChartEditorVisible(true);
+                }
+              }}
+            />
+          </Tooltip>
+        )}
+        <span style={{ lineHeight: '22px' }}>{config.label}</span>
+      </div>
+    );
+
     return (
       <div key={chartId} style={{ marginBottom: '4px' }}>
         <Collapse
@@ -257,7 +285,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           onChange={handleChartCollapseChange(collapseKey)}
           items={[{
             key: collapseKey,
-            label: <span style={{ lineHeight: '22px' }}>{config.label}</span>,
+            label: labelContent,
             children: renderChartContent(chartId)
           }]}
         />
@@ -1007,7 +1035,6 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {CHART_CONFIG.map(config => {
                     // Find corresponding preset configuration for this chart
-                    // Use Redux state if available, otherwise fall back to static presets
                     const presetConfig = presetConfigurations.find(p => p.id === config.id)
                       || PRESET_CONFIGURATIONS.find(p => p.id === config.id);
                     const isConfigurable = presetConfig && ['scatter', 'bubble', 'histogram', 'bar'].includes(presetConfig.chartType);
@@ -1025,8 +1052,10 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                               icon={<SettingOutlined />}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setEditingConfig(presetConfig!);
-                                setChartEditorVisible(true);
+                                if (presetConfig) {
+                                  setEditingConfig(presetConfig);
+                                  setChartEditorVisible(true);
+                                }
                               }}
                             />
                           </Tooltip>
