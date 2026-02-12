@@ -37,13 +37,14 @@ This tight integration simplifies data fetching and ensures that the client and 
 The application relies on a well-structured Redux store to manage its complex state. The state is divided into logical `slices`, each responsible for a specific domain of the application's data.
 
 Key state slices include:
-- **`categoryResultsSlice`**: Manages the core analysis data, including loading and error states, the main data array, and experiment metadata.
+- **`categoryResultsSlice`**: Manages the core analysis data, including loading and error states, the main data array, experiment metadata, and filter state (column filters, sorting, selection).
 - **`navigationSlice`**: Handles application-wide navigation state, such as the currently selected project and category result.
-- **`filterSlice`**: Manages the state of various filters that can be applied to the data.
-- **`uiStateSlice`**: Stores UI-specific state that needs to persist across views, such as the visibility and collapse/expand state of charts. This is a direct implementation of the plan detailed in `BMDEXPRESS_WEB_PLAN_SYNTHESIS.md`.
-- **`visibilitySlice`**: Manages the visibility of different UI elements, likely working in tandem with `uiStateSlice`.
+- **`filterSlice`**: Manages primary filter defaults and filter configuration.
+- **`uiStateSlice`**: Stores UI-specific state that persists across views, such as the visibility and collapse/expand state of charts.
+- **`visibilitySlice`**: Manages display mode (highlight/dim/isolate) and the set of highlighted/focused item IDs.
+- **`renderStateSlice`**: Manages per-category reactive rendering state for chart interactivity.
 - **`prefilterSlice`**: Manages state related to the pre-filtering steps of the analysis.
-- **`umapIntegration`**: Contains state related to UMAP (Uniform Manifold Approximation and Projection) visualizations.
+- **`umapIntegration`**: Contains selectors that enrich category data with UMAP coordinates and cluster IDs from the reference map.
 
 This modular state management approach allows for a clear separation of concerns and a predictable data flow throughout the application.
 
