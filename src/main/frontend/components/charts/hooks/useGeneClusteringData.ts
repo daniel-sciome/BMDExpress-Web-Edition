@@ -102,7 +102,7 @@ export function useGeneClusteringData(
         clusterBMD: cat.bmdMedian?.toString() || '',
         genesUp: cat.genesUp || '',
         genesDown: cat.genesDown || '',
-        allGenes: cat.genes || cat.geneSymbols || '',  // Try genes first, then geneSymbols
+        allGenes: cat.genes || cat.geneSymbols || [cat.genesUp, cat.genesDown].filter(Boolean).join(';') || '',
       }));
 
     console.log('[useGeneClusteringData] Input items:', {
@@ -199,8 +199,8 @@ export function useGeneClusteringData(
         }
       });
 
-      // Get ordered data from result
-      orderedCategoryIds = clusteringResult.orderedLabels;
+      // Reconstruct category IDs in leaf order from leavesOrder indices
+      orderedCategoryIds = clusteringResult.leavesOrder.map(idx => inputItems[idx]?.categoryId ?? '');
       orderedClusterIds = clusteringResult.orderedClusters;
       linkageMatrix = clusteringResult.linkageMatrix;
 
