@@ -67,6 +67,23 @@ This document serves as a navigation guide to all documentation in the project.
   - 13-week implementation roadmap
   - **Status**: Current (feature implementation guide)
 
+### Design Summaries & Reference
+- **[FRONTEND_DESIGN_SUMMARY.md](./FRONTEND_DESIGN_SUMMARY.md)** (5 KB)
+  - Frontend architecture and operation overview
+  - Core technologies, state management, component structure
+  - Typical user flow walkthrough
+  - **Status**: Current
+
+- **[MODEL_IMPLEMENTATION_REFERENCE.md](./MODEL_IMPLEMENTATION_REFERENCE.md)** (15 KB)
+  - Exact code snippets for dose-response models (Hill, Power, Exponential, Polynomial)
+  - Curve generation algorithm and testing examples
+  - **Status**: Current (technical reference)
+
+- **[CATEGORY_DRILLDOWN_ARCHITECTURE.md](./CATEGORY_DRILLDOWN_ARCHITECTURE.md)** (8 KB)
+  - Proposed feature: gene-level drill-down when selecting a category
+  - Includes state design, endpoint specs, and phased implementation plan
+  - **Status**: Planned (not yet implemented)
+
 ### Known Issues & Cross-Project References
 - **[EXPERIMENT_DESCRIPTION_OBJECT_REFERENCE_ISSUE.md](../BMDExpress-3/EXPERIMENT_DESCRIPTION_OBJECT_REFERENCE_ISSUE.md)** (BMDExpress-3 repo)
   - Investigation of why `CategoryAnalysisResults.getExperimentDescription()` returns NULL
@@ -270,6 +287,9 @@ src/main/java/com/sciome/
 | PREFILTER_IMPLEMENTATION_GUIDE.md | Prefiltering workflow porting guide | Current | 50+ KB |
 | CODEBASE_STRUCTURE.md | Architecture overview | Current | 20 KB |
 | IMPLEMENTATION_PATTERNS.md | Code patterns & examples | Current | 17 KB |
+| MODEL_IMPLEMENTATION_REFERENCE.md | Dose-response model formulas & code | Current | 15 KB |
+| FRONTEND_DESIGN_SUMMARY.md | Frontend architecture & operation overview | Current | 5 KB |
+| CATEGORY_DRILLDOWN_ARCHITECTURE.md | Proposed category drill-down feature | Planned | 8 KB |
 | google-cloud-instructions.md | Deployment | Current | 6 KB |
 | README.md | Project overview | Current | 6 KB |
 | archive/README.md | Historical documentation index | Archived | 8 KB |
