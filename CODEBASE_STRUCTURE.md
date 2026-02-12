@@ -33,7 +33,77 @@ React Components → Visualizations
 
 ---
 
-## 2. Frontend Architecture
+## 2. Architectural Areas of Concern
+
+A map of every major functional domain in the system, with key files for each.
+
+### Data Ingestion & Project Management
+Loading/uploading .bm2 files, deserializing BMDExpress-3 projects, in-memory storage.
+- **Backend**: `ProjectService.java`, `ProjectMetadataDto.java`, `ProjectUploadResponse.java`
+- **Frontend**: `ProjectTreeSidebar.tsx`, `LibraryView.tsx`, `ProjectsList.tsx`, `UploadSection.tsx`
+- **Dependency**: `bmdexpress3:3.0.0-SNAPSHOT` (desktop app core models)
+
+### Category Analysis Results
+The core domain: extracting category-level results (GO terms, pathways), experiment metadata, BMD statistics, gene mappings, dose-response curves.
+- **Backend**: `CategoryResultsService.java` (~650 lines, 15+ methods), `BmdResultsService.java`
+- **DTOs**: `CategoryAnalysisResultDto`, `CurveDataDto`, `DosePointDto`, `BMDMarkersDto`, `PathwayInfoDto`, `VennDiagramDataDto`, `AnalysisAnnotationDto`
+- **Frontend**: `categoryResultsSlice.ts`, `CategoryResultsView.tsx`, `CategoryResultsGrid.tsx`
+
+### Prefilter Analysis
+Statistical prefiltering (one-way ANOVA fully implemented; Williams Trend, Oriogen, Curve Fit stubbed).
+- **Backend**: `PrefilterService.java` (~590 lines), prefilter DTOs in `dto/prefilter/`
+- **Frontend**: `prefilterSlice.ts`, `PrefilterTestView.tsx`
+
+### Hierarchical Gene Clustering
+Agglomerative hierarchical clustering based on Jaccard distance of gene overlap, using the Smile ML library.
+- **External**: `bmdexpress-analysis-services:1.0.0-SNAPSHOT` JAR (contains `CategoryClusteringService`)
+- **Backend**: `ClusteringService.java` (Hilla wrapper), `ClusteringInputItemDto`, `ClusteringResultDto`
+- **Frontend**: `useGeneClusteringData.ts` hook, `ClusterScatterPlot.tsx`, `ClusterHeatmap.tsx`
+
+### UMAP Reference Data Integration
+Hardcoded GO term → UMAP coordinate/cluster mapping, enriches categories at load time for cluster coloring.
+- **Frontend**: `umapDataService.ts` (O(1) lookup), `referenceUmapData.ts` (embedded data), `umapIntegration.ts` (Redux selectors)
+
+### Multi-Layer Filtering
+Primary "hard" filters (BMD range, p-value, gene count) define the working set; visual display modes (highlight/dim/isolate) control rendering of out-of-focus data.
+- **Frontend**: `filterSlice.ts`, `PrimaryFilter.tsx`, `FilterBuilder.tsx`, `visibilitySlice.ts`
+- **Utilities**: `filterEvaluation.ts`, `filterMetadata.ts`, `filterGroupPersistence.ts`, `applyPrimaryFilters.ts`
+
+### Reactive Selection & Synchronization
+Unified selection state (category IDs, cluster IDs) coordinated across table, charts, and cluster picker.
+- **Frontend**: `renderStateSlice.ts`, `selectionBridge.ts`, `categoryGroupsSlice.ts`, `ClusterPicker.tsx`
+
+### Visualization Suite
+23 chart components covering scatter, box, violin, histogram, pie, heatmap, UMAP, Venn, dose-response, cluster, accumulation, range, bubble, and comparison visualizations.
+- **Frontend**: All in `components/charts/`, all use Plotly.js, all subscribe to Redux selectors
+- **Hooks**: `useFocusAwareStyling.ts`, `useReactiveState.ts`, `useClusterTypeSplit.ts`, `useClusterLegendInteraction.ts`
+
+### Pathway/Gene Curve Viewer
+Specialized dose-response curve explorer per pathway with gene selection.
+- **Frontend**: `PathwayCurveViewer.tsx`, `DoseResponseCurveChart.tsx`
+- **Backend**: `CategoryResultsService.getCurveData()`, `getPathways()`, `getGenesInPathway()`
+
+### Data Table & Grid
+Primary tabular display with dynamic columns, sorting, pagination, selection, and focus highlighting.
+- **Frontend**: `CategoryResultsGrid.tsx`, `fixedColumns.tsx`, `CategoryResultsView.tsx`
+
+### UI State & Configuration
+Chart visibility, collapse state, view mode (simple vs power user), per-chart config.
+- **Frontend**: `uiStateSlice.ts`, `chartConfigSlice.ts`, `ChartConfigEditor.tsx`
+
+### Hilla RPC & Code Generation
+Vaadin Hilla auto-generates TypeScript clients and DTO types from `@BrowserCallable` Java services.
+- **Generated**: `Frontend/generated/endpoints.ts`, `Frontend/generated/com/sciome/dto/`
+- **Build**: `vaadin-maven-plugin` in `pom.xml`
+
+### Application Infrastructure
+Spring Boot bootstrap, Maven build, async job config, file download REST endpoints, analysis name parsing, vocabulary/defaults config.
+- **Backend**: `Application.java`, `FileDownloadController.java`, `AnalysisNameParser.java`, `VocabularyService.java`, `DefaultsService.java`, `BmdExpressApiService.java`
+- **Config**: `application.yml`, `analysis-name-parser-config.json`
+
+---
+
+## 3. Frontend Architecture
 
 ### Directory Structure
 ```
@@ -208,7 +278,7 @@ File structure automatically generates routes:
 
 ---
 
-## 3. Backend Architecture (Java/Spring)
+## 4. Backend Architecture (Java/Spring)
 
 ### Service Layer
 
@@ -261,7 +331,7 @@ Browser (TypeScript/React)
 
 ---
 
-## 4. Visualization System
+## 5. Visualization System
 
 ### Chart Types & Implementation
 
@@ -309,7 +379,7 @@ Dropdown switches between visualization types with options:
 
 ---
 
-## 5. Category Data Flow
+## 6. Category Data Flow
 
 ### Load Sequence
 
@@ -370,7 +440,7 @@ Frontend (VennDiagram.tsx):
 
 ---
 
-## 6. File Organization Summary
+## 7. File Organization Summary
 
 ### Frontend Files (React/TypeScript)
 - **14 React components**: Views, grids, charts
@@ -393,7 +463,7 @@ Frontend (VennDiagram.tsx):
 
 ---
 
-## 7. Key Design Patterns
+## 8. Key Design Patterns
 
 ### 1. Redux Selection Pattern
 ```typescript
@@ -470,7 +540,7 @@ if (!isExperimentDescriptionComplete) {
 
 ---
 
-## 8. Existing Category-Related Functionality
+## 9. Existing Category-Related Functionality
 
 ### Available Features
 1. **Project Management**: Upload .bm2 files, list projects, delete projects
@@ -493,7 +563,7 @@ if (!isExperimentDescriptionComplete) {
 
 ---
 
-## 9. Architecture Strengths
+## 10. Architecture Strengths
 
 1. **Type Safety**: End-to-end TypeScript (frontend) and Java (backend)
 2. **Reactive State**: Redux makes selection/filtering consistent across all charts
@@ -505,7 +575,7 @@ if (!isExperimentDescriptionComplete) {
 
 ---
 
-## 10. Key Files Reference
+## 11. Key Files Reference
 
 | File | Purpose | Lines |
 |------|---------|-------|
@@ -523,7 +593,7 @@ if (!isExperimentDescriptionComplete) {
 
 ---
 
-## 11. Data Flow Diagram
+## 12. Data Flow Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
