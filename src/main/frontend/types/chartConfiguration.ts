@@ -167,6 +167,9 @@ export interface ChartConfiguration {
 
   /** Optional group ID for grouping related charts */
   groupId?: string;
+
+  /** Per-chart appearance overrides (merged on top of global theme) */
+  appearance?: Partial<import('./chartAppearance').ChartAppearance>;
 }
 
 /**
@@ -203,6 +206,12 @@ export interface ChartConfigState {
 
   /** Version for migration support */
   version: number;
+
+  /** Global chart appearance theme (applied to all charts) */
+  globalAppearance: import('./chartAppearance').ChartAppearance;
+
+  /** User-saved appearance themes */
+  savedThemes: import('./chartAppearance').SavedTheme[];
 }
 
 /**

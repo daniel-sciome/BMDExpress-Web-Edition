@@ -15,7 +15,8 @@ import { useReactiveState } from './hooks/useReactiveState';
 import { useBmdMetricTriple } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
-import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { useChartAppearance } from './hooks/useChartAppearance';
+import ExportDropdown from './ExportDropdown';
 import { getTopNSourceData } from './utils/topNFilter';
 
 const { Text } = Typography;
@@ -29,6 +30,7 @@ export default function BarCharts() {
   const hasSelection = categoryState.selectedIds.size > 0;
   const [useLogScale, setUseLogScale] = useState(true);
   const [topN, setTopN] = useState<number | 'All'>(20);
+  const { applyToLayout, getConfig, plotRef } = useChartAppearance('bar-charts');
 
   // BMD metric selection (all three bases share the same stat)
   const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('median');
@@ -222,41 +224,41 @@ export default function BarCharts() {
             }))}
           />
         </Space>
+        <ExportDropdown plotRef={plotRef} filename="bmd_bar_charts" />
       </div>
-      <Row gutter={[16, 16]}>
-        {styledCharts.map((chart, index) => (
-          <Col xs={24} lg={12} key={index}>
-            <Plot
-              data={chart.data}
-              layout={{
-                title: {
-                  text: chart.title,
-                  font: { size: 14 },
-                },
-                xaxis: {
-                  title: { text: 'Value' },
-                  type: useLogScale ? 'log' : 'linear',
-                  gridcolor: DEFAULT_GRID_COLOR,
-                },
-                yaxis: {
-                  title: '',
-                  autorange: 'reversed',
-                  tickfont: { size: 9 },
-                  gridcolor: DEFAULT_GRID_COLOR,
-                },
-                barmode: 'stack',
-                height: 500,
-                margin: { l: 200, r: 50, t: 50, b: 50 },
-                showlegend: false,
-                ...DEFAULT_LAYOUT_STYLES,
-              } as any}
-              config={createPlotlyConfig() as any}
-              style={{ width: '100%', height: '100%' }}
-              useResizeHandler={true}
-            />
-          </Col>
-        ))}
-      </Row>
+      <div ref={plotRef}>
+        <Row gutter={[16, 16]}>
+          {styledCharts.map((chart, index) => (
+            <Col xs={24} lg={12} key={index}>
+              <Plot
+                data={chart.data}
+                layout={applyToLayout({
+                  title: {
+                    text: chart.title,
+                    font: { size: 14 },
+                  },
+                  xaxis: {
+                    title: { text: 'Value' },
+                    type: useLogScale ? 'log' : 'linear',
+                  },
+                  yaxis: {
+                    title: '',
+                    autorange: 'reversed',
+                    tickfont: { size: 9 },
+                  },
+                  barmode: 'stack',
+                  height: 500,
+                  margin: { l: 200, r: 50, t: 50, b: 50 },
+                  showlegend: false,
+                }) as any}
+                config={getConfig('bmd_bar_charts')}
+                style={{ width: '100%', height: '100%' }}
+                useResizeHandler={true}
+              />
+            </Col>
+          ))}
+        </Row>
+      </div>
     </div>
   );
 }

@@ -15,7 +15,8 @@ import { useReactiveState } from './hooks/useReactiveState';
 import { useBmdMetric } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
-import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { useChartAppearance } from './hooks/useChartAppearance';
+import ExportDropdown from './ExportDropdown';
 import type { BmdStatType } from './utils/bmdMetricConfig';
 
 const { Text } = Typography;
@@ -33,6 +34,7 @@ export default function BMDvsPValueScatter({ stat: externalStat, hideControls = 
   const clusterColors = useClusterColors();
   const hasSelection = categoryState.selectedIds.size > 0;
   const [useLogScale, setUseLogScale] = useState(true);
+  const { applyToLayout, getConfig, plotRef } = useChartAppearance('bmd-vs-pvalue-scatter');
 
   // BMD metric selection (base fixed to 'bmd', stat selectable or externally controlled)
   // Pass externalStat as controlled value - hook will use it when provided
@@ -232,34 +234,32 @@ export default function BMDvsPValueScatter({ stat: externalStat, hideControls = 
         <Checkbox checked={useLogScale} onChange={(e) => setUseLogScale(e.target.checked)}>
           Log₁₀ Scale (Dose)
         </Checkbox>
+        <ExportDropdown plotRef={plotRef} filename="bmd_vs_pvalue_scatter" />
       </div>
 
       {/* Chart */}
-      <div style={{ height: '500px' }}>
+      <div ref={plotRef} style={{ height: '500px' }}>
         <Plot
           data={traces}
-          layout={{
+          layout={applyToLayout({
             title: `${metricLabel} vs Fisher Exact P-Value (Colored by Cluster)`,
             xaxis: {
               title: { text: metricLabel },
               type: useLogScale ? 'log' : 'linear',
               ...(useLogScale ? { range: xRange } : { autorange: true }),
-              gridcolor: DEFAULT_GRID_COLOR,
             },
             yaxis: {
               title: { text: '-log₁₀(Fisher Exact P-Value)' },
               range: yRange,
-              gridcolor: DEFAULT_GRID_COLOR,
             },
-          hovermode: 'closest',
-          ...DEFAULT_LAYOUT_STYLES,
-          margin: { l: 60, r: 30, t: 50, b: 60 },
-          showlegend: false,
-        } as any}
-        config={createPlotlyConfigWithExport('bmd_vs_pvalue_scatter')}
-        onClick={handlePlotClick}
-        style={{ width: '100%', height: '100%' }}
-      />
+            hovermode: 'closest',
+            margin: { l: 60, r: 30, t: 50, b: 60 },
+            showlegend: false,
+          }) as any}
+          config={getConfig('bmd_vs_pvalue_scatter')}
+          onClick={handlePlotClick}
+          style={{ width: '100%', height: '100%' }}
+        />
       </div>
     </div>
   );
