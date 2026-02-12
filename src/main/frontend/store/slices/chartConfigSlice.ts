@@ -20,9 +20,56 @@ import type {
   ChartKey,
 } from 'Frontend/types/chartConfiguration';
 import { CHART_CONFIG_VERSION } from 'Frontend/types/chartConfiguration';
+import type { ChartAppearance, SavedTheme } from 'Frontend/types/chartAppearance';
+import { DEFAULT_CHART_APPEARANCE } from 'Frontend/types/chartAppearance';
 
 // ==================== LocalStorage Keys ====================
 const STORAGE_KEY = 'bmdexpress-chart-configs';
+const APPEARANCE_STORAGE_KEY = 'bmdexpress-chart-appearance';
+const THEMES_STORAGE_KEY = 'bmdexpress-chart-themes';
+
+function loadAppearanceFromStorage(): ChartAppearance {
+  try {
+    const saved = localStorage.getItem(APPEARANCE_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved) as ChartAppearance;
+      if (parsed.version === DEFAULT_CHART_APPEARANCE.version) {
+        return parsed;
+      }
+    }
+  } catch (error) {
+    console.error('[chartConfig] Failed to load appearance from localStorage:', error);
+  }
+  return DEFAULT_CHART_APPEARANCE;
+}
+
+function saveAppearanceToStorage(appearance: ChartAppearance): void {
+  try {
+    localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify(appearance));
+  } catch (error) {
+    console.error('[chartConfig] Failed to save appearance to localStorage:', error);
+  }
+}
+
+function loadThemesFromStorage(): SavedTheme[] {
+  try {
+    const saved = localStorage.getItem(THEMES_STORAGE_KEY);
+    if (saved) {
+      return JSON.parse(saved) as SavedTheme[];
+    }
+  } catch (error) {
+    console.error('[chartConfig] Failed to load themes from localStorage:', error);
+  }
+  return [];
+}
+
+function saveThemesToStorage(themes: SavedTheme[]): void {
+  try {
+    localStorage.setItem(THEMES_STORAGE_KEY, JSON.stringify(themes));
+  } catch (error) {
+    console.error('[chartConfig] Failed to save themes to localStorage:', error);
+  }
+}
 
 // ==================== Preset Configurations ====================
 
@@ -359,6 +406,8 @@ function mergeWithPresets(saved: ChartConfigState | null): ChartConfigState {
       groups: [...PRESET_GROUPS],
       lastModified: Date.now(),
       version: CHART_CONFIG_VERSION,
+      globalAppearance: loadAppearanceFromStorage(),
+      savedThemes: loadThemesFromStorage(),
     };
   }
 
@@ -402,6 +451,8 @@ function mergeWithPresets(saved: ChartConfigState | null): ChartConfigState {
     groups: mergedGroups,
     lastModified: saved.lastModified,
     version: CHART_CONFIG_VERSION,
+    globalAppearance: loadAppearanceFromStorage(),
+    savedThemes: loadThemesFromStorage(),
   };
 }
 
@@ -609,6 +660,85 @@ const chartConfigSlice = createSlice({
         saveToStorage(state);
       }
     },
+
+    // ==================== Appearance Reducers ====================
+
+    /**
+     * Replace the entire global appearance.
+     */
+    setGlobalAppearance: (state, action: PayloadAction<ChartAppearance>) => {
+      state.globalAppearance = action.payload;
+      state.lastModified = Date.now();
+      saveAppearanceToStorage(action.payload);
+    },
+
+    /**
+     * Partially update the global appearance (deep merge).
+     */
+    updateGlobalAppearance: (state, action: PayloadAction<Partial<ChartAppearance>>) => {
+      const updated = { ...state.globalAppearance };
+      const overrides = action.payload;
+
+      // Shallow merge top-level, deep merge nested objects
+      for (const key of Object.keys(overrides) as Array<keyof ChartAppearance>) {
+        const val = overrides[key];
+        if (val !== undefined) {
+          const existing = updated[key];
+          if (
+            typeof val === 'object' &&
+            val !== null &&
+            !Array.isArray(val) &&
+            typeof existing === 'object' &&
+            existing !== null &&
+            !Array.isArray(existing)
+          ) {
+            (updated as any)[key] = { ...existing, ...val };
+          } else {
+            (updated as any)[key] = val;
+          }
+        }
+      }
+
+      state.globalAppearance = updated;
+      state.lastModified = Date.now();
+      saveAppearanceToStorage(updated);
+    },
+
+    /**
+     * Update per-chart appearance overrides.
+     */
+    updateChartAppearance: (state, action: PayloadAction<{ id: string; appearance: Partial<ChartAppearance> | undefined }>) => {
+      const { id, appearance } = action.payload;
+      const config = state.configurations.find(c => c.id === id);
+      if (config) {
+        config.appearance = appearance;
+        state.lastModified = Date.now();
+        saveToStorage(state);
+      }
+    },
+
+    /**
+     * Save a named theme.
+     */
+    saveTheme: (state, action: PayloadAction<SavedTheme>) => {
+      const existingIndex = state.savedThemes.findIndex(t => t.id === action.payload.id);
+      if (existingIndex >= 0) {
+        state.savedThemes[existingIndex] = action.payload;
+      } else {
+        state.savedThemes.push(action.payload);
+      }
+      state.lastModified = Date.now();
+      saveThemesToStorage(state.savedThemes as SavedTheme[]);
+    },
+
+    /**
+     * Delete a saved theme.
+     */
+    deleteTheme: (state, action: PayloadAction<string>) => {
+      state.savedThemes = state.savedThemes.filter(t => t.id !== action.payload);
+      state.lastModified = Date.now();
+      saveThemesToStorage(state.savedThemes as SavedTheme[]);
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -640,6 +770,11 @@ export const {
   toggleGroupCollapse,
   resetToDefaults,
   duplicateConfiguration,
+  setGlobalAppearance,
+  updateGlobalAppearance,
+  updateChartAppearance,
+  saveTheme,
+  deleteTheme,
 } = chartConfigSlice.actions;
 
 // ==================== Selectors ====================
@@ -677,5 +812,17 @@ export const selectUserConfigurations = (state: RootState) =>
 /** Get preset configurations */
 export const selectPresetConfigurations = (state: RootState) =>
   state.chartConfig.configurations.filter(c => c.isPreset);
+
+/** Get global chart appearance */
+export const selectGlobalAppearance = (state: RootState) =>
+  state.chartConfig.globalAppearance;
+
+/** Get saved themes */
+export const selectSavedThemes = (state: RootState) =>
+  state.chartConfig.savedThemes;
+
+/** Get per-chart appearance for a given chart ID */
+export const selectChartAppearance = (id: string) => (state: RootState) =>
+  state.chartConfig.configurations.find(c => c.id === id)?.appearance;
 
 export default chartConfigSlice.reducer;
