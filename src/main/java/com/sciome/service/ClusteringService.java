@@ -19,37 +19,8 @@ import java.util.List;
  * Service for performing hierarchical clustering on category analysis results.
  * Exposes clustering functionality to the browser via Hilla BrowserCallable.
  *
- * <p>IMPLEMENTATION STATUS: INCOMPLETE</p>
- *
- * <p>This service depends on {@code CategoryClusteringService} which has NOT been implemented yet.
- * The application will fail at runtime when clustering is attempted.</p>
- *
- * <h3>TODO: Implement CategoryClusteringService</h3>
- * <p>Create {@code src/main/java/com/sciome/analysis/clustering/CategoryClusteringService.java} with:</p>
- * <ul>
- *   <li>Calculate Jaccard distance matrix between categories based on gene overlap</li>
- *   <li>Perform agglomerative hierarchical clustering with linkage methods (average, complete, single, ward)</li>
- *   <li>Cut dendrogram at specified number of clusters or auto-calculate optimal cut</li>
- *   <li>Return cluster assignments, leaf ordering, and linkage matrix for visualization</li>
- * </ul>
- *
- * <h3>Inner Classes Required:</h3>
- * <ul>
- *   <li>{@code ClusteringInputItem} - Input data with categoryId, genes (up/down/all)</li>
- *   <li>{@code ClusteringResult} - Output with clusterAssignments[], leavesOrder[], linkageMatrix[][]</li>
- *   <li>{@code LinkageMethod} - Enum: AVERAGE, COMPLETE, SINGLE, WARD</li>
- * </ul>
- *
- * <h3>Suggested Libraries:</h3>
- * <ul>
- *   <li>Smile (Statistical Machine Intelligence and Learning Engine) - has hierarchical clustering</li>
- *   <li>Apache Commons Math - has clustering algorithms</li>
- *   <li>Custom implementation using standard agglomerative algorithm</li>
- * </ul>
- *
- * <h3>Frontend Integration:</h3>
- * <p>The frontend hook {@code useGeneClusteringData.ts} is ready and calls this service.
- * DTOs are already generated: ClusteringInputItemDto, ClusteringResultDto.</p>
+ * <p>Delegates to {@link CategoryClusteringService} which implements agglomerative
+ * hierarchical clustering based on Jaccard distance of gene overlap.</p>
  */
 @Service
 @BrowserCallable
