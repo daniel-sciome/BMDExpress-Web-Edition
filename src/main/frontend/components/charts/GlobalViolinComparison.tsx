@@ -16,7 +16,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Checkbox, Select, Button, Alert, Spin, Space, Typography } from 'antd';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import Plot from 'react-plotly.js';
-import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { useChartAppearance } from './hooks/useChartAppearance';
 import { useAppSelector } from '../../store/hooks';
 import { applyPrimaryFilters } from '../../utils/applyPrimaryFilters';
 import { useBmdMetricTriple } from './hooks/useBmdMetric';
@@ -39,6 +39,7 @@ export default function GlobalViolinComparison({
   selectedResults,
   analysisType
 }: GlobalViolinComparisonProps) {
+  const { applyToLayout, getConfig } = useChartAppearance();
   const [comparisonData, setComparisonData] = useState<any>(null);
   const [resultDisplayNames, setResultDisplayNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -333,7 +334,7 @@ export default function GlobalViolinComparison({
         <div>
           <Plot
             data={violinPlotData.traces}
-            layout={{
+            layout={applyToLayout({
               title: {
                 text: `Global ${metricLabel} Distribution Comparison`,
                 font: { size: 14 },
@@ -350,16 +351,14 @@ export default function GlobalViolinComparison({
                 type: useLogScale ? 'log' : 'linear',
                 ...(useLogScale ? { range: violinPlotData.yRange, dtick: 1, tick0: 0 } : { autorange: true }),
                 showgrid: true,
-                gridcolor: DEFAULT_GRID_COLOR,
                 gridwidth: 1,
               },
               height: 600,
               margin: { l: 70, r: 50, t: 80, b: 200 },
-              ...DEFAULT_LAYOUT_STYLES,
               showlegend: false,
               violinmode: 'group',
-            } as any}
-            config={createPlotlyConfig() as any}
+            }) as any}
+            config={getConfig('global_violin_comparison') as any}
             style={{ width: '100%', height: '100%' }}
             useResizeHandler={true}
           />

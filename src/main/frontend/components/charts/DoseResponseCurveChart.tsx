@@ -5,7 +5,8 @@ import type CurveDataDto from 'Frontend/generated/com/sciome/dto/CurveDataDto';
 import { useReactiveState } from './hooks/useReactiveState';
 import { useClusterLegendInteraction, getClusterMarkerStyle } from './hooks/useClusterLegendInteraction';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
-import { prepareLogScaleValues, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { prepareLogScaleValues } from './utils/plotlyConfig';
+import { useChartAppearance } from './hooks/useChartAppearance';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 
 const { Text } = Typography;
@@ -17,6 +18,7 @@ interface DoseResponseCurveChartProps {
 
 export default function DoseResponseCurveChart({ curves, selectedCategories }: DoseResponseCurveChartProps) {
   const clusterColors = useClusterColors();
+  const { applyToLayout, getConfig } = useChartAppearance();
   const categoryState = useReactiveState('categoryId');
   const [useLogScale, setUseLogScale] = useState(true);
 
@@ -416,7 +418,7 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
     return result;
   }, [baseTraces, clusterColors, curvesByCluster, selectedCategories, hasSelection, categoryState.selectedIds, nonSelectedDisplayMode]);
 
-  const layout: any = {
+  const layout: any = applyToLayout({
     title: {
       text: curves[0]?.pathwayDescription || 'Dose-Response Curves',
       font: { size: 16 },
@@ -426,13 +428,11 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
       type: 'log',
       autorange: true,
       showgrid: true,
-      gridcolor: '#e5e5e5',
     },
     yaxis: {
       title: { text: 'Log(Expression)' },
       autorange: true,
       showgrid: true,
-      gridcolor: '#e5e5e5',
     },
     hovermode: 'closest',
     showlegend: false,
@@ -443,14 +443,9 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
       b: 60,
     },
     height: 500,
-  };
+  });
 
-  const config: any = {
-    responsive: true,
-    displayModeBar: true,
-    displaylogo: false,
-    modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-  };
+  const config: any = getConfig('dose_response_curves');
 
   // Create a simple overlay plot without the fancy reactive hooks
   const overlayPlotData = useMemo(() => {
@@ -458,7 +453,7 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
     return baseTraces.map(trace => ({ ...trace }));
   }, [baseTraces]);
 
-  const overlayLayout = useMemo(() => ({
+  const overlayLayout = useMemo(() => applyToLayout({
     title: {
       text: 'Dose-Response Curves Overlay',
       font: { size: 16 },
@@ -474,13 +469,11 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
         autorange: true,
       }),
       showgrid: true,
-      gridcolor: DEFAULT_GRID_COLOR,
     },
     yaxis: {
       title: { text: 'Log(Expression)' },
       autorange: true,
       showgrid: true,
-      gridcolor: DEFAULT_GRID_COLOR,
     },
     hovermode: 'closest' as const,
     showlegend: false,
@@ -491,7 +484,7 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
       b: 60,
     },
     height: 500,
-  }), [useLogScale, doseTransform]);
+  }), [useLogScale, doseTransform, applyToLayout]);
 
   return (
     <div style={{ width: '100%' }}>
@@ -650,7 +643,7 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
             }
           });
 
-          const categoryLayout = {
+          const categoryLayout = applyToLayout({
             xaxis: {
               title: { text: 'Dose' },
               type: useLogScale ? 'log' as const : 'linear' as const,
@@ -660,18 +653,16 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
                 ticktext: doseTransform.ticktext,
               } : {}),
               showgrid: true,
-              gridcolor: DEFAULT_GRID_COLOR,
             },
             yaxis: {
               title: { text: 'Log(Expression)' },
               showgrid: true,
-              gridcolor: DEFAULT_GRID_COLOR,
             },
             height: 350,
             margin: { l: 60, r: 20, t: 20, b: 60 },
             hovermode: 'closest' as const,
             showlegend: false,
-          };
+          });
 
           const isPlotExpanded = expandedPlots.has(pathwayDesc);
 

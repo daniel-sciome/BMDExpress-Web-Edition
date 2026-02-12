@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Plot from 'react-plotly.js';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
-import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES } from './utils/plotlyConfig';
+import { useChartAppearance } from './hooks/useChartAppearance';
 
 interface BestModelsPieChartProps {
   projectId: string;
@@ -9,6 +9,7 @@ interface BestModelsPieChartProps {
 }
 
 export default function BestModelsPieChart({ projectId, resultName }: BestModelsPieChartProps) {
+  const { applyToLayout, getConfig } = useChartAppearance();
   const [plotData, setPlotData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -81,7 +82,7 @@ export default function BestModelsPieChart({ projectId, resultName }: BestModels
     );
   }
 
-  const layout: any = {
+  const layout: any = applyToLayout({
     title: {
       text: 'Best Models Distribution (Unique Probes)',
       font: { size: 16 },
@@ -93,10 +94,9 @@ export default function BestModelsPieChart({ projectId, resultName }: BestModels
       x: 1.05,
       y: 0.5,
     },
-    ...DEFAULT_LAYOUT_STYLES,
-  };
+  });
 
-  const config = createPlotlyConfig();
+  const config = getConfig('best_models_pie_chart');
 
   return (
     <div style={{ width: '100%' }}>

@@ -22,7 +22,7 @@ import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useBmdMetricTriple } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
 import { getClusterColor, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
-import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { useChartAppearance } from './hooks/useChartAppearance';
 import type { BmdBaseType } from './utils/bmdMetricConfig';
 
 const { Option } = Select;
@@ -32,6 +32,7 @@ type BaseSelection = BmdBaseType | 'all';
 
 export default function StatHistograms() {
   const { data: allData, displayMode } = useFocusAwareStyling();
+  const { applyToLayout, getConfig } = useChartAppearance();
   const [useLogXAxis, setUseLogXAxis] = useState(true);
   const [selectedBase, setSelectedBase] = useState<BaseSelection>('bmd');
 
@@ -110,12 +111,10 @@ export default function StatHistograms() {
   };
 
   const commonLayout = {
-    ...DEFAULT_LAYOUT_STYLES,
     barmode: 'stack' as const,
     bargap: 0.05,
     yaxis: {
       title: { text: 'Count' },
-      gridcolor: DEFAULT_GRID_COLOR,
     },
     margin: { l: 60, r: 50, t: 60, b: 60 },
     showlegend: false,
@@ -125,7 +124,6 @@ export default function StatHistograms() {
   const getXAxisConfig = (dataByClusterAndFocus: { inFocus: Map<number, number[]>; outOfFocus: Map<number, number[]> }) => {
     if (!useLogXAxis) {
       return {
-        gridcolor: DEFAULT_GRID_COLOR,
         type: 'linear' as const,
       };
     }
@@ -138,7 +136,7 @@ export default function StatHistograms() {
     }
 
     if (allValues.length === 0) {
-      return { gridcolor: DEFAULT_GRID_COLOR, type: 'linear' as const };
+      return { type: 'linear' as const };
     }
 
     const logValues = allValues.map(v => Math.log10(v));
@@ -155,7 +153,6 @@ export default function StatHistograms() {
     }
 
     return {
-      gridcolor: DEFAULT_GRID_COLOR,
       type: 'linear' as const,
       tickvals,
       ticktext,
@@ -275,13 +272,13 @@ export default function StatHistograms() {
             <Plot
               key={`bmd-plot-${selectedBase}`}
               data={createStackedTraces(clusterData!.bmdValues) as any}
-              layout={{
+              layout={applyToLayout({
                 ...commonLayout,
                 title: { text: `${bmd.label} Histogram`, font: { size: 14 } },
                 xaxis: { ...getXAxisConfig(clusterData!.bmdValues), title: { text: useLogXAxis ? `${bmd.label} (log₁₀)` : bmd.label } },
                 height: 450,
-              } as any}
-              config={createPlotlyConfig() as any}
+              }) as any}
+              config={getConfig('stat_histogram_bmd') as any}
               style={{ width: '100%', height: '100%' }}
               useResizeHandler={true}
             />
@@ -294,13 +291,13 @@ export default function StatHistograms() {
             <Plot
               key={`bmdl-plot-${selectedBase}`}
               data={createStackedTraces(clusterData!.bmdlValues) as any}
-              layout={{
+              layout={applyToLayout({
                 ...commonLayout,
                 title: { text: `${bmdl.label} Histogram`, font: { size: 14 } },
                 xaxis: { ...getXAxisConfig(clusterData!.bmdlValues), title: { text: useLogXAxis ? `${bmdl.label} (log₁₀)` : bmdl.label } },
                 height: 450,
-              } as any}
-              config={createPlotlyConfig() as any}
+              }) as any}
+              config={getConfig('stat_histogram_bmdl') as any}
               style={{ width: '100%', height: '100%' }}
               useResizeHandler={true}
             />
@@ -313,13 +310,13 @@ export default function StatHistograms() {
             <Plot
               key={`bmdu-plot-${selectedBase}`}
               data={createStackedTraces(clusterData!.bmduValues) as any}
-              layout={{
+              layout={applyToLayout({
                 ...commonLayout,
                 title: { text: `${bmdu.label} Histogram`, font: { size: 14 } },
                 xaxis: { ...getXAxisConfig(clusterData!.bmduValues), title: { text: useLogXAxis ? `${bmdu.label} (log₁₀)` : bmdu.label } },
                 height: 450,
-              } as any}
-              config={createPlotlyConfig() as any}
+              }) as any}
+              config={getConfig('stat_histogram_bmdu') as any}
               style={{ width: '100%', height: '100%' }}
               useResizeHandler={true}
             />

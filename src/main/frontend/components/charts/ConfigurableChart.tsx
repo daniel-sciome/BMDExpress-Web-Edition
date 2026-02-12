@@ -14,7 +14,7 @@ import Plot from 'react-plotly.js';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useReactiveState } from './hooks/useReactiveState';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
-import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { useChartAppearance } from './hooks/useChartAppearance';
 import type { ChartConfiguration, ChartKey, ChartTransform } from 'Frontend/types/chartConfiguration';
 import { applyTransform, getTransformLabel } from 'Frontend/types/chartConfiguration';
 import { getFieldLabel } from 'Frontend/utils/chartFields';
@@ -75,6 +75,7 @@ export default function ConfigurableChart({
 }: ConfigurableChartProps) {
   // Get data and styling from shared hooks
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
+  const { applyToLayout, getConfig } = useChartAppearance();
   const clusterColors = useClusterColors();
   const categoryState = useReactiveState('categoryId');
 
@@ -185,8 +186,8 @@ export default function ConfigurableChart({
     );
   }
 
-  // Build layout based on chart type
-  const layout = buildLayout(config, useXLogScale, useYLogScale);
+  // Build layout based on chart type, with appearance applied
+  const layout = applyToLayout(buildLayout(config, useXLogScale, useYLogScale));
 
   return (
     <div style={{ width: '100%' }}>
@@ -210,7 +211,7 @@ export default function ConfigurableChart({
       <Plot
         data={traces}
         layout={layout}
-        config={createPlotlyConfig()}
+        config={getConfig('configurable_chart')}
         style={{ width: '100%', height: '100%' }}
         useResizeHandler={true}
         onClick={handlePlotClick}
@@ -522,7 +523,6 @@ function buildLayout(
   const { chartType, keys, name } = config;
 
   const baseLayout = {
-    ...DEFAULT_LAYOUT_STYLES,
     title: {
       text: name,
       font: { size: 16 },
@@ -539,13 +539,11 @@ function buildLayout(
         title: { text: getAxisLabel(keys.x) },
         type: useXLogScale ? 'log' : 'linear',
         autorange: true,
-        gridcolor: DEFAULT_GRID_COLOR,
       },
       yaxis: {
         title: { text: getAxisLabel(keys.y) },
         type: useYLogScale ? 'log' : 'linear',
         autorange: true,
-        gridcolor: DEFAULT_GRID_COLOR,
       },
     };
   }
@@ -555,11 +553,9 @@ function buildLayout(
       ...baseLayout,
       xaxis: {
         title: { text: getAxisLabel(keys.x) },
-        gridcolor: DEFAULT_GRID_COLOR,
       },
       yaxis: {
         title: { text: 'Count' },
-        gridcolor: DEFAULT_GRID_COLOR,
       },
       bargap: 0.1,
     };
@@ -575,7 +571,6 @@ function buildLayout(
       },
       yaxis: {
         title: { text: getAxisLabel(keys.y) },
-        gridcolor: DEFAULT_GRID_COLOR,
       },
       margin: { l: 80, r: 50, t: 80, b: 150 },
     };

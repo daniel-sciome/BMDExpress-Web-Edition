@@ -15,7 +15,7 @@ import { useReactiveState } from './hooks/useReactiveState';
 import { useBmdMetricTriple } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterIdForCategory, getClusterLabel } from './utils/clusterColors';
-import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { useChartAppearance } from './hooks/useChartAppearance';
 import { hexToRgba } from './utils/displayModeStyles';
 import { computeTopNRanked } from './utils/topNFilter';
 import { wrapTextWithSuffix } from './utils/categoryLabelUtils';
@@ -28,6 +28,7 @@ export default function RangePlot() {
   const { data, displayMode, getPointStyle } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const clusterColors = useClusterColors();
+  const { applyToLayout, getConfig } = useChartAppearance();
   const hasSelection = categoryState.selectedIds.size > 0;
   const [topN, setTopN] = useState<number | 'All'>(20);
   const [useLogScale, setUseLogScale] = useState(true);
@@ -237,7 +238,7 @@ export default function RangePlot() {
     };
   });
 
-  const layout: any = {
+  const layout: any = applyToLayout({
     title: {
       text: titleText,
       font: { size: 14 },
@@ -246,7 +247,6 @@ export default function RangePlot() {
       title: { text: bmd.label },
       type: useLogScale ? 'log' : 'linear',
       autorange: true,
-      gridcolor: DEFAULT_GRID_COLOR,
       showline: true,
       linecolor: '#000',
       linewidth: 1,
@@ -255,18 +255,16 @@ export default function RangePlot() {
       title: '',
       showticklabels: false,
       ticklen: 0,
-      range: [visibleCount - 0.5, -0.5], // Reversed so first category is at top
-      gridcolor: DEFAULT_GRID_COLOR,
-      zeroline: false, // Don't show line at y=0 (would overlap with rank 1)
+      range: [visibleCount - 0.5, -0.5],
+      zeroline: false,
       showline: false,
     },
     annotations: yAxisAnnotations,
     height: plotHeight,
-    margin: { l: 280, r: 50, t: 80, b: 60 }, // Large left margin for wrapped labels
+    margin: { l: 280, r: 50, t: 80, b: 60 },
     hovermode: 'closest',
-    ...DEFAULT_LAYOUT_STYLES,
     showlegend: false,
-  };
+  });
 
   return (
     <div style={{ width: '100%' }}>
@@ -296,7 +294,7 @@ export default function RangePlot() {
       <Plot
         data={plotData}
         layout={layout}
-        config={createPlotlyConfig()}
+        config={getConfig('range_plot')}
         style={{ width: '100%', height: plotHeight }}
         useResizeHandler={true}
       />
