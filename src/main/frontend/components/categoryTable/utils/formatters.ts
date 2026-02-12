@@ -15,7 +15,7 @@ import { padNumber, type ColumnPaddingInfo } from './numberPadding';
  * @param paddingInfo - Optional padding info to align decimal points
  * @returns Formatted string or '-' if value is invalid
  */
-export function formatNumber(value: any, decimals: number = 3, paddingInfo?: ColumnPaddingInfo): string {
+export function formatNumber(value: unknown, decimals: number = 3, paddingInfo?: ColumnPaddingInfo): string {
   if (value === undefined || value === null || typeof value !== 'number' || isNaN(value)) {
     if (paddingInfo) {
       // Return padded placeholder for empty values
@@ -44,7 +44,7 @@ export function formatNumber(value: any, decimals: number = 3, paddingInfo?: Col
  * @param paddingInfo - Optional padding info to align decimal points
  * @returns Formatted string or '-' if value is invalid
  */
-export function formatPValue(value: any, paddingInfo?: ColumnPaddingInfo): string {
+export function formatPValue(value: unknown, paddingInfo?: ColumnPaddingInfo): string {
   if (value === undefined || value === null || typeof value !== 'number' || isNaN(value)) {
     if (paddingInfo) {
       return padNumber(null, paddingInfo, 4);
@@ -71,7 +71,7 @@ export function formatPValue(value: any, paddingInfo?: ColumnPaddingInfo): strin
  * @param decimals - Number of decimal places (default: 2)
  * @returns Formatted string with '%' suffix or '-' if invalid
  */
-export function formatPercentage(value: any, decimals: number = 2): string {
+export function formatPercentage(value: unknown, decimals: number = 2): string {
   if (value === undefined || value === null || typeof value !== 'number' || isNaN(value)) {
     return '-';
   }
@@ -87,7 +87,7 @@ export function formatPercentage(value: any, decimals: number = 2): string {
  * @param maxLength - Maximum string length before truncation (default: 50)
  * @returns Formatted string or '-' if invalid
  */
-export function formatGeneList(value: any, maxLength: number = 50): string {
+export function formatGeneList(value: unknown, maxLength: number = 50): string {
   if (value === undefined || value === null || value === '') {
     return '-';
   }

@@ -132,8 +132,8 @@ export default function AccumulationChartsComparison({
         results: selectedResults,
         data: finalResultsData
       });
-    } catch (err: any) {
-      setError(err.message || 'Failed to generate comparison charts');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to generate comparison charts');
       console.error('Error generating comparison charts:', err);
     } finally {
       setLoading(false);

@@ -51,8 +51,9 @@ export function useReactiveState(reactTo: ReactiveType) {
   /**
    * Check if a specific ID is selected
    */
-  const isSelected = (id: any): boolean => {
-    return selectedIds.has(id);
+  const isSelected = (id: string | number): boolean => {
+    // Safe: Set.has() accepts any value at runtime; cast to unified type for TS
+    return (selectedIds as Set<string | number>).has(id);
   };
 
   /**
@@ -67,7 +68,7 @@ export function useReactiveState(reactTo: ReactiveType) {
    * @param isMultiSelect - If true, toggle; if false, replace selection
    * @param source - Where the selection originated from
    */
-  const handleSelect = (id: any, isMultiSelect: boolean, source: SelectionSource) => {
+  const handleSelect = (id: string | number, isMultiSelect: boolean, source: SelectionSource) => {
     if (isMultiSelect) {
       dispatch(toggleReactiveSelection({ type: stateKey, id }));
     } else {
@@ -81,7 +82,7 @@ export function useReactiveState(reactTo: ReactiveType) {
    * @param ids - Array of IDs to select
    * @param source - Where the selection originated from
    */
-  const handleMultiSelect = (ids: any[], source: SelectionSource) => {
+  const handleMultiSelect = (ids: (string | number)[], source: SelectionSource) => {
     console.log('[useReactiveState] handleMultiSelect called:', {
       type: stateKey,
       idsCount: ids.length,

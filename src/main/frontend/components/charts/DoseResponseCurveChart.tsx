@@ -323,7 +323,7 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
     allData: selectedCategories,
     getClusterIdFromCategory: (row) => getClusterIdForCategory(row.categoryId),
     getCategoryId: (row) => row.categoryId,
-    sourceName: 'DoseResponseCurveChart',
+    sourceName: 'chart',
   });
 
   // Apply reactive styling to traces (all curves always visible, but styled based on selection)
