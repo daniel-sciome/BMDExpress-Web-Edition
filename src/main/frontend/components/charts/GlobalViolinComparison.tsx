@@ -137,8 +137,8 @@ export default function GlobalViolinComparison({
         results: resultsToLoad,
         data: finalResultsData
       });
-    } catch (err: any) {
-      setError(err.message || 'Failed to generate global violin comparison');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to generate global violin comparison');
       console.error('Error generating global violin comparison:', err);
     } finally {
       setLoading(false);

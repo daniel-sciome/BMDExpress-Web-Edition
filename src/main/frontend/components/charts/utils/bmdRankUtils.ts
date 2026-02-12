@@ -30,7 +30,7 @@ export type WithBmdRank<T> = T & { bmdRank: number };
  */
 export function computeBmdRank<T>(
   data: T[],
-  getValue: (item: any) => number | undefined | null,
+  getValue: (item: T) => number | undefined | null,
   options?: {
     /** Filter out items where getValue returns null/undefined/non-positive. Default: true */
     filterInvalid?: boolean;
@@ -81,7 +81,7 @@ export function computeBmdRank<T>(
  */
 export function computeTopNWithRank<T>(
   data: T[],
-  getValue: (item: any) => number | undefined | null,
+  getValue: (item: T) => number | undefined | null,
   n: number | 'All'
 ): WithBmdRank<T>[] {
   const ranked = computeBmdRank(data, getValue);

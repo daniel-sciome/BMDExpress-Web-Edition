@@ -67,8 +67,8 @@ export function useProjectManagement(): UseProjectManagementReturn {
         await loadProjectList();
         setSelectedProject(projectId);
       }
-    } catch (error: any) {
-      Notification.show(`Failed to load project: ${error.message}`, {
+    } catch (error: unknown) {
+      Notification.show(`Failed to load project: ${error instanceof Error ? error.message : String(error)}`, {
         theme: 'error',
         position: 'top-center',
         duration: 5000
@@ -120,8 +120,8 @@ export function useProjectManagement(): UseProjectManagementReturn {
       if (selectedProject === projectId) {
         setSelectedProject(null);
       }
-    } catch (error: any) {
-      Notification.show(`Failed to delete project: ${error.message}`, {
+    } catch (error: unknown) {
+      Notification.show(`Failed to delete project: ${error instanceof Error ? error.message : String(error)}`, {
         theme: 'error',
         position: 'top-center',
         duration: 5000

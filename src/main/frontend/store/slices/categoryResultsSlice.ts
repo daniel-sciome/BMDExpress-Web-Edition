@@ -379,7 +379,7 @@ const categoryResultsSlice = createSlice({
     // Note: Table/ClusterPicker now use setReactiveSelection (integrated selection)
     setReactiveSelection: (
       state,
-      action: PayloadAction<{ type: 'category' | 'cluster'; ids: any[]; source: SelectionSource }>
+      action: PayloadAction<{ type: 'category' | 'cluster'; ids: (string | number)[]; source: SelectionSource }>
     ) => {
       const { type, ids, source } = action.payload;
       console.log('[Redux] setReactiveSelection reducer called:', {
@@ -393,10 +393,18 @@ const categoryResultsSlice = createSlice({
 
       // CRITICAL: Replace the entire parent object to ensure React detects the change
       // Immer has issues with Set/Map reference changes, so we must replace the parent
-      state.reactiveSelection[type] = {
-        selectedIds: new Set(ids),
-        source: source,
-      };
+      // Branch on type for type-safe Set construction (category=Set<string>, cluster=Set<number|string>)
+      if (type === 'category') {
+        state.reactiveSelection.category = {
+          selectedIds: new Set(ids as string[]),
+          source: source,
+        };
+      } else {
+        state.reactiveSelection.cluster = {
+          selectedIds: new Set(ids as (number | string)[]),
+          source: source,
+        };
+      }
       console.log('[Redux] setReactiveSelection after update:', {
         newSelectedCount: state.reactiveSelection[type].selectedIds.size,
         newSource: state.reactiveSelection[type].source
@@ -405,7 +413,7 @@ const categoryResultsSlice = createSlice({
 
     toggleReactiveSelection: (
       state,
-      action: PayloadAction<{ type: 'category' | 'cluster'; id: any }>
+      action: PayloadAction<{ type: 'category' | 'cluster'; id: string | number }>
     ) => {
       const { type, id } = action.payload;
       const oldSelectedIds = state.reactiveSelection[type].selectedIds;
@@ -417,21 +425,36 @@ const categoryResultsSlice = createSlice({
         newSelectedIds.add(id);
       }
 
-      // Replace entire parent object - use type assertion to handle union type
-      state.reactiveSelection[type] = {
-        selectedIds: newSelectedIds as any,
-        source: state.reactiveSelection[type].source,
-      };
+      // Replace entire parent object to trigger React updates
+      // Type-safe overloads for category (Set<string>) vs cluster (Set<number | string>)
+      if (type === 'category') {
+        state.reactiveSelection.category = {
+          selectedIds: newSelectedIds as Set<string>,
+          source: state.reactiveSelection[type].source,
+        };
+      } else {
+        state.reactiveSelection.cluster = {
+          selectedIds: newSelectedIds as Set<number | string>,
+          source: state.reactiveSelection[type].source,
+        };
+      }
     },
 
     clearReactiveSelection: (state, action: PayloadAction<'category' | 'cluster'>) => {
       const type = action.payload;
 
-      // Replace entire parent object with empty state - use type assertion
-      state.reactiveSelection[type] = {
-        selectedIds: new Set() as any,
-        source: null,
-      };
+      // Replace entire parent object with empty state
+      if (type === 'category') {
+        state.reactiveSelection.category = {
+          selectedIds: new Set<string>(),
+          source: null,
+        };
+      } else {
+        state.reactiveSelection.cluster = {
+          selectedIds: new Set<number | string>(),
+          source: null,
+        };
+      }
     },
 
     // Highlighting action

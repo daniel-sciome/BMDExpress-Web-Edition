@@ -75,8 +75,8 @@ export default function PathwayCurveViewer({ projectId, resultName }: PathwayCur
 
         console.log('[PathwayCurveViewer] Loaded curves:', allCurves.length);
         setCurveData(allCurves);
-      } catch (err: any) {
-        setError(`Failed to load curve data: ${err.message}`);
+      } catch (err: unknown) {
+        setError(`Failed to load curve data: ${err instanceof Error ? err.message : String(err)}`);
         console.error('Error loading curve data:', err);
       } finally {
         setLoadingCurves(false);

@@ -58,8 +58,8 @@ export default function VennDiagram({ projectId, availableResults, selectedResul
       setError(null);
       const data = await CategoryResultsService.getVennDiagramData(projectId, selectedResults);
       setVennData(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to generate Venn diagram');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to generate Venn diagram');
       console.error('Error generating Venn diagram:', err);
     } finally {
       setLoading(false);
@@ -315,8 +315,8 @@ export default function VennDiagram({ projectId, availableResults, selectedResul
       window.URL.revokeObjectURL(url);
 
       console.log(`[VennDiagram] Exported to ${filename}`);
-    } catch (err: any) {
-      setError(err.message || 'Failed to export to Excel');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to export to Excel');
       console.error('Error exporting to Excel:', err);
     }
   };

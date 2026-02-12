@@ -27,13 +27,13 @@ import { getUnselectedOpacity, SELECTED_STYLE } from './displayModeConfig';
 export function applyReactiveStyles<T>(
   data: T[],
   idField: keyof T,
-  selectedIds: Set<any>,
+  selectedIds: Set<string | number>,
   mode: ReactiveStyleMode = 'dim'
 ): ReactiveStyleProps[] {
   const hasSelection = selectedIds.size > 0;
 
   return data.map((item) => {
-    const id = item[idField];
+    const id = item[idField] as unknown as string | number;
     const isSelected = selectedIds.has(id);
 
     if (!hasSelection) {
@@ -73,8 +73,8 @@ export function applyReactiveStyles<T>(
  * @returns Opacity value (0-1)
  */
 export function getReactiveOpacity(
-  id: any,
-  selectedIds: Set<any>,
+  id: string | number,
+  selectedIds: Set<string | number>,
   mode: ReactiveStyleMode = 'dim'
 ): number {
   const hasSelection = selectedIds.size > 0;
@@ -95,8 +95,8 @@ export function getReactiveOpacity(
  * @returns Color string
  */
 export function getReactiveColor(
-  id: any,
-  selectedIds: Set<any>,
+  id: string | number,
+  selectedIds: Set<string | number>,
   baseColor: string,
   highlightColor?: string
 ): string {
@@ -121,8 +121,8 @@ export function getReactiveColor(
  * @returns Marker size
  */
 export function getReactiveMarkerSize(
-  id: any,
-  selectedIds: Set<any>,
+  id: string | number,
+  selectedIds: Set<string | number>,
   baseSize: number,
   highlightSize?: number
 ): number {
@@ -148,8 +148,8 @@ export function getReactiveMarkerSize(
  * @returns Plotly marker style object
  */
 export function createReactiveMarker(
-  id: any,
-  selectedIds: Set<any>,
+  id: string | number,
+  selectedIds: Set<string | number>,
   baseColor: string,
   baseSize: number = 8,
   mode: ReactiveStyleMode = 'dim'

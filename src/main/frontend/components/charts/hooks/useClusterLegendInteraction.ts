@@ -31,21 +31,23 @@
 
 import { useCallback } from 'react';
 import { useNonSelectedDisplayMode } from './useNonSelectedDisplayMode';
+import type { SelectionSource } from 'Frontend/types/reactiveTypes';
+import type { LegendClickEvent, Data as PlotlyData } from 'plotly.js';
 
 /** Type for the return value of useReactiveState hook */
 export interface ReactiveStateReturn {
-  selectedIds: Set<any>;
-  source: string | null;
-  isSelected: (id: any) => boolean;
+  selectedIds: Set<string | number>;
+  source: SelectionSource;
+  isSelected: (id: string | number) => boolean;
   isAnythingSelected: boolean;
-  handleSelect: (id: any, isMultiSelect: boolean, source: string) => void;
-  handleMultiSelect: (ids: any[], source: string) => void;
+  handleSelect: (id: string | number, isMultiSelect: boolean, source: SelectionSource) => void;
+  handleMultiSelect: (ids: (string | number)[], source: SelectionSource) => void;
   handleClear: () => void;
 }
 
 export interface ClusterLegendInteractionConfig<T = any> {
   /** Plotly traces array */
-  traces: any[];
+  traces: PlotlyData[];
 
   /** Reactive state for category selection */
   categoryState: ReactiveStateReturn;
@@ -60,7 +62,7 @@ export interface ClusterLegendInteractionConfig<T = any> {
   getCategoryId: (row: T) => string | undefined;
 
   /** Optional: source name for logging (default: 'chart') */
-  sourceName?: string;
+  sourceName?: SelectionSource;
 
   /** Optional: special handler for specific legend items (e.g., Reference Space, Outliers) */
   specialLegendHandlers?: {
@@ -92,7 +94,7 @@ export function useClusterLegendInteraction<T = any>(
    * Handle legend click events
    * Implements the standard cluster selection behavior
    */
-  const handleLegendClick = useCallback((event: any) => {
+  const handleLegendClick = useCallback((event: Readonly<LegendClickEvent>) => {
     if (!event || event.curveNumber === undefined) {
       return false;
     }
