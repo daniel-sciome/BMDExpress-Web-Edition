@@ -20,7 +20,7 @@ import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useBmdMetric } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
 import { getClusterIdForCategory, getClusterColor } from './utils/clusterColors';
-import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { useChartAppearance } from './hooks/useChartAppearance';
 
 const { Text } = Typography;
 
@@ -47,6 +47,7 @@ export default function ClusterScatterPlot({
   initialLinkageMethod = 'average',
 }: ClusterScatterPlotProps) {
   const [linkageMethod, setLinkageMethod] = useState<LinkageMethod>(initialLinkageMethod);
+  const { applyToLayout, getConfig } = useChartAppearance();
 
   // BMD metric selection (base fixed to 'bmd', stat selectable)
   const { stat, setStat, label: metricLabel, getValueWithFallback } = useBmdMetric();
@@ -190,7 +191,7 @@ export default function ClusterScatterPlot({
     );
   }
 
-  const layout: any = {
+  const layout: any = applyToLayout({
     title: {
       text: `Gene Clusters: BMD by Cluster (${categoryCount} categories, ${uniqueClusterIds.length} clusters)`,
       font: { size: 16 },
@@ -199,7 +200,6 @@ export default function ClusterScatterPlot({
       title: { text: metricLabel },
       type: 'log',
       autorange: true,
-      gridcolor: DEFAULT_GRID_COLOR,
     },
     yaxis: {
       title: { text: 'Gene Cluster ID' },
@@ -207,15 +207,13 @@ export default function ClusterScatterPlot({
       tickvals: uniqueClusterIds,
       ticktext: uniqueClusterIds.map(id => `Cluster ${id}`),
       range: yAxisRange,
-      gridcolor: DEFAULT_GRID_COLOR,
     },
     height: Math.max(400, uniqueClusterIds.length * 80 + 150),
     hovermode: 'closest',
-    ...DEFAULT_LAYOUT_STYLES,
     showlegend: false,
-  };
+  });
 
-  const config = createPlotlyConfig();
+  const config = getConfig('cluster_scatter_plot');
 
   return (
     <div style={{ width: '100%' }}>

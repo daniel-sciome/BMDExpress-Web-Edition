@@ -15,7 +15,7 @@ import { useReactiveState } from './hooks/useReactiveState';
 import { useBmdMetric } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterIdForCategory, getClusterLabel } from './utils/clusterColors';
-import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { useChartAppearance } from './hooks/useChartAppearance';
 
 const { Text } = Typography;
 
@@ -23,6 +23,7 @@ export default function BubbleChart() {
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const clusterColors = useClusterColors();
+  const { applyToLayout, getConfig } = useChartAppearance();
   const hasSelection = categoryState.selectedIds.size > 0;
 
   // BMD metric selection (base fixed to 'bmd', stat selectable)
@@ -203,7 +204,7 @@ export default function BubbleChart() {
     );
   }
 
-  const layout: any = {
+  const layout: any = applyToLayout({
     title: {
       text: `Bubble Chart: ${metricLabel} vs Fisher P-Value (size = % genes)`,
       font: { size: 16 },
@@ -212,18 +213,15 @@ export default function BubbleChart() {
       title: { text: metricLabel },
       type: 'log',
       autorange: true,
-      gridcolor: DEFAULT_GRID_COLOR,
     },
     yaxis: {
       title: { text: '-log10(Fisher Two-Tail P-Value)' },
       autorange: true,
-      gridcolor: DEFAULT_GRID_COLOR,
     },
     height: 600,
     hovermode: 'closest',
-    ...DEFAULT_LAYOUT_STYLES,
     showlegend: false,
-  };
+  });
 
   return (
     <div style={{ width: '100%' }}>
@@ -239,7 +237,7 @@ export default function BubbleChart() {
       <Plot
         data={plotData}
         layout={layout}
-        config={createPlotlyConfig()}
+        config={getConfig('bubble_chart')}
         style={{ width: '100%', height: '100%' }}
         useResizeHandler={true}
         onClick={handlePlotClick}

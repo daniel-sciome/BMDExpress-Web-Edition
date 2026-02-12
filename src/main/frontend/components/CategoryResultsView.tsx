@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card, Radio, Button, Typography, Tabs, Drawer, Divider } from 'antd';
-import { FileTextOutlined, InfoCircleOutlined, LineChartOutlined, EyeOutlined, DatabaseOutlined, AppstoreOutlined, MinusSquareOutlined, PlusOutlined, EditOutlined, SettingOutlined } from '@ant-design/icons';
+import { FileTextOutlined, InfoCircleOutlined, LineChartOutlined, EyeOutlined, DatabaseOutlined, AppstoreOutlined, MinusSquareOutlined, PlusOutlined, EditOutlined, SettingOutlined, FormatPainterOutlined } from '@ant-design/icons';
 import { Icon } from '@vaadin/react-components';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { loadCategoryResultsWithRenderState, loadAnalysisParameters, setAnalysisType } from '../store/slices/categoryResultsSlice';
@@ -36,6 +36,7 @@ import type { BmdStatType } from './charts/utils/bmdMetricConfig';
 import { getAnalysisTypeDisplayName } from '../utils/analysisTypeConfig';
 import ChartConfigEditor from './charts/ChartConfigEditor';
 import ConfigurableChart from './charts/ConfigurableChart';
+import AppearancePanel from './charts/appearance/AppearancePanel';
 import {
   saveConfiguration,
   selectUserConfigurations,
@@ -906,6 +907,14 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
             </Tooltip>
           </>
         )}
+        <Tooltip title="Chart Appearance" placement="right">
+          <Button
+            type={activePanel === 'appearance' ? 'primary' : 'text'}
+            icon={<FormatPainterOutlined />}
+            onClick={() => setActivePanel(activePanel === 'appearance' ? null : 'appearance')}
+            size="small"
+          />
+        </Tooltip>
         {/* Divider */}
         <div style={{ borderTop: '1px solid #d9d9d9', margin: '4px 0' }} />
         <Tooltip title="Collapse All Charts" placement="right">
@@ -924,7 +933,8 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           activePanel === 'datasets' ? 'Datasets' :
           activePanel === 'parameters' ? 'Analysis Parameters' :
           activePanel === 'charts' ? 'Chart Selection' :
-          activePanel === 'clusters' ? 'Cluster Picker' : ''
+          activePanel === 'clusters' ? 'Cluster Picker' :
+          activePanel === 'appearance' ? 'Chart Appearance' : ''
         }
         placement="right"
         open={activePanel !== null}
@@ -1137,6 +1147,11 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {/* Clusters Panel */}
         {activePanel === 'clusters' && (
           <ClusterPicker />
+        )}
+
+        {/* Appearance Panel */}
+        {activePanel === 'appearance' && (
+          <AppearancePanel />
         )}
       </Drawer>
 

@@ -6,7 +6,7 @@ import { useFocusAwareStyling } from 'Frontend/components/charts/hooks/useFocusA
 import { useBmdMetricTriple } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
-import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { useChartAppearance } from './hooks/useChartAppearance';
 import { computeTopNRanked } from './utils/topNFilter';
 
 const { Text } = Typography;
@@ -14,6 +14,7 @@ const { Text } = Typography;
 export default function AccumulationCharts() {
   // Get ALL data with inFocus state using shared hook
   const { data: allData, displayMode, getPointStyle } = useFocusAwareStyling();
+  const { applyToLayout, getConfig } = useChartAppearance();
 
   // Get selection state using reactive infrastructure
   const categoryState = useReactiveState('categoryId');
@@ -174,7 +175,7 @@ export default function AccumulationCharts() {
 
       return {
         data: traces,
-        layout: {
+        layout: applyToLayout({
           title: {
             text: config.title,
             font: { size: 14 },
@@ -183,22 +184,19 @@ export default function AccumulationCharts() {
             title: { text: config.xAxisLabel },
             type: useLogScale ? 'log' : 'linear',
             ...(useLogScale ? { range: xAxisRange } : { autorange: true }),
-            gridcolor: DEFAULT_GRID_COLOR,
           },
           yaxis: {
             title: { text: 'Cumulative Percentage (%)' },
             range: [0, 100],
-            gridcolor: DEFAULT_GRID_COLOR,
           },
           height: 400,
           margin: { l: 70, r: 50, t: 50, b: 50 },
-          ...DEFAULT_LAYOUT_STYLES,
           showlegend: false,
-        },
-        config: createPlotlyConfig(),
+        }),
+        config: getConfig('accumulation_charts'),
       };
     }).filter(chart => chart !== null) as any[];
-  }, [allData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, bmd, bmdl, bmdu, useLogScale]);
+  }, [allData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, bmd, bmdl, bmdu, useLogScale, applyToLayout, getConfig]);
 
   if (!allData || allData.length === 0) {
     return (

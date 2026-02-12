@@ -15,7 +15,7 @@ import { useReactiveState } from './hooks/useReactiveState';
 import { useBmdMetricTriple } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterIdForCategory, getClusterLabel } from './utils/clusterColors';
-import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES } from './utils/plotlyConfig';
+import { useChartAppearance } from './hooks/useChartAppearance';
 import type { BmdStatType } from './utils/bmdMetricConfig';
 
 const { Text } = Typography;
@@ -43,6 +43,7 @@ function deterministicJitter(key: string, salt: number = 0): number {
 
 export default function BMDBoxPlot({ stat: externalStat, hideControls = false }: BMDBoxPlotProps) {
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
+  const { applyToLayout, getConfig } = useChartAppearance();
   const categoryState = useReactiveState('categoryId');
   const [useFixedScale, setUseFixedScale] = useState(true);
   const [useLogScale, setUseLogScale] = useState(true);
@@ -292,12 +293,11 @@ export default function BMDBoxPlot({ stat: externalStat, hideControls = false }:
       <div style={{ width: '100%', height: '500px' }}>
         <Plot
           data={traces}
-          layout={{
+          layout={applyToLayout({
             title: `BMD Distribution (Colored by Cluster)<br><sub>${subtitle}</sub>`,
             yaxis: {
               title: { text: 'Dose Value' },
               type: useLogScale ? 'log' : 'linear',
-              gridcolor: '#e0e0e0',
               ...(useFixedScale && yAxisRange && !useLogScale ? { range: yAxisRange } : { autorange: true }),
             },
             xaxis: {
@@ -306,12 +306,11 @@ export default function BMDBoxPlot({ stat: externalStat, hideControls = false }:
               tickvals: [0, 1, 2],
               ticktext: [bmd.label, bmdl.label, bmdu.label],
             },
-            ...DEFAULT_LAYOUT_STYLES,
             margin: { l: 60, r: 30, t: 80, b: 60 },
             showlegend: false,
             boxmode: 'overlay',
-          } as any}
-          config={createPlotlyConfigWithExport('bmd_box_plot')}
+          }) as any}
+          config={getConfig('bmd_box_plot')}
           style={{ width: '100%', height: '100%' }}
         />
       </div>

@@ -20,7 +20,7 @@ import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useBmdMetric } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
 import { getClusterIdForCategory, getClusterColor } from './utils/clusterColors';
-import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { useChartAppearance } from './hooks/useChartAppearance';
 
 const { Text } = Typography;
 
@@ -33,6 +33,7 @@ export default function ClusterHeatmap({
   initialLinkageMethod = 'average',
 }: ClusterHeatmapProps) {
   const [linkageMethod, setLinkageMethod] = useState<LinkageMethod>(initialLinkageMethod);
+  const { applyToLayout, getConfig } = useChartAppearance();
 
   // BMD metric selection (base fixed to 'bmd', stat selectable)
   const { stat, setStat, label: metricLabel, getValueWithFallback } = useBmdMetric();
@@ -145,7 +146,7 @@ export default function ClusterHeatmap({
     );
   }
 
-  const layout: any = {
+  const layout: any = applyToLayout({
     title: {
       text: `Gene Cluster Distribution (${categoryCount} categories, ${uniqueClusterIds.length} clusters)`,
       font: { size: 16 },
@@ -154,21 +155,18 @@ export default function ClusterHeatmap({
       title: { text: metricLabel },
       type: 'log',
       autorange: true,
-      gridcolor: DEFAULT_GRID_COLOR,
     },
     yaxis: {
       title: { text: 'Count' },
-      gridcolor: DEFAULT_GRID_COLOR,
     },
     barmode: 'stack',
     height: 500,
     margin: { l: 60, r: 50, t: 60, b: 60 },
     hovermode: 'closest',
-    ...DEFAULT_LAYOUT_STYLES,
     showlegend: false,
-  };
+  });
 
-  const config = createPlotlyConfig();
+  const config = getConfig('cluster_heatmap');
 
   return (
     <div style={{ width: '100%' }}>

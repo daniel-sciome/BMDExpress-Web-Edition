@@ -21,13 +21,14 @@ import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useBmdMetricPair } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
-import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { useChartAppearance } from './hooks/useChartAppearance';
 
 const { Text } = Typography;
 
 export default function BMDvsBMDLScatter() {
   // Get ALL data with inFocus state using shared hook
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
+  const { applyToLayout, getConfig } = useChartAppearance();
   const clusterColors = useClusterColors();
   const categoryState = useReactiveState('categoryId');
   const [useLogX, setUseLogX] = useState(true);
@@ -234,8 +235,7 @@ export default function BMDvsBMDLScatter() {
 
       <Plot
         data={traces}
-        layout={{
-          ...DEFAULT_LAYOUT_STYLES,
+        layout={applyToLayout({
           title: {
             text: `BMD vs BMDL Scatter Plot (${statLabel})`,
             font: { size: 14 }
@@ -244,22 +244,20 @@ export default function BMDvsBMDLScatter() {
             title: { text: bmdMetric.label },
             type: xAxisConfig.type,
             range: xAxisConfig.range,
-            gridcolor: DEFAULT_GRID_COLOR,
             showgrid: true,
           },
           yaxis: {
             title: { text: bmdlMetric.label },
             type: yAxisConfig.type,
             range: yAxisConfig.range,
-            gridcolor: DEFAULT_GRID_COLOR,
             showgrid: true,
           },
           height: 600,
           margin: { l: 80, r: 50, t: 80, b: 80 },
           hovermode: 'closest',
           showlegend: false,
-        } as any}
-        config={createPlotlyConfig() as any}
+        }) as any}
+        config={getConfig('bmd_vs_bmdl_scatter') as any}
         style={{ width: '100%', height: '100%' }}
         useResizeHandler={true}
       />

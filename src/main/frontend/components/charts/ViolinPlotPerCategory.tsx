@@ -20,7 +20,7 @@ import { useReactiveState } from './hooks/useReactiveState';
 import { useBmdMetric } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
 import { getClusterIdForCategory, getClusterColor } from './utils/clusterColors';
-import { createPlotlyConfigWithExport, DEFAULT_LAYOUT_STYLES } from './utils/plotlyConfig';
+import { useChartAppearance } from './hooks/useChartAppearance';
 import { parseSemicolonNumericList } from 'Frontend/utils/dtoParsingUtils';
 import { computeTopNRanked } from './utils/topNFilter';
 import type { BmdBaseType } from './utils/bmdMetricConfig';
@@ -30,6 +30,7 @@ const { Text } = Typography;
 
 export default function ViolinPlotPerCategory() {
   const { data, displayMode } = useFocusAwareStyling();
+  const { applyToLayout, getConfig } = useChartAppearance();
   const categoryState = useReactiveState('categoryId');
   const [selectedBase, setSelectedBase] = useState<BmdBaseType>('bmd');
   const [useLogScale, setUseLogScale] = useState(true);
@@ -298,7 +299,7 @@ export default function ViolinPlotPerCategory() {
 
       <Plot
         data={violinData}
-        layout={{
+        layout={applyToLayout({
           title: {
             text: `${selectedBase.toUpperCase()} Gene Distribution by Category (${numCategories === Infinity ? 'All' : `${numCategories} Lowest by ${metricLabel}`})`,
             font: { size: 14 },
@@ -308,22 +309,20 @@ export default function ViolinPlotPerCategory() {
             type: useLogScale ? 'log' : 'linear',
             autorange: true,
             showgrid: true,
-            gridcolor: '#d0d0d0',
             gridwidth: 1,
           },
           yaxis: {
             title: { text: '' },
             showticklabels: false,
             ticklen: 0,
-            range: [yTickVals.length - 0.5, -0.5],  // Reversed so lowest BMD is at top
+            range: [yTickVals.length - 0.5, -0.5],
           },
           annotations: yAxisAnnotations,
           autosize: true,
           margin: { l: 280, r: 50, t: 80, b: 60 },
-          ...DEFAULT_LAYOUT_STYLES,
           showlegend: false,
-        } as any}
-        config={createPlotlyConfigWithExport('violin_plot_per_category', 'wide') as any}
+        }) as any}
+        config={getConfig('violin_plot_per_category') as any}
         style={{ width: '100%', height: `${Math.max(300, yTickVals.length * 80 + 140)}px` }}
         useResizeHandler={true}
       />

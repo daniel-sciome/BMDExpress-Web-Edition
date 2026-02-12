@@ -15,7 +15,7 @@ import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import Plot from 'react-plotly.js';
 import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { useNonSelectedDisplayMode } from './hooks/useNonSelectedDisplayMode';
-import { createPlotlyConfig, DEFAULT_LAYOUT_STYLES, DEFAULT_GRID_COLOR } from './utils/plotlyConfig';
+import { useChartAppearance } from './hooks/useChartAppearance';
 import { useAppSelector } from '../../store/hooks';
 import { applyPrimaryFilters } from '../../utils/applyPrimaryFilters';
 
@@ -34,6 +34,7 @@ export default function AccumulationChartsComparison({
   selectedResults,
   analysisType
 }: AccumulationChartsComparisonProps) {
+  const { applyToLayout, getConfig } = useChartAppearance();
   const [comparisonData, setComparisonData] = useState<any>(null);
   const [resultDisplayNames, setResultDisplayNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -331,7 +332,7 @@ export default function AccumulationChartsComparison({
 
       return {
         data: traces,
-        layout: {
+        layout: applyToLayout({
           title: {
             text: config.title,
             font: { size: 14 },
@@ -340,28 +341,25 @@ export default function AccumulationChartsComparison({
             title: { text: 'BMD Value' },
             type: 'log',
             range: xAxisRange,
-            gridcolor: DEFAULT_GRID_COLOR,
           },
           yaxis: {
             title: { text: 'Cumulative Percentage (%)' },
             range: [0, 100],
-            gridcolor: DEFAULT_GRID_COLOR,
           },
           height: 400,
           margin: { l: 70, r: 50, t: 50, b: 50 },
-          ...DEFAULT_LAYOUT_STYLES,
-          showlegend: true, // Show cluster legend
+          showlegend: true,
           legend: {
             x: 1.02,
             xanchor: 'left',
             y: 1,
             yanchor: 'top',
           },
-        } as any,
-        config: createPlotlyConfig() as any,
+        }) as any,
+        config: getConfig('accumulation_comparison') as any,
       };
     }).filter(chart => chart !== null);
-  }, [comparisonData, clusterColors, markerSymbols, resultDisplayNames, hasSelection, selectedCluster, nonSelectedDisplayMode]);
+  }, [comparisonData, clusterColors, markerSymbols, resultDisplayNames, hasSelection, selectedCluster, nonSelectedDisplayMode, applyToLayout, getConfig]);
 
   return (
     <div style={{ width: '100%' }}>
