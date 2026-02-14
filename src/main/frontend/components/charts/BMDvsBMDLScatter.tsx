@@ -25,10 +25,10 @@ import { useChartAppearance } from './hooks/useChartAppearance';
 
 const { Text } = Typography;
 
-export default function BMDvsBMDLScatter() {
+export default function BMDvsBMDLScatter({ chartId }: { chartId?: string }) {
   // Get ALL data with inFocus state using shared hook
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
-  const { applyToLayout, getConfig } = useChartAppearance();
+  const { applyToLayout, getConfig } = useChartAppearance(chartId);
   const clusterColors = useClusterColors();
   const categoryState = useReactiveState('categoryId');
   const [useLogX, setUseLogX] = useState(true);
@@ -233,34 +233,36 @@ export default function BMDvsBMDLScatter() {
         </Space>
       </div>
 
-      <Plot
-        data={traces}
-        layout={applyToLayout({
-          title: {
-            text: `BMD vs BMDL Scatter Plot (${statLabel})`,
-            font: { size: 14 }
-          },
-          xaxis: {
-            title: { text: bmdMetric.label },
-            type: xAxisConfig.type,
-            range: xAxisConfig.range,
-            showgrid: true,
-          },
-          yaxis: {
-            title: { text: bmdlMetric.label },
-            type: yAxisConfig.type,
-            range: yAxisConfig.range,
-            showgrid: true,
-          },
-          height: 600,
-          margin: { l: 80, r: 50, t: 80, b: 80 },
-          hovermode: 'closest',
-          showlegend: false,
-        }) as any}
-        config={getConfig('bmd_vs_bmdl_scatter') as any}
-        style={{ width: '100%', height: '100%' }}
-        useResizeHandler={true}
-      />
+      <div style={{ width: '100%', aspectRatio: '2/1' }}>
+        <Plot
+          data={traces}
+          layout={applyToLayout({
+            title: {
+              text: `BMD vs BMDL Scatter Plot (${statLabel})`,
+              font: { size: 14 }
+            },
+            xaxis: {
+              title: { text: bmdMetric.label },
+              type: xAxisConfig.type,
+              range: xAxisConfig.range,
+              showgrid: true,
+            },
+            yaxis: {
+              title: { text: bmdlMetric.label },
+              type: yAxisConfig.type,
+              range: yAxisConfig.range,
+              showgrid: true,
+            },
+            height: 600,
+            margin: { l: 80, r: 50, t: 80, b: 80 },
+            hovermode: 'closest',
+            showlegend: false,
+          }) as any}
+          config={getConfig('bmd_vs_bmdl_scatter') as any}
+          style={{ width: '100%', height: '100%' }}
+          useResizeHandler={true}
+        />
+      </div>
 
       <div style={{ marginTop: '1rem', fontSize: '0.9em', color: '#666' }}>
         <p><strong>About this scatter plot:</strong></p>

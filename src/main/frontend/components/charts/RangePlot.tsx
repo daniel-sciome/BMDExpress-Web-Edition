@@ -24,11 +24,11 @@ const { Text } = Typography;
 
 const TOP_N_OPTIONS = [10, 20, 50, 100, 200, 'All'] as const;
 
-export default function RangePlot() {
+export default function RangePlot({ chartId }: { chartId?: string }) {
   const { data, displayMode, getPointStyle } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const clusterColors = useClusterColors();
-  const { applyToLayout, getConfig } = useChartAppearance();
+  const { applyToLayout, getConfig } = useChartAppearance(chartId);
   const hasSelection = categoryState.selectedIds.size > 0;
   const [topN, setTopN] = useState<number | 'All'>(20);
   const [useLogScale, setUseLogScale] = useState(true);

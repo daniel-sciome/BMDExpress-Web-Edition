@@ -19,11 +19,11 @@ import { useChartAppearance } from './hooks/useChartAppearance';
 
 const { Text } = Typography;
 
-export default function BubbleChart() {
+export default function BubbleChart({ chartId }: { chartId?: string }) {
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const clusterColors = useClusterColors();
-  const { applyToLayout, getConfig } = useChartAppearance();
+  const { applyToLayout, getConfig } = useChartAppearance(chartId);
   const hasSelection = categoryState.selectedIds.size > 0;
 
   // BMD metric selection (base fixed to 'bmd', stat selectable)
@@ -234,14 +234,16 @@ export default function BubbleChart() {
       </div>
 
       {/* Chart */}
-      <Plot
-        data={plotData}
-        layout={layout}
-        config={getConfig('bubble_chart')}
-        style={{ width: '100%', height: '100%' }}
-        useResizeHandler={true}
-        onClick={handlePlotClick}
-      />
+      <div style={{ width: '100%', aspectRatio: '2/1' }}>
+        <Plot
+          data={plotData}
+          layout={layout}
+          config={getConfig('bubble_chart')}
+          style={{ width: '100%', height: '100%' }}
+          useResizeHandler={true}
+          onClick={handlePlotClick}
+        />
+      </div>
     </div>
   );
 }

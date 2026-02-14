@@ -6,10 +6,11 @@ import { useChartAppearance } from './hooks/useChartAppearance';
 interface BestModelsPieChartProps {
   projectId: string;
   resultName: string;
+  chartId?: string;
 }
 
-export default function BestModelsPieChart({ projectId, resultName }: BestModelsPieChartProps) {
-  const { applyToLayout, getConfig } = useChartAppearance();
+export default function BestModelsPieChart({ projectId, resultName, chartId }: BestModelsPieChartProps) {
+  const { applyToLayout, getConfig } = useChartAppearance(chartId);
   const [plotData, setPlotData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -99,7 +100,7 @@ export default function BestModelsPieChart({ projectId, resultName }: BestModels
   const config = getConfig('best_models_pie_chart');
 
   return (
-    <div style={{ width: '100%' }}>
+    <div style={{ width: '100%', aspectRatio: '2/1' }}>
       <Plot
         data={plotData}
         layout={layout}

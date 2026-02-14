@@ -13,18 +13,21 @@ import { useFocusAwareStyling } from 'Frontend/components/charts/hooks/useFocusA
 import { umapDataService } from 'Frontend/data/umapDataService';
 import { useClusterColors } from './utils/clusterColors';
 import { createPlotlyConfig } from './utils/plotlyConfig';
+import { useChartAppearance } from './hooks/useChartAppearance';
 import type { ReferenceUmapItem } from 'Frontend/data/referenceUmapData';
 
 interface UmapScatterPlotProps {
   height?: number;
+  chartId?: string;
 }
 
-export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) {
+export default function UmapScatterPlot({ height = 600, chartId }: UmapScatterPlotProps) {
   // Use reactive state hook - UMAP reacts to category selections
   const categoryState = useReactiveState('categoryId');
 
   // Get ALL data with inFocus state and displayMode from shared hook
   const { data: allCategories, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
+  const { applyToLayout: applyAppearance } = useChartAppearance(chartId);
 
   // Reference space visibility toggle
   const [showReference, setShowReference] = useState<boolean>(true);
@@ -231,7 +234,7 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
   }, [categoryState]);
 
   // Layout configuration
-  const layout: any = {
+  const layout: any = applyAppearance({
     title: { text: 'GO Term UMAP Embedding Space' },
     xaxis: {
       title: 'UMAP 1',
@@ -246,7 +249,7 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
     dragmode: 'lasso' as const,
     showlegend: false,
     margin: { l: 60, r: 60, t: 80, b: 60 },
-  };
+  });
 
   // Config for Plotly
   const config = createPlotlyConfig({
@@ -290,14 +293,17 @@ export default function UmapScatterPlot({ height = 600 }: UmapScatterPlotProps) 
       }
       style={{ marginBottom: 16 }}
     >
-      <Plot
-        data={traces as any}
-        layout={layout}
-        config={config}
-        onSelected={handleSelected}
-        onDeselect={handleDeselect}
-        style={{ width: '100%' }}
-      />
+      <div style={{ width: '100%', aspectRatio: '2/1' }}>
+        <Plot
+          data={traces as any}
+          layout={layout}
+          config={config}
+          onSelected={handleSelected}
+          onDeselect={handleDeselect}
+          style={{ width: '100%', height: '100%' }}
+          useResizeHandler={true}
+        />
+      </div>
 
       <div style={{ marginTop: 16, fontSize: '12px', color: '#666' }}>
         <p>

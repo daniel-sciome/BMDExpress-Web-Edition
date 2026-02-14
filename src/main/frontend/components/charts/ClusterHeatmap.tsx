@@ -27,13 +27,16 @@ const { Text } = Typography;
 interface ClusterHeatmapProps {
   /** Initial linkage method */
   initialLinkageMethod?: LinkageMethod;
+  /** Chart ID for per-chart appearance overrides */
+  chartId?: string;
 }
 
 export default function ClusterHeatmap({
   initialLinkageMethod = 'average',
+  chartId,
 }: ClusterHeatmapProps) {
   const [linkageMethod, setLinkageMethod] = useState<LinkageMethod>(initialLinkageMethod);
-  const { applyToLayout, getConfig } = useChartAppearance();
+  const { applyToLayout, getConfig } = useChartAppearance(chartId);
   const clusterColors = useClusterColors();
 
   // BMD metric selection (base fixed to 'bmd', stat selectable)
@@ -194,13 +197,15 @@ export default function ClusterHeatmap({
       </div>
 
       {/* Chart */}
-      <Plot
-        data={plotData}
-        layout={layout}
-        config={config}
-        style={{ width: '100%' }}
-        useResizeHandler={true}
-      />
+      <div style={{ width: '100%', aspectRatio: '2/1' }}>
+        <Plot
+          data={plotData}
+          layout={layout}
+          config={config}
+          style={{ width: '100%', height: '100%' }}
+          useResizeHandler={true}
+        />
+      </div>
     </div>
   );
 }

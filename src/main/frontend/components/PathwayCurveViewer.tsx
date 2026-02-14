@@ -10,9 +10,10 @@ import { selectFilteredData } from 'Frontend/store/slices/categoryResultsSlice';
 interface PathwayCurveViewerProps {
   projectId: string;
   resultName: string;
+  chartId?: string;
 }
 
-export default function PathwayCurveViewer({ projectId, resultName }: PathwayCurveViewerProps) {
+export default function PathwayCurveViewer({ projectId, resultName, chartId }: PathwayCurveViewerProps) {
   // Phase 4: Use reactive state hook - reacts to category selections
   const categoryState = useReactiveState('categoryId');
 
@@ -130,7 +131,7 @@ export default function PathwayCurveViewer({ projectId, resultName }: PathwayCur
       {/* Curve Plot */}
       {!loadingCurves && curveData.length > 0 && (
         <div style={{ marginTop: '1rem' }}>
-          <DoseResponseCurveChart curves={curveData} selectedCategories={selectedCategories} />
+          <DoseResponseCurveChart curves={curveData} selectedCategories={selectedCategories} chartId={chartId} />
         </div>
       )}
 

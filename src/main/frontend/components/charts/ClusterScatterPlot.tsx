@@ -41,13 +41,16 @@ function deterministicJitter(key: string, salt: number = 0): number {
 interface ClusterScatterPlotProps {
   /** Initial linkage method */
   initialLinkageMethod?: LinkageMethod;
+  /** Chart ID for per-chart appearance overrides */
+  chartId?: string;
 }
 
 export default function ClusterScatterPlot({
   initialLinkageMethod = 'average',
+  chartId,
 }: ClusterScatterPlotProps) {
   const [linkageMethod, setLinkageMethod] = useState<LinkageMethod>(initialLinkageMethod);
-  const { applyToLayout, getConfig } = useChartAppearance();
+  const { applyToLayout, getConfig } = useChartAppearance(chartId);
   const clusterColors = useClusterColors();
 
   // BMD metric selection (base fixed to 'bmd', stat selectable)
@@ -241,13 +244,15 @@ export default function ClusterScatterPlot({
       </div>
 
       {/* Chart */}
-      <Plot
-        data={plotData}
-        layout={layout}
-        config={config}
-        style={{ width: '100%' }}
-        useResizeHandler={true}
-      />
+      <div style={{ width: '100%', aspectRatio: '2/1' }}>
+        <Plot
+          data={plotData}
+          layout={layout}
+          config={config}
+          style={{ width: '100%', height: '100%' }}
+          useResizeHandler={true}
+        />
+      </div>
     </div>
   );
 }

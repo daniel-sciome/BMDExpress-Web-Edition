@@ -75,7 +75,7 @@ export default function ConfigurableChart({
 }: ConfigurableChartProps) {
   // Get data and styling from shared hooks
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
-  const { applyToLayout, getConfig } = useChartAppearance();
+  const { applyToLayout, getConfig } = useChartAppearance(config.id);
   const clusterColors = useClusterColors();
   const categoryState = useReactiveState('categoryId');
 
@@ -208,14 +208,16 @@ export default function ConfigurableChart({
       )}
 
       {/* Chart */}
-      <Plot
-        data={traces}
-        layout={layout}
-        config={getConfig('configurable_chart')}
-        style={{ width: '100%', height: '100%' }}
-        useResizeHandler={true}
-        onClick={handlePlotClick}
-      />
+      <div style={{ width: '100%', aspectRatio: '2/1' }}>
+        <Plot
+          data={traces}
+          layout={layout}
+          config={getConfig('configurable_chart')}
+          style={{ width: '100%', height: '100%' }}
+          useResizeHandler={true}
+          onClick={handlePlotClick}
+        />
+      </div>
     </div>
   );
 }

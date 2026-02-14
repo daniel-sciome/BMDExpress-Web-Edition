@@ -28,9 +28,9 @@ import type { BmdBaseType } from './utils/bmdMetricConfig';
 const { Option } = Select;
 const { Text } = Typography;
 
-export default function ViolinPlotPerCategory() {
+export default function ViolinPlotPerCategory({ chartId }: { chartId?: string }) {
   const { data, displayMode } = useFocusAwareStyling();
-  const { applyToLayout, getConfig } = useChartAppearance();
+  const { applyToLayout, getConfig } = useChartAppearance(chartId);
   const clusterColors = useClusterColors();
   const categoryState = useReactiveState('categoryId');
   const [selectedBase, setSelectedBase] = useState<BmdBaseType>('bmd');
