@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Collapse, Tag, Typography, Switch, Space, Radio, Spin, Tooltip, Checkbox } from 'antd';
-import { EyeOutlined } from '@ant-design/icons';
+import { Collapse, Tag, Typography, Switch, Space, Radio, Spin, Tooltip, Checkbox, Button } from 'antd';
+import { EyeOutlined, FileTextOutlined } from '@ant-design/icons';
 import { getRememberFiltersPreference, setRememberFiltersPreference } from '../utils/filterGroupPersistence';
 import { ProjectService } from 'Frontend/generated/endpoints';
 import type ProjectMetadataDto from 'Frontend/generated/com/sciome/dto/ProjectMetadataDto';
@@ -256,6 +256,23 @@ export default function ProjectTreeSidebar() {
           <FilterGroupList />
         </>
       )}
+
+      {/* Reports link */}
+      <div style={{
+        padding: '12px 16px',
+        marginTop: 8,
+        borderTop: '1px solid #f0f0f0',
+      }}>
+        <Button
+          type="text"
+          icon={<FileTextOutlined />}
+          block
+          style={{ textAlign: 'left' }}
+          onClick={() => { window.location.href = '/report-builder'; }}
+        >
+          Report Builder
+        </Button>
+      </div>
     </div>
   );
 }
