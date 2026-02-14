@@ -8,7 +8,9 @@ import com.vaadin.flow.server.PWA;
 import com.vaadin.flow.theme.Theme;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 @SpringBootApplication
@@ -16,7 +18,16 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @EnableConfigurationProperties({DefaultsConfig.class, ReportConfig.class, LlmConfig.class})
 @Theme("default")
 @PWA(name = "BMDExpress Web", shortName = "BMDExpress")
-public class Application implements AppShellConfigurator {
+public class Application extends SpringBootServletInitializer implements AppShellConfigurator {
+
+    @Override
+    protected SpringApplicationBuilder configure(SpringApplicationBuilder builder) {
+        // Replicate essential setup from main() for WAR deployment
+        com.sciome.bmdexpress2.shared.BMDExpressProperties.getInstance().setIsConsole(true);
+        System.setProperty("vaadin.statistics.enabled", "false");
+        System.setProperty("vaadin.usageStatistics.disabled", "true");
+        return builder.sources(Application.class);
+    }
 
     public static void main(String[] args) {
         // Configure BMDExpress to run in console/headless mode (no GUI components)
