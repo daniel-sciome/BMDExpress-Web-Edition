@@ -12,6 +12,7 @@ import {
 import { DEFAULT_CHART_APPEARANCE } from 'Frontend/types/chartAppearance';
 import type { ChartAppearance, FontConfig } from 'Frontend/types/chartAppearance';
 import { BUILT_IN_THEMES } from './builtInThemes';
+import { COLOR_PALETTES } from './colorPalettes';
 import FontPicker from './FontPicker';
 
 const GRID_STYLES = [
@@ -110,6 +111,30 @@ export default function AppearancePanel() {
     dispatch(updateGlobalAppearance({ legend: { ...appearance.legend, ...patch } }));
   };
 
+  // Determine active palette by matching colorway against known palettes
+  const activePaletteId = (() => {
+    const colorway = appearance.colors?.colorway;
+    if (!colorway || colorway.length === 0) return 'default';
+    for (const palette of COLOR_PALETTES) {
+      if (palette.colors.length === colorway.length &&
+          palette.colors.every((c, i) => c.toLowerCase() === colorway[i].toLowerCase())) {
+        return palette.id;
+      }
+    }
+    return undefined; // Custom / unrecognized palette
+  })();
+
+  const handlePaletteSelect = (paletteId: string) => {
+    if (paletteId === 'default') {
+      dispatch(updateGlobalAppearance({ colors: { ...appearance.colors, colorway: undefined } }));
+    } else {
+      const palette = COLOR_PALETTES.find(p => p.id === paletteId);
+      if (palette) {
+        dispatch(updateGlobalAppearance({ colors: { ...appearance.colors, colorway: palette.colors } }));
+      }
+    }
+  };
+
   const themeOptions = [
     {
       label: 'Built-in',
@@ -127,6 +152,46 @@ export default function AppearancePanel() {
       label: 'Colors',
       children: (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <span style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8 }}>Color Palette</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {COLOR_PALETTES.map(palette => (
+                <div
+                  key={palette.id}
+                  onClick={() => handlePaletteSelect(palette.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '4px 8px',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                    border: activePaletteId === palette.id ? '1px solid #1677ff' : '1px solid #d9d9d9',
+                    background: activePaletteId === palette.id ? '#e6f4ff' : 'transparent',
+                  }}
+                >
+                  <Radio checked={activePaletteId === palette.id} style={{ marginRight: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, marginBottom: 2 }}>{palette.name}</div>
+                    <div style={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {palette.colors.map((color, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            width: 12,
+                            height: 12,
+                            backgroundColor: color,
+                            borderRadius: 1,
+                            border: '1px solid rgba(0,0,0,0.1)',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 12 }}>Paper Background</span>
             <ColorPicker

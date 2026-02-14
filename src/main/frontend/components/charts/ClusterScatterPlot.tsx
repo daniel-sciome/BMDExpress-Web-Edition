@@ -19,7 +19,7 @@ import { useGeneClusteringData, LinkageMethod } from './hooks/useGeneClusteringD
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useBmdMetric } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
-import { getClusterIdForCategory, getClusterColor } from './utils/clusterColors';
+import { getClusterIdForCategory, useClusterColors } from './utils/clusterColors';
 import { useChartAppearance } from './hooks/useChartAppearance';
 
 const { Text } = Typography;
@@ -48,6 +48,7 @@ export default function ClusterScatterPlot({
 }: ClusterScatterPlotProps) {
   const [linkageMethod, setLinkageMethod] = useState<LinkageMethod>(initialLinkageMethod);
   const { applyToLayout, getConfig } = useChartAppearance();
+  const clusterColors = useClusterColors();
 
   // BMD metric selection (base fixed to 'bmd', stat selectable)
   const { stat, setStat, label: metricLabel, getValueWithFallback } = useBmdMetric();
@@ -111,7 +112,7 @@ export default function ClusterScatterPlot({
 
         // Get UMAP cluster ID for coloring (not gene cluster)
         const umapClusterId = getClusterIdForCategory(categoryId);
-        const baseColor = getClusterColor(umapClusterId);
+        const baseColor = clusterColors[umapClusterId] || '#999999';
 
         // Apply inFocus-based styling
         const style = getPointStyle(inFocus, baseColor);
@@ -155,7 +156,7 @@ export default function ClusterScatterPlot({
       hovertemplate: '%{text}<extra></extra>',
       showlegend: false,
     }];
-  }, [clusterAssignments, categoryData, focusMap, displayMode, getPointStyle, shouldHidePoint, getValueWithFallback, metricLabel]);
+  }, [clusterAssignments, categoryData, focusMap, displayMode, getPointStyle, shouldHidePoint, getValueWithFallback, metricLabel, clusterColors]);
 
   // Calculate Y-axis range to show all clusters with padding
   // Must be before early returns to comply with React hooks rules

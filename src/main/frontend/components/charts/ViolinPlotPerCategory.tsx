@@ -19,7 +19,7 @@ import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useReactiveState } from './hooks/useReactiveState';
 import { useBmdMetric } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
-import { getClusterIdForCategory, getClusterColor } from './utils/clusterColors';
+import { getClusterIdForCategory, useClusterColors } from './utils/clusterColors';
 import { useChartAppearance } from './hooks/useChartAppearance';
 import { parseSemicolonNumericList } from 'Frontend/utils/dtoParsingUtils';
 import { computeTopNRanked } from './utils/topNFilter';
@@ -31,6 +31,7 @@ const { Text } = Typography;
 export default function ViolinPlotPerCategory() {
   const { data, displayMode } = useFocusAwareStyling();
   const { applyToLayout, getConfig } = useChartAppearance();
+  const clusterColors = useClusterColors();
   const categoryState = useReactiveState('categoryId');
   const [selectedBase, setSelectedBase] = useState<BmdBaseType>('bmd');
   const [useLogScale, setUseLogScale] = useState(true);
@@ -95,7 +96,7 @@ export default function ViolinPlotPerCategory() {
 
       // Get cluster-based color for this category
       const clusterId = getClusterIdForCategory(categoryId);
-      const baseColor = getClusterColor(clusterId);
+      const baseColor = clusterColors[clusterId] || '#999999';
       const isSelected = categoryState.selectedIds.has(categoryId);
 
       // Track counts for the info box based on whether category is in selected experiment
@@ -165,7 +166,7 @@ export default function ViolinPlotPerCategory() {
     });
 
     return { violinData: traces, yTickVals, yTickText, inFocusCount, dimmedCount };
-  }, [rankedCategories, selectedBase, categoryState.selectedIds, hasSelection]);
+  }, [rankedCategories, selectedBase, categoryState.selectedIds, hasSelection, clusterColors]);
 
   if (!data || data.length === 0) {
     return (

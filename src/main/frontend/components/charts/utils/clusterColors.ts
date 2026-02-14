@@ -7,6 +7,8 @@
 
 import { useMemo } from 'react';
 import { umapDataService } from 'Frontend/data/umapDataService';
+import { useAppSelector } from 'Frontend/store/hooks';
+import { selectGlobalAppearance } from 'Frontend/store/slices/chartConfigSlice';
 
 /**
  * Standard color palette for cluster visualization
@@ -63,7 +65,13 @@ export function getClusterColor(clusterId: number | string): string {
  * const color = clusterColors[categoryClusterId];
  */
 export function useClusterColors(): Record<string | number, string> {
+  const globalAppearance = useAppSelector(selectGlobalAppearance);
+  const customPalette = globalAppearance.colors?.colorway;
+
   return useMemo(() => {
+    const palette = (customPalette && customPalette.length > 0)
+      ? customPalette
+      : CLUSTER_COLOR_PALETTE;
     const clusters = umapDataService.getAllClusterIds();
     const colors: Record<string | number, string> = {};
 
@@ -71,12 +79,12 @@ export function useClusterColors(): Record<string | number, string> {
       if (clusterId === -1) {
         colors[clusterId] = OUTLIER_COLOR;
       } else {
-        colors[clusterId] = CLUSTER_COLOR_PALETTE[index % CLUSTER_COLOR_PALETTE.length];
+        colors[clusterId] = palette[index % palette.length];
       }
     });
 
     return colors;
-  }, []);
+  }, [customPalette]);
 }
 
 /**

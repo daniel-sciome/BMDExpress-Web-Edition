@@ -19,7 +19,7 @@ import { useGeneClusteringData, LinkageMethod } from './hooks/useGeneClusteringD
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useBmdMetric } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
-import { getClusterIdForCategory, getClusterColor } from './utils/clusterColors';
+import { getClusterIdForCategory, useClusterColors } from './utils/clusterColors';
 import { useChartAppearance } from './hooks/useChartAppearance';
 
 const { Text } = Typography;
@@ -34,6 +34,7 @@ export default function ClusterHeatmap({
 }: ClusterHeatmapProps) {
   const [linkageMethod, setLinkageMethod] = useState<LinkageMethod>(initialLinkageMethod);
   const { applyToLayout, getConfig } = useChartAppearance();
+  const clusterColors = useClusterColors();
 
   // BMD metric selection (base fixed to 'bmd', stat selectable)
   const { stat, setStat, label: metricLabel, getValueWithFallback } = useBmdMetric();
@@ -99,7 +100,7 @@ export default function ClusterHeatmap({
       if (data.length === 0) return;
 
       // Get colors based on UMAP cluster for each point
-      const colors = data.map(d => getClusterColor(d.umapClusterId));
+      const colors = data.map(d => clusterColors[d.umapClusterId] || '#999999');
 
       traces.push({
         type: 'histogram',
@@ -119,7 +120,7 @@ export default function ClusterHeatmap({
     });
 
     return traces;
-  }, [clusterAssignments, categoryData, uniqueClusterIds, focusMap, displayMode, shouldHidePoint, getValueWithFallback]);
+  }, [clusterAssignments, categoryData, uniqueClusterIds, focusMap, displayMode, shouldHidePoint, getValueWithFallback, clusterColors]);
 
   if (loading) {
     return (

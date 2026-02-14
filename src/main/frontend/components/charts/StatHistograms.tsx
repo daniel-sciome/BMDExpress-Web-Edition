@@ -21,7 +21,7 @@ import Plot from 'react-plotly.js';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
 import { useBmdMetricTriple } from './hooks/useBmdMetric';
 import { BmdStatSelector } from './BmdMetricSelector';
-import { getClusterColor, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
+import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './utils/clusterColors';
 import { useChartAppearance } from './hooks/useChartAppearance';
 import type { BmdBaseType } from './utils/bmdMetricConfig';
 
@@ -33,6 +33,7 @@ type BaseSelection = BmdBaseType | 'all';
 export default function StatHistograms() {
   const { data: allData, displayMode } = useFocusAwareStyling();
   const { applyToLayout, getConfig } = useChartAppearance();
+  const clusterColors = useClusterColors();
   const [useLogXAxis, setUseLogXAxis] = useState(true);
   const [selectedBase, setSelectedBase] = useState<BaseSelection>('bmd');
 
@@ -167,7 +168,7 @@ export default function StatHistograms() {
     clusterData!.clusterIds.forEach(clusterId => {
       const inFocusValues = dataByClusterAndFocus.inFocus.get(clusterId) || [];
       const outOfFocusValues = dataByClusterAndFocus.outOfFocus.get(clusterId) || [];
-      const color = getClusterColor(clusterId);
+      const color = clusterColors[clusterId] || '#999999';
       const label = getClusterLabel(clusterId);
 
       // Transform to log10 if using log scale
