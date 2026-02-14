@@ -9,6 +9,7 @@ import visibilityReducer from './slices/visibilitySlice';
 import categoryGroupsReducer from './slices/categoryGroupsSlice';
 import uiStateReducer from './slices/uiStateSlice';
 import chartConfigReducer from './slices/chartConfigSlice';
+import reportReducer, { reportAutoSaveMiddleware } from './slices/reportSlice';
 import { saveFilterGroups } from '../utils/filterGroupPersistence';
 
 // Enable Immer support for Map and Set
@@ -38,6 +39,7 @@ export const store = configureStore({
     categoryGroups: categoryGroupsReducer,
     uiState: uiStateReducer,
     chartConfig: chartConfigReducer,
+    report: reportReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -75,7 +77,7 @@ export const store = configureStore({
           'visibility/loadDefaults/fulfilled',
         ],
       },
-    }).concat(filterGroupPersistenceMiddleware),
+    }).concat(filterGroupPersistenceMiddleware, reportAutoSaveMiddleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;
