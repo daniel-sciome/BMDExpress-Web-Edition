@@ -23,14 +23,19 @@ const { Text } = Typography;
 
 const TOP_N_OPTIONS = [10, 20, 50, 100, 200, 'All'] as const;
 
-export default function BarCharts() {
+export default function BarCharts({ chartId }: { chartId?: string }) {
   const { data, displayMode, getPointStyle } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const clusterColors = useClusterColors();
   const hasSelection = categoryState.selectedIds.size > 0;
   const [useLogScale, setUseLogScale] = useState(true);
   const [topN, setTopN] = useState<number | 'All'>(20);
-  const { applyToLayout, getConfig, plotRef } = useChartAppearance('bar-charts');
+  const resolvedId = chartId ?? 'bar-charts';
+  const { plotRef } = useChartAppearance(resolvedId);
+  const bmdApp = useChartAppearance(undefined, { parentId: resolvedId, key: 'bmd' });
+  const bmdlApp = useChartAppearance(undefined, { parentId: resolvedId, key: 'bmdl' });
+  const bmduApp = useChartAppearance(undefined, { parentId: resolvedId, key: 'bmdu' });
+  const subplotApps = [bmdApp, bmdlApp, bmduApp];
 
   // BMD metric selection (all three bases share the same stat)
   const { stat, setStat, bmd, bmdl, bmdu } = useBmdMetricTriple('median');
@@ -230,31 +235,33 @@ export default function BarCharts() {
         <Row gutter={[16, 16]}>
           {styledCharts.map((chart, index) => (
             <Col xs={24} lg={12} key={index}>
-              <Plot
-                data={chart.data}
-                layout={applyToLayout({
-                  title: {
-                    text: chart.title,
-                    font: { size: 14 },
-                  },
-                  xaxis: {
-                    title: { text: 'Value' },
-                    type: useLogScale ? 'log' : 'linear',
-                  },
-                  yaxis: {
-                    title: '',
-                    autorange: 'reversed',
-                    tickfont: { size: 9 },
-                  },
-                  barmode: 'stack',
-                  height: 500,
-                  margin: { l: 200, r: 50, t: 50, b: 50 },
-                  showlegend: false,
-                }) as any}
-                config={getConfig('bmd_bar_charts')}
-                style={{ width: '100%', height: '100%' }}
-                useResizeHandler={true}
-              />
+              <div style={{ width: '100%', aspectRatio: '2/1' }}>
+                <Plot
+                  data={chart.data}
+                  layout={subplotApps[index].applyToLayout({
+                    title: {
+                      text: chart.title,
+                      font: { size: 14 },
+                    },
+                    xaxis: {
+                      title: { text: 'Value' },
+                      type: useLogScale ? 'log' : 'linear',
+                    },
+                    yaxis: {
+                      title: '',
+                      autorange: 'reversed',
+                      tickfont: { size: 9 },
+                    },
+                    barmode: 'stack',
+                    height: 500,
+                    margin: { l: 200, r: 50, t: 50, b: 50 },
+                    showlegend: false,
+                  }) as any}
+                  config={subplotApps[index].getConfig('bmd_bar_charts')}
+                  style={{ width: '100%', height: '100%' }}
+                  useResizeHandler={true}
+                />
+              </div>
             </Col>
           ))}
         </Row>

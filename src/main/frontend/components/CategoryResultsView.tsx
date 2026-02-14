@@ -37,6 +37,8 @@ import { getAnalysisTypeDisplayName } from '../utils/analysisTypeConfig';
 import ChartConfigEditor from './charts/ChartConfigEditor';
 import ConfigurableChart from './charts/ConfigurableChart';
 import AppearancePanel from './charts/appearance/AppearancePanel';
+import ChartAppearanceModal from './charts/appearance/ChartAppearanceModal';
+import type { SubplotDefinition } from 'Frontend/types/chartConfiguration';
 import {
   saveConfiguration,
   selectUserConfigurations,
@@ -60,18 +62,36 @@ interface ChartConfig {
   // Component is rendered dynamically based on id in renderChart function
   // Some charts need extra props (projectId, resultName) which are passed at render time
   keyPostfix?: string;  // Optional postfix for React key (e.g., '-cluster-heatmap')
+  subplots?: SubplotDefinition[];  // Sub-plot definitions for multi-plot charts
 }
 
 const CHART_CONFIG: ChartConfig[] = [
-  { id: 'default-charts', label: 'Default Charts (Scatter & Box)' },
+  { id: 'default-charts', label: 'Default Charts (Scatter & Box)', subplots: [
+    { key: 'scatter', label: 'BMD vs P-Value Scatter' },
+    { key: 'box', label: 'BMD Box Plot' },
+  ]},
   { id: 'umap-scatter', label: 'UMAP Scatter Plot' },
-  { id: 'curve-overlay', label: 'Dose Response Plots' },
+  { id: 'curve-overlay', label: 'Dose Response Plots', subplots: [
+    { key: 'overlay', label: 'Overlay Plot' },
+  ]},
   { id: 'range-plot', label: 'Range Plot' },
   { id: 'bubble-chart', label: 'Bubble Chart' },
   { id: 'best-models-pie', label: 'Best Models Pie Chart' },
-  { id: 'bar-charts', label: 'Bar Charts' },
-  { id: 'accumulation-charts', label: 'Accumulation Plots (cumulative distribution)' },
-  { id: 'bmd-histograms', label: 'BMD(L/U) Histograms' },
+  { id: 'bar-charts', label: 'Bar Charts', subplots: [
+    { key: 'bmd', label: 'BMD Bars' },
+    { key: 'bmdl', label: 'BMDL Bars' },
+    { key: 'bmdu', label: 'BMDU Bars' },
+  ]},
+  { id: 'accumulation-charts', label: 'Accumulation Plots (cumulative distribution)', subplots: [
+    { key: 'bmd', label: 'BMD Accumulation' },
+    { key: 'bmdl', label: 'BMDL Accumulation' },
+    { key: 'bmdu', label: 'BMDU Accumulation' },
+  ]},
+  { id: 'bmd-histograms', label: 'BMD(L/U) Histograms', subplots: [
+    { key: 'bmd', label: 'BMD Histogram' },
+    { key: 'bmdl', label: 'BMDL Histogram' },
+    { key: 'bmdu', label: 'BMDU Histogram' },
+  ]},
   { id: 'bmd-vs-bmdl-scatter', label: 'BMD vs BMDL Scatter' },
   { id: 'violin-per-category', label: 'Violin Plot Per Category' },
   { id: 'cluster-heatmap', label: 'Gene Cluster Heatmap', keyPostfix: '-cluster-heatmap' },
@@ -164,6 +184,9 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   // Shared BMD stat for BMD Overview section (controls both scatter and box plot)
   const [bmdOverviewStat, setBmdOverviewStat] = useState<BmdStatType>('fifthPercentile');
 
+  // Per-chart appearance modal
+  const [appearanceChartId, setAppearanceChartId] = useState<string | null>(null);
+
   // Chart configuration
   const userConfigurations = useAppSelector(selectUserConfigurations);
   const presetConfigurations = useAppSelector(selectPresetConfigurations);
@@ -200,38 +223,38 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
             </div>
             <Row gutter={16} key={chartKey}>
               <Col xs={24} xl={12}>
-                <BMDvsPValueScatter key={`${chartKey}-scatter`} stat={bmdOverviewStat} hideControls />
+                <BMDvsPValueScatter key={`${chartKey}-scatter`} stat={bmdOverviewStat} hideControls chartId="default-charts-scatter" parentChartId="default-charts" subplotKey="scatter" />
               </Col>
               <Col xs={24} xl={12}>
-                <BMDBoxPlot key={`${chartKey}-box`} stat={bmdOverviewStat} hideControls />
+                <BMDBoxPlot key={`${chartKey}-box`} stat={bmdOverviewStat} hideControls chartId="default-charts-box" parentChartId="default-charts" subplotKey="box" />
               </Col>
             </Row>
           </div>
         );
       case 'umap-scatter':
-        return <UmapScatterPlot key={chartKey} />;
+        return <UmapScatterPlot key={chartKey} chartId={chartId} />;
       case 'curve-overlay':
-        return <PathwayCurveViewer key={chartKey} projectId={projectId} resultName={resultName} />;
+        return <PathwayCurveViewer key={chartKey} projectId={projectId} resultName={resultName} chartId={chartId} />;
       case 'range-plot':
-        return <RangePlot key={chartKey} />;
+        return <RangePlot key={chartKey} chartId={chartId} />;
       case 'bubble-chart':
-        return <BubbleChart key={chartKey} />;
+        return <BubbleChart key={chartKey} chartId={chartId} />;
       case 'best-models-pie':
-        return <BestModelsPieChart key={chartKey} projectId={projectId} resultName={resultName} />;
+        return <BestModelsPieChart key={chartKey} projectId={projectId} resultName={resultName} chartId={chartId} />;
       case 'bar-charts':
-        return <BarCharts key={chartKey} />;
+        return <BarCharts key={chartKey} chartId={chartId} />;
       case 'accumulation-charts':
-        return <AccumulationCharts key={chartKey} />;
+        return <AccumulationCharts key={chartKey} chartId={chartId} />;
       case 'bmd-histograms':
-        return <StatHistograms key={chartKey} />;
+        return <StatHistograms key={chartKey} chartId={chartId} />;
       case 'bmd-vs-bmdl-scatter':
-        return <BMDvsBMDLScatter key={chartKey} />;
+        return <BMDvsBMDLScatter key={chartKey} chartId={chartId} />;
       case 'violin-per-category':
-        return <ViolinPlotPerCategory key={chartKey} />;
+        return <ViolinPlotPerCategory key={chartKey} chartId={chartId} />;
       case 'cluster-heatmap':
-        return <ClusterHeatmap key={`${chartKey}${keyPostfix}`} />;
+        return <ClusterHeatmap key={`${chartKey}${keyPostfix}`} chartId={chartId} />;
       case 'cluster-scatter':
-        return <ClusterScatterPlot key={`${chartKey}${keyPostfix}`} />;
+        return <ClusterScatterPlot key={`${chartKey}${keyPostfix}`} chartId={chartId} />;
       default:
         // Check if it's a custom chart
         const customConfig = userConfigurations.find(c => c.id === chartId);
@@ -256,7 +279,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
       || PRESET_CONFIGURATIONS.find(p => p.id === chartId);
     const isConfigurable = presetConfig && ['scatter', 'bubble', 'histogram', 'bar'].includes(presetConfig.chartType);
 
-    // Build the label with optional gear icon (gear before title)
+    // Build the label with optional gear icon and appearance button
     const labelContent = (
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         {isConfigurable && (
@@ -275,6 +298,17 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
             />
           </Tooltip>
         )}
+        <Tooltip title="Chart Appearance">
+          <Button
+            type="text"
+            size="small"
+            icon={<FormatPainterOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              setAppearanceChartId(chartId);
+            }}
+          />
+        </Tooltip>
         <span style={{ lineHeight: '22px' }}>{config.label}</span>
       </div>
     );
@@ -907,7 +941,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
             </Tooltip>
           </>
         )}
-        <Tooltip title="Chart Appearance" placement="right">
+        <Tooltip title="Global Theme" placement="right">
           <Button
             type={activePanel === 'appearance' ? 'primary' : 'text'}
             icon={<FormatPainterOutlined />}
@@ -934,7 +968,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           activePanel === 'parameters' ? 'Analysis Parameters' :
           activePanel === 'charts' ? 'Chart Selection' :
           activePanel === 'clusters' ? 'Cluster Picker' :
-          activePanel === 'appearance' ? 'Chart Appearance' : ''
+          activePanel === 'appearance' ? 'Global Theme' : ''
         }
         placement="right"
         open={activePanel !== null}
@@ -1165,6 +1199,16 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           setEditingConfig(null);
         }}
         isNew={editingConfig === null}
+      />
+
+      {/* Per-Chart Appearance Modal */}
+      <ChartAppearanceModal
+        chartId={appearanceChartId || ''}
+        chartLabel={CHART_CONFIG.find(c => c.id === appearanceChartId)?.label || ''}
+        open={appearanceChartId !== null}
+        onClose={() => setAppearanceChartId(null)}
+        renderChart={() => appearanceChartId ? renderChartContent(appearanceChartId) : null}
+        subplots={CHART_CONFIG.find(c => c.id === appearanceChartId)?.subplots}
       />
     </div>
     </>

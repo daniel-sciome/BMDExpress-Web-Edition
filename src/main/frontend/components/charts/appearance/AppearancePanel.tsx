@@ -6,11 +6,16 @@ import {
   selectSavedThemes,
   setGlobalAppearance,
   updateGlobalAppearance,
+  updateChartAppearance,
+  clearChartAppearance,
+  updateSubplotAppearance,
+  clearSubplotAppearance,
   saveTheme,
   deleteTheme,
 } from 'Frontend/store/slices/chartConfigSlice';
 import { DEFAULT_CHART_APPEARANCE } from 'Frontend/types/chartAppearance';
 import type { ChartAppearance, FontConfig } from 'Frontend/types/chartAppearance';
+import { useChartAppearance } from '../hooks/useChartAppearance';
 import { BUILT_IN_THEMES } from './builtInThemes';
 import { COLOR_PALETTES } from './colorPalettes';
 import FontPicker from './FontPicker';
@@ -23,18 +28,48 @@ const GRID_STYLES = [
   { label: 'Dash-Dot', value: 'dashdot' },
 ];
 
-export default function AppearancePanel() {
+interface AppearancePanelProps {
+  /** If set, edits per-chart overrides instead of global */
+  chartId?: string;
+  /** If set, edits per-subplot overrides within the parent chart */
+  subplotKey?: string;
+}
+
+export default function AppearancePanel({ chartId, subplotKey }: AppearancePanelProps) {
   const dispatch = useAppDispatch();
-  const appearance = useAppSelector(selectGlobalAppearance);
+  const globalAppearance = useAppSelector(selectGlobalAppearance);
   const savedThemes = useAppSelector(selectSavedThemes);
   const [saveModalName, setSaveModalName] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
 
-  // Determine which theme is active (if any)
+  const isSubplot = !!chartId && !!subplotKey;
+  const isPerChart = !!chartId && !subplotKey;
+
+  // When in per-chart or subplot mode, use the resolved (merged) appearance for display values
+  const { appearance: resolvedAppearance } = useChartAppearance(
+    chartId,
+    isSubplot ? { parentId: chartId!, key: subplotKey! } : undefined
+  );
+  // Use resolved appearance for display, global for global-only theme operations
+  const appearance = (isPerChart || isSubplot) ? resolvedAppearance : globalAppearance;
+
+  // Unified dispatch helper: routes to subplot, per-chart, or global
+  const dispatchUpdate = (patch: Partial<ChartAppearance>) => {
+    if (isSubplot) {
+      dispatch(updateSubplotAppearance({ chartId: chartId!, subplotKey: subplotKey!, appearance: patch }));
+    } else if (chartId) {
+      dispatch(updateChartAppearance({ id: chartId, appearance: patch }));
+    } else {
+      dispatch(updateGlobalAppearance(patch));
+    }
+  };
+
+  // Determine which theme is active (if any) — global only
   const activeThemeId = (() => {
-    const builtIn = BUILT_IN_THEMES.find(t => t.appearance.name === appearance.name);
+    if (isPerChart) return undefined;
+    const builtIn = BUILT_IN_THEMES.find(t => t.appearance.name === globalAppearance.name);
     if (builtIn) return builtIn.id;
-    const saved = savedThemes.find(t => t.appearance.name === appearance.name);
+    const saved = savedThemes.find(t => t.appearance.name === globalAppearance.name);
     if (saved) return saved.id;
     return undefined;
   })();
@@ -57,7 +92,7 @@ export default function AppearancePanel() {
     dispatch(saveTheme({
       id,
       name: saveModalName.trim(),
-      appearance: { ...appearance, name: saveModalName.trim() },
+      appearance: { ...globalAppearance, name: saveModalName.trim() },
     }));
     setSaveModalName('');
     setShowSaveInput(false);
@@ -70,50 +105,57 @@ export default function AppearancePanel() {
   };
 
   const handleReset = () => {
-    dispatch(setGlobalAppearance(DEFAULT_CHART_APPEARANCE));
+    if (isSubplot) {
+      dispatch(clearSubplotAppearance({ chartId: chartId!, subplotKey: subplotKey! }));
+    } else if (chartId) {
+      dispatch(clearChartAppearance(chartId));
+    } else {
+      dispatch(setGlobalAppearance(DEFAULT_CHART_APPEARANCE));
+    }
   };
 
   // Helpers for dispatching partial updates
   const updateColors = (patch: Partial<NonNullable<ChartAppearance['colors']>>) => {
-    dispatch(updateGlobalAppearance({ colors: { ...appearance.colors, ...patch } }));
+    dispatchUpdate({ colors: { ...appearance.colors, ...patch } });
   };
 
   const updateTitle = (font: FontConfig) => {
-    dispatch(updateGlobalAppearance({ title: { font } }));
+    dispatchUpdate({ title: { font } });
   };
 
   const updateAxisTitleFont = (font: FontConfig) => {
-    dispatch(updateGlobalAppearance({
+    dispatchUpdate({
       xAxis: { ...appearance.xAxis, titleFont: font },
       yAxis: { ...appearance.yAxis, titleFont: font },
-    }));
+    });
   };
 
   const updateAxisTickFont = (font: FontConfig) => {
-    dispatch(updateGlobalAppearance({
+    dispatchUpdate({
       xAxis: { ...appearance.xAxis, tickFont: font },
       yAxis: { ...appearance.yAxis, tickFont: font },
-    }));
+    });
   };
 
   const updateAxes = (patch: Record<string, unknown>) => {
-    dispatch(updateGlobalAppearance({
+    dispatchUpdate({
       xAxis: { ...appearance.xAxis, ...patch },
       yAxis: { ...appearance.yAxis, ...patch },
-    }));
+    });
   };
 
   const updateMargins = (patch: Partial<NonNullable<ChartAppearance['margins']>>) => {
-    dispatch(updateGlobalAppearance({ margins: { ...appearance.margins, ...patch } }));
+    dispatchUpdate({ margins: { ...appearance.margins, ...patch } });
   };
 
   const updateLegend = (patch: Partial<NonNullable<ChartAppearance['legend']>>) => {
-    dispatch(updateGlobalAppearance({ legend: { ...appearance.legend, ...patch } }));
+    dispatchUpdate({ legend: { ...appearance.legend, ...patch } });
   };
 
   // Determine active palette by matching colorway against known palettes
+  // Palette is always global (useClusterColors reads global appearance only)
   const activePaletteId = (() => {
-    const colorway = appearance.colors?.colorway;
+    const colorway = globalAppearance.colors?.colorway;
     if (!colorway || colorway.length === 0) return 'default';
     for (const palette of COLOR_PALETTES) {
       if (palette.colors.length === colorway.length &&
@@ -124,13 +166,15 @@ export default function AppearancePanel() {
     return undefined; // Custom / unrecognized palette
   })();
 
+  // Palette always dispatches to global because useClusterColors reads global appearance.
+  // Cluster coloring must be consistent across all charts.
   const handlePaletteSelect = (paletteId: string) => {
     if (paletteId === 'default') {
-      dispatch(updateGlobalAppearance({ colors: { ...appearance.colors, colorway: undefined } }));
+      dispatch(updateGlobalAppearance({ colors: { ...globalAppearance.colors, colorway: undefined } }));
     } else {
       const palette = COLOR_PALETTES.find(p => p.id === paletteId);
       if (palette) {
-        dispatch(updateGlobalAppearance({ colors: { ...appearance.colors, colorway: palette.colors } }));
+        dispatch(updateGlobalAppearance({ colors: { ...globalAppearance.colors, colorway: palette.colors } }));
       }
     }
   };
@@ -384,46 +428,60 @@ export default function AppearancePanel() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Theme Selector */}
-      <div>
-        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Theme</div>
-        <Select
-          style={{ width: '100%' }}
-          size="small"
-          value={activeThemeId}
-          onChange={handleThemeSelect}
-          options={themeOptions}
-          placeholder="Select a theme..."
-        />
-        <Space style={{ marginTop: 8 }}>
-          <Button size="small" onClick={() => setShowSaveInput(true)}>Save Current...</Button>
-          <Button size="small" onClick={handleReset}>Reset to Default</Button>
-        </Space>
-        {showSaveInput && (
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <Input
-              size="small"
-              placeholder="Theme name"
-              value={saveModalName}
-              onChange={(e) => setSaveModalName(e.target.value)}
-              onPressEnter={handleSaveTheme}
-            />
-            <Button size="small" type="primary" onClick={handleSaveTheme}>Save</Button>
-            <Button size="small" onClick={() => { setShowSaveInput(false); setSaveModalName(''); }}>Cancel</Button>
-          </div>
-        )}
-        {savedThemes.length > 0 && (
-          <div style={{ marginTop: 8 }}>
-            <div style={{ fontSize: 11, color: '#999', marginBottom: 4 }}>Saved themes:</div>
-            {savedThemes.map(t => (
-              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0' }}>
-                <span style={{ fontSize: 12 }}>{t.name}</span>
-                <Button size="small" type="text" danger onClick={() => handleDeleteSavedTheme(t.id)}>Delete</Button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Subplot Reset to Chart / Per-chart Reset to Global button */}
+      {isSubplot && (
+        <Button size="small" onClick={handleReset}>
+          Reset to Chart
+        </Button>
+      )}
+      {isPerChart && (
+        <Button size="small" onClick={handleReset}>
+          Reset to Global
+        </Button>
+      )}
+
+      {/* Theme Selector (global only) */}
+      {!isPerChart && !isSubplot && (
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Theme</div>
+          <Select
+            style={{ width: '100%' }}
+            size="small"
+            value={activeThemeId}
+            onChange={handleThemeSelect}
+            options={themeOptions}
+            placeholder="Select a theme..."
+          />
+          <Space style={{ marginTop: 8 }}>
+            <Button size="small" onClick={() => setShowSaveInput(true)}>Save Current...</Button>
+            <Button size="small" onClick={handleReset}>Reset to Default</Button>
+          </Space>
+          {showSaveInput && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <Input
+                size="small"
+                placeholder="Theme name"
+                value={saveModalName}
+                onChange={(e) => setSaveModalName(e.target.value)}
+                onPressEnter={handleSaveTheme}
+              />
+              <Button size="small" type="primary" onClick={handleSaveTheme}>Save</Button>
+              <Button size="small" onClick={() => { setShowSaveInput(false); setSaveModalName(''); }}>Cancel</Button>
+            </div>
+          )}
+          {savedThemes.length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontSize: 11, color: '#999', marginBottom: 4 }}>Saved themes:</div>
+              {savedThemes.map(t => (
+                <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0' }}>
+                  <span style={{ fontSize: 12 }}>{t.name}</span>
+                  <Button size="small" type="text" danger onClick={() => handleDeleteSavedTheme(t.id)}>Delete</Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Collapsible Sections */}
       <Collapse

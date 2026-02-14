@@ -25,6 +25,12 @@ interface BMDBoxPlotProps {
   stat?: BmdStatType;
   /** Hide the stat selector (when controlled by parent) */
   hideControls?: boolean;
+  /** Chart ID for per-chart appearance overrides */
+  chartId?: string;
+  /** Parent chart ID for subplot appearance cascade */
+  parentChartId?: string;
+  /** Subplot key for subplot appearance cascade */
+  subplotKey?: string;
 }
 
 /**
@@ -41,9 +47,12 @@ function deterministicJitter(key: string, salt: number = 0): number {
   return (Math.abs(hash % 1000) / 1000) - 0.5;
 }
 
-export default function BMDBoxPlot({ stat: externalStat, hideControls = false }: BMDBoxPlotProps) {
+export default function BMDBoxPlot({ stat: externalStat, hideControls = false, chartId, parentChartId, subplotKey }: BMDBoxPlotProps) {
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
-  const { applyToLayout, getConfig } = useChartAppearance();
+  const { applyToLayout, getConfig } = useChartAppearance(
+    chartId,
+    parentChartId && subplotKey ? { parentId: parentChartId, key: subplotKey } : undefined
+  );
   const categoryState = useReactiveState('categoryId');
   const [useFixedScale, setUseFixedScale] = useState(true);
   const [useLogScale, setUseLogScale] = useState(true);
@@ -290,7 +299,7 @@ export default function BMDBoxPlot({ stat: externalStat, hideControls = false }:
           {useFixedScale ? 'Auto Scale' : 'Fixed Scale'}
         </Button>
       </div>
-      <div style={{ width: '100%', height: '500px' }}>
+      <div style={{ width: '100%', aspectRatio: '2/1' }}>
         <Plot
           data={traces}
           layout={applyToLayout({

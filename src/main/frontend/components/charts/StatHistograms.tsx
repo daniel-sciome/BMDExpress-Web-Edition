@@ -30,9 +30,13 @@ const { Text } = Typography;
 
 type BaseSelection = BmdBaseType | 'all';
 
-export default function StatHistograms() {
+export default function StatHistograms({ chartId }: { chartId?: string }) {
   const { data: allData, displayMode } = useFocusAwareStyling();
-  const { applyToLayout, getConfig } = useChartAppearance();
+  const resolvedId = chartId ?? 'bmd-histograms';
+  useChartAppearance(resolvedId); // parent
+  const bmdApp = useChartAppearance(undefined, { parentId: resolvedId, key: 'bmd' });
+  const bmdlApp = useChartAppearance(undefined, { parentId: resolvedId, key: 'bmdl' });
+  const bmduApp = useChartAppearance(undefined, { parentId: resolvedId, key: 'bmdu' });
   const clusterColors = useClusterColors();
   const [useLogXAxis, setUseLogXAxis] = useState(true);
   const [selectedBase, setSelectedBase] = useState<BaseSelection>('bmd');
@@ -270,57 +274,63 @@ export default function StatHistograms() {
         {/* BMD Histogram */}
         {showBmd && hasBmdValues && (
           <Col xs={24} lg={colWidth} key={`bmd-col-${selectedBase}`}>
-            <Plot
-              key={`bmd-plot-${selectedBase}`}
-              data={createStackedTraces(clusterData!.bmdValues) as any}
-              layout={applyToLayout({
-                ...commonLayout,
-                title: { text: `${bmd.label} Histogram`, font: { size: 14 } },
-                xaxis: { ...getXAxisConfig(clusterData!.bmdValues), title: { text: useLogXAxis ? `${bmd.label} (log₁₀)` : bmd.label } },
-                height: 450,
-              }) as any}
-              config={getConfig('stat_histogram_bmd') as any}
-              style={{ width: '100%', height: '100%' }}
-              useResizeHandler={true}
-            />
+            <div style={{ width: '100%', aspectRatio: '2/1' }}>
+              <Plot
+                key={`bmd-plot-${selectedBase}`}
+                data={createStackedTraces(clusterData!.bmdValues) as any}
+                layout={bmdApp.applyToLayout({
+                  ...commonLayout,
+                  title: { text: `${bmd.label} Histogram`, font: { size: 14 } },
+                  xaxis: { ...getXAxisConfig(clusterData!.bmdValues), title: { text: useLogXAxis ? `${bmd.label} (log₁₀)` : bmd.label } },
+                  height: 450,
+                }) as any}
+                config={bmdApp.getConfig('stat_histogram_bmd') as any}
+                style={{ width: '100%', height: '100%' }}
+                useResizeHandler={true}
+              />
+            </div>
           </Col>
         )}
 
         {/* BMDL Histogram */}
         {showBmdl && hasBmdlValues && (
           <Col xs={24} lg={colWidth} key={`bmdl-col-${selectedBase}`}>
-            <Plot
-              key={`bmdl-plot-${selectedBase}`}
-              data={createStackedTraces(clusterData!.bmdlValues) as any}
-              layout={applyToLayout({
-                ...commonLayout,
-                title: { text: `${bmdl.label} Histogram`, font: { size: 14 } },
-                xaxis: { ...getXAxisConfig(clusterData!.bmdlValues), title: { text: useLogXAxis ? `${bmdl.label} (log₁₀)` : bmdl.label } },
-                height: 450,
-              }) as any}
-              config={getConfig('stat_histogram_bmdl') as any}
-              style={{ width: '100%', height: '100%' }}
-              useResizeHandler={true}
-            />
+            <div style={{ width: '100%', aspectRatio: '2/1' }}>
+              <Plot
+                key={`bmdl-plot-${selectedBase}`}
+                data={createStackedTraces(clusterData!.bmdlValues) as any}
+                layout={bmdlApp.applyToLayout({
+                  ...commonLayout,
+                  title: { text: `${bmdl.label} Histogram`, font: { size: 14 } },
+                  xaxis: { ...getXAxisConfig(clusterData!.bmdlValues), title: { text: useLogXAxis ? `${bmdl.label} (log₁₀)` : bmdl.label } },
+                  height: 450,
+                }) as any}
+                config={bmdlApp.getConfig('stat_histogram_bmdl') as any}
+                style={{ width: '100%', height: '100%' }}
+                useResizeHandler={true}
+              />
+            </div>
           </Col>
         )}
 
         {/* BMDU Histogram */}
         {showBmdu && hasBmduValues && (
           <Col xs={24} lg={colWidth} key={`bmdu-col-${selectedBase}`}>
-            <Plot
-              key={`bmdu-plot-${selectedBase}`}
-              data={createStackedTraces(clusterData!.bmduValues) as any}
-              layout={applyToLayout({
-                ...commonLayout,
-                title: { text: `${bmdu.label} Histogram`, font: { size: 14 } },
-                xaxis: { ...getXAxisConfig(clusterData!.bmduValues), title: { text: useLogXAxis ? `${bmdu.label} (log₁₀)` : bmdu.label } },
-                height: 450,
-              }) as any}
-              config={getConfig('stat_histogram_bmdu') as any}
-              style={{ width: '100%', height: '100%' }}
-              useResizeHandler={true}
-            />
+            <div style={{ width: '100%', aspectRatio: '2/1' }}>
+              <Plot
+                key={`bmdu-plot-${selectedBase}`}
+                data={createStackedTraces(clusterData!.bmduValues) as any}
+                layout={bmduApp.applyToLayout({
+                  ...commonLayout,
+                  title: { text: `${bmdu.label} Histogram`, font: { size: 14 } },
+                  xaxis: { ...getXAxisConfig(clusterData!.bmduValues), title: { text: useLogXAxis ? `${bmdu.label} (log₁₀)` : bmdu.label } },
+                  height: 450,
+                }) as any}
+                config={bmduApp.getConfig('stat_histogram_bmdu') as any}
+                style={{ width: '100%', height: '100%' }}
+                useResizeHandler={true}
+              />
+            </div>
           </Col>
         )}
       </Row>

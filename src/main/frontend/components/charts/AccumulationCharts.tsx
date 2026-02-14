@@ -11,10 +11,15 @@ import { computeTopNRanked } from './utils/topNFilter';
 
 const { Text } = Typography;
 
-export default function AccumulationCharts() {
+export default function AccumulationCharts({ chartId }: { chartId?: string }) {
   // Get ALL data with inFocus state using shared hook
   const { data: allData, displayMode, getPointStyle } = useFocusAwareStyling();
-  const { applyToLayout, getConfig } = useChartAppearance();
+  const resolvedId = chartId ?? 'accumulation-charts';
+  useChartAppearance(resolvedId); // parent for ref
+  const bmdApp = useChartAppearance(undefined, { parentId: resolvedId, key: 'bmd' });
+  const bmdlApp = useChartAppearance(undefined, { parentId: resolvedId, key: 'bmdl' });
+  const bmduApp = useChartAppearance(undefined, { parentId: resolvedId, key: 'bmdu' });
+  const subplotApps = [bmdApp, bmdlApp, bmduApp];
 
   // Get selection state using reactive infrastructure
   const categoryState = useReactiveState('categoryId');
@@ -175,7 +180,7 @@ export default function AccumulationCharts() {
 
       return {
         data: traces,
-        layout: applyToLayout({
+        rawLayout: {
           title: {
             text: config.title,
             font: { size: 14 },
@@ -192,11 +197,10 @@ export default function AccumulationCharts() {
           height: 400,
           margin: { l: 70, r: 50, t: 50, b: 50 },
           showlegend: false,
-        }),
-        config: getConfig('accumulation_charts'),
+        },
       };
     }).filter(chart => chart !== null) as any[];
-  }, [allData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, bmd, bmdl, bmdu, useLogScale, applyToLayout, getConfig]);
+  }, [allData, clusterColors, categoryState.selectedIds, hasSelection, displayMode, getPointStyle, bmd, bmdl, bmdu, useLogScale]);
 
   if (!allData || allData.length === 0) {
     return (
@@ -235,13 +239,15 @@ export default function AccumulationCharts() {
       <Row gutter={[16, 16]}>
         {charts.map((chart, index) => (
           <Col xs={24} lg={12} key={index}>
-            <Plot
-              data={chart.data}
-              layout={chart.layout}
-              config={chart.config}
-              style={{ width: '100%', height: '100%' }}
-              useResizeHandler={true}
-            />
+            <div style={{ width: '100%', aspectRatio: '2/1' }}>
+              <Plot
+                data={chart.data}
+                layout={subplotApps[index].applyToLayout(chart.rawLayout)}
+                config={subplotApps[index].getConfig('accumulation_charts')}
+                style={{ width: '100%', height: '100%' }}
+                useResizeHandler={true}
+              />
+            </div>
           </Col>
         ))}
       </Row>

@@ -26,15 +26,24 @@ interface BMDvsPValueScatterProps {
   stat?: BmdStatType;
   /** Hide the controls (when controlled by parent) */
   hideControls?: boolean;
+  /** Chart ID for per-chart appearance overrides */
+  chartId?: string;
+  /** Parent chart ID for subplot appearance cascade */
+  parentChartId?: string;
+  /** Subplot key for subplot appearance cascade */
+  subplotKey?: string;
 }
 
-export default function BMDvsPValueScatter({ stat: externalStat, hideControls = false }: BMDvsPValueScatterProps) {
+export default function BMDvsPValueScatter({ stat: externalStat, hideControls = false, chartId, parentChartId, subplotKey }: BMDvsPValueScatterProps) {
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const clusterColors = useClusterColors();
   const hasSelection = categoryState.selectedIds.size > 0;
   const [useLogScale, setUseLogScale] = useState(true);
-  const { applyToLayout, getConfig, plotRef } = useChartAppearance('bmd-vs-pvalue-scatter');
+  const { applyToLayout, getConfig, plotRef } = useChartAppearance(
+    chartId ?? 'bmd-vs-pvalue-scatter',
+    parentChartId && subplotKey ? { parentId: parentChartId, key: subplotKey } : undefined
+  );
 
   // BMD metric selection (base fixed to 'bmd', stat selectable or externally controlled)
   // Pass externalStat as controlled value - hook will use it when provided
@@ -238,7 +247,7 @@ export default function BMDvsPValueScatter({ stat: externalStat, hideControls = 
       </div>
 
       {/* Chart */}
-      <div ref={plotRef} style={{ height: '500px' }}>
+      <div ref={plotRef} style={{ width: '100%', aspectRatio: '2/1' }}>
         <Plot
           data={traces}
           layout={applyToLayout({

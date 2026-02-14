@@ -22,6 +22,7 @@ import type {
 import { CHART_CONFIG_VERSION } from 'Frontend/types/chartConfiguration';
 import type { ChartAppearance, SavedTheme } from 'Frontend/types/chartAppearance';
 import { DEFAULT_CHART_APPEARANCE } from 'Frontend/types/chartAppearance';
+import { deepMerge } from 'Frontend/components/charts/utils/appearanceToPlotly';
 
 // ==================== LocalStorage Keys ====================
 const STORAGE_KEY = 'bmdexpress-chart-configs';
@@ -308,6 +309,32 @@ export const PRESET_CONFIGURATIONS: ChartConfiguration[] = [
     groupId: 'cluster-charts',
   },
 
+  // Default Charts (parent container for BMD vs P-Value Scatter + BMD Box Plot)
+  {
+    id: 'default-charts',
+    name: 'Default Charts',
+    chartType: 'scatter',
+    keys: {},
+    options: {},
+    isPreset: true,
+    isVisible: true,
+    order: 0,
+    groupId: 'default-charts',
+  },
+
+  // Accumulation Charts (parent container for BMD/BMDL/BMDU accumulation plots)
+  {
+    id: 'accumulation-charts',
+    name: 'Accumulation Charts',
+    chartType: 'accumulation',
+    keys: {},
+    options: {},
+    isPreset: true,
+    isVisible: true,
+    order: 49,
+    groupId: 'accumulation-charts',
+  },
+
   // Dose Response Plots (Curve Overlay)
   {
     id: 'curve-overlay',
@@ -419,12 +446,14 @@ function mergeWithPresets(saved: ChartConfigState | null): ChartConfigState {
     // Check if user has customized this preset
     const userVersion = saved.configurations.find(c => c.id === preset.id);
     if (userVersion) {
-      // Preserve user's visibility and options, but use preset's structure
+      // Preserve user's visibility, options, and appearance, but use preset's structure
       mergedConfigs.push({
         ...preset,
         isVisible: userVersion.isVisible,
         options: { ...preset.options, ...userVersion.options },
         keys: userVersion.keys || preset.keys,
+        appearance: userVersion.appearance,
+        subplotAppearances: userVersion.subplotAppearances,
       });
     } else {
       mergedConfigs.push(preset);
@@ -705,13 +734,75 @@ const chartConfigSlice = createSlice({
     },
 
     /**
-     * Update per-chart appearance overrides.
+     * Update per-chart appearance overrides (deep merge).
      */
     updateChartAppearance: (state, action: PayloadAction<{ id: string; appearance: Partial<ChartAppearance> | undefined }>) => {
       const { id, appearance } = action.payload;
       const config = state.configurations.find(c => c.id === id);
       if (config) {
-        config.appearance = appearance;
+        if (appearance === undefined) {
+          // Clear overrides (reset to global)
+          config.appearance = undefined;
+        } else if (config.appearance) {
+          // Deep merge into existing overrides
+          config.appearance = deepMerge(
+            config.appearance as unknown as Record<string, unknown>,
+            appearance as unknown as Record<string, unknown>
+          ) as unknown as ChartAppearance;
+        } else {
+          // First override
+          config.appearance = appearance as ChartAppearance;
+        }
+        state.lastModified = Date.now();
+        saveToStorage(state);
+      }
+    },
+
+    /**
+     * Clear per-chart appearance overrides (reset to global).
+     * Also clears any subplot overrides.
+     */
+    clearChartAppearance: (state, action: PayloadAction<string>) => {
+      const config = state.configurations.find(c => c.id === action.payload);
+      if (config) {
+        config.appearance = undefined;
+        config.subplotAppearances = undefined;
+        state.lastModified = Date.now();
+        saveToStorage(state);
+      }
+    },
+
+    /**
+     * Update per-subplot appearance overrides (deep merge).
+     */
+    updateSubplotAppearance: (state, action: PayloadAction<{
+      chartId: string; subplotKey: string; appearance: Partial<ChartAppearance>;
+    }>) => {
+      const { chartId, subplotKey, appearance } = action.payload;
+      const config = state.configurations.find(c => c.id === chartId);
+      if (config) {
+        if (!config.subplotAppearances) config.subplotAppearances = {};
+        const existing = config.subplotAppearances[subplotKey];
+        config.subplotAppearances[subplotKey] = existing
+          ? deepMerge(existing as unknown as Record<string, unknown>, appearance as unknown as Record<string, unknown>) as unknown as ChartAppearance
+          : appearance as ChartAppearance;
+        state.lastModified = Date.now();
+        saveToStorage(state);
+      }
+    },
+
+    /**
+     * Clear per-subplot appearance overrides (reset to parent chart).
+     */
+    clearSubplotAppearance: (state, action: PayloadAction<{
+      chartId: string; subplotKey: string;
+    }>) => {
+      const config = state.configurations.find(c => c.id === action.payload.chartId);
+      if (config?.subplotAppearances) {
+        delete config.subplotAppearances[action.payload.subplotKey];
+        if (Object.keys(config.subplotAppearances).length === 0) {
+          config.subplotAppearances = undefined;
+        }
         state.lastModified = Date.now();
         saveToStorage(state);
       }
@@ -773,6 +864,9 @@ export const {
   setGlobalAppearance,
   updateGlobalAppearance,
   updateChartAppearance,
+  clearChartAppearance,
+  updateSubplotAppearance,
+  clearSubplotAppearance,
   saveTheme,
   deleteTheme,
 } = chartConfigSlice.actions;
@@ -824,5 +918,9 @@ export const selectSavedThemes = (state: RootState) =>
 /** Get per-chart appearance for a given chart ID */
 export const selectChartAppearance = (id: string) => (state: RootState) =>
   state.chartConfig.configurations.find(c => c.id === id)?.appearance;
+
+/** Get per-subplot appearance for a given chart ID and subplot key */
+export const selectSubplotAppearance = (chartId: string, key: string) => (state: RootState) =>
+  state.chartConfig.configurations.find(c => c.id === chartId)?.subplotAppearances?.[key];
 
 export default chartConfigSlice.reducer;

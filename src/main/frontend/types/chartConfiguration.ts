@@ -11,6 +11,17 @@
  */
 
 /**
+ * Defines a sub-plot within a multi-plot visualization.
+ * Used for per-subplot appearance overrides in charts like Bar Charts (BMD/BMDL/BMDU).
+ */
+export interface SubplotDefinition {
+  /** Unique key within the parent chart (e.g. 'bmd', 'overlay') */
+  key: string;
+  /** Human-readable label (e.g. 'BMD Bars', 'Overlay Plot') */
+  label: string;
+}
+
+/**
  * Available transforms that can be applied to field values.
  * These match the transforms available in the desktop BMDExpress-3 application.
  */
@@ -170,6 +181,9 @@ export interface ChartConfiguration {
 
   /** Per-chart appearance overrides (merged on top of global theme) */
   appearance?: Partial<import('./chartAppearance').ChartAppearance>;
+
+  /** Per-subplot appearance overrides (merged on top of parent chart appearance) */
+  subplotAppearances?: Record<string, Partial<import('./chartAppearance').ChartAppearance>>;
 }
 
 /**

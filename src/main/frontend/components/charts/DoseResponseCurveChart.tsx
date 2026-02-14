@@ -14,11 +14,14 @@ const { Text } = Typography;
 interface DoseResponseCurveChartProps {
   curves: CurveDataDto[];
   selectedCategories: CategoryAnalysisResultDto[];
+  chartId?: string;
 }
 
-export default function DoseResponseCurveChart({ curves, selectedCategories }: DoseResponseCurveChartProps) {
+export default function DoseResponseCurveChart({ curves, selectedCategories, chartId }: DoseResponseCurveChartProps) {
   const clusterColors = useClusterColors();
-  const { applyToLayout, getConfig } = useChartAppearance();
+  const resolvedId = chartId || 'curve-overlay';
+  const { applyToLayout: parentApply, getConfig } = useChartAppearance(resolvedId);
+  const overlayApp = useChartAppearance(undefined, { parentId: resolvedId, key: 'overlay' });
   const categoryState = useReactiveState('categoryId');
   const [useLogScale, setUseLogScale] = useState(true);
 
@@ -418,7 +421,7 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
     return result;
   }, [baseTraces, clusterColors, curvesByCluster, selectedCategories, hasSelection, categoryState.selectedIds, nonSelectedDisplayMode]);
 
-  const layout: any = applyToLayout({
+  const layout: any = parentApply({
     title: {
       text: curves[0]?.pathwayDescription || 'Dose-Response Curves',
       font: { size: 16 },
@@ -453,7 +456,7 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
     return baseTraces.map(trace => ({ ...trace }));
   }, [baseTraces]);
 
-  const overlayLayout = useMemo(() => applyToLayout({
+  const overlayLayout = useMemo(() => overlayApp.applyToLayout({
     title: {
       text: 'Dose-Response Curves Overlay',
       font: { size: 16 },
@@ -484,7 +487,7 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
       b: 60,
     },
     height: 500,
-  }), [useLogScale, doseTransform, applyToLayout]);
+  }), [useLogScale, doseTransform, overlayApp.applyToLayout]);
 
   return (
     <div style={{ width: '100%' }}>
@@ -502,12 +505,15 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
 
       {/* Overlay plot */}
       <div style={{ marginBottom: 24 }}>
-        <Plot
-          data={overlayPlotData}
-          layout={overlayLayout}
-          config={config}
-          style={{ width: '100%' }}
-        />
+        <div style={{ width: '100%', aspectRatio: '2/1' }}>
+          <Plot
+            data={overlayPlotData}
+            layout={overlayLayout}
+            config={overlayApp.getConfig('dose_response_overlay')}
+            style={{ width: '100%', height: '100%' }}
+            useResizeHandler={true}
+          />
+        </div>
       </div>
 
       {/* Individual category plots - split into selected/unselected sections */}
@@ -643,7 +649,7 @@ export default function DoseResponseCurveChart({ curves, selectedCategories }: D
             }
           });
 
-          const categoryLayout = applyToLayout({
+          const categoryLayout = parentApply({
             xaxis: {
               title: { text: 'Dose' },
               type: useLogScale ? 'log' as const : 'linear' as const,
