@@ -206,9 +206,11 @@ The system runs a multi-step pipeline:
 
 1. **Backend data extraction skills** query your BMDExpress project for experiment details, prefilter results, BMD analysis summaries, and pathway analyses.
 
-2. **Frontend interpretation skills** add analysis instructions to the AI prompt (e.g., how to classify dose-response curves or estimate a point-of-departure).
+2. **Literature search skills** — if available, the AI can autonomously search PubMed for relevant toxicology literature to support its analysis (see [Literature Search](#literature-search) below).
 
-3. The assembled prompt — including section purpose, study context, extracted data, clinical data, adjacent section summaries, and your instruction — is sent to the LLM.
+3. **Frontend interpretation skills** add analysis instructions to the AI prompt (e.g., how to classify dose-response curves or estimate a point-of-departure).
+
+4. The assembled prompt — including all context blocks and your instruction — is sent to the LLM.
 
 After generation completes:
 
@@ -220,9 +222,29 @@ After generation completes:
 
 - Click **Discard** to throw it away.
 
+### What the AI Sees
+
+The AI receives a structured prompt assembled from labeled blocks. Understanding these blocks helps you write better instructions:
+
+| Block | Source | Content |
+| - | - | - |
+| **[PURPOSE]** | Section purpose field | What this section should cover |
+| **[STUDY CONTEXT]** | Report metadata | Project ID, template, study parameters |
+| **[EXPERIMENT SUMMARY]** | Backend skill | Species, strain, doses, test article details |
+| **[PREFILTER SUMMARY]** | Backend skill | Filter results and probe counts |
+| **[BMD ANALYSIS SUMMARY]** | Backend skill | Model fits, BMD statistics |
+| **[CATEGORY ANALYSIS SUMMARY]** | Backend skill | Top pathways with p-values, BMD/BMDL, gene counts |
+| **[GENOMIC DATA]** | Attached data | Category analysis results you attached to the section |
+| **[CLINICAL DATA]** | Clinical data panel | Uploaded, manual, or narrative clinical endpoints |
+| **[ADJACENT SECTIONS]** | Neighboring sections | Summaries of the previous and next sections (first 500 characters each) |
+| **[EXISTING CONTENT]** | Section editor | Current section content, if any (enables refinement) |
+| **[INSTRUCTION]** | Your instruction + skills | Your text combined with enabled interpretation skill prompts |
+
+The **adjacent sections** block gives the AI awareness of surrounding content so it avoids repeating what's already in the previous section or overlapping with the next one. This works automatically — no configuration needed.
+
 ### Refinement Mode
 
-If a section already has content when you run Assist, the existing content is included in the prompt. The AI can then revise, expand, or refine what's already written rather than starting from scratch.
+If a section already has content when you run Assist, the existing content is included in the `[EXISTING CONTENT]` block. The AI can then revise, expand, or refine what's already written rather than starting from scratch.
 
 
 ## AI Skills
@@ -244,6 +266,17 @@ These skills run on the BMDExpress server and extract structured data from your 
 
 
 All four are enabled by default and provide the foundational data for AI generation.
+
+#### Literature Search (Server-Side, AI-Invoked)
+
+These skills are not toggled on/off from the drawer — they are **tool-callable**, meaning the AI can autonomously invoke them during generation when it needs literature support. They search NCBI PubMed for relevant toxicology studies.
+
+| Skill | What It Does |
+| - | - |
+| **Pathway Interpretation** | Looks up PubMed literature for a specific biological pathway (GO term, KEGG ID) in the context of your study's test chemical and target organ |
+| **Literature Search** | Searches PubMed for general toxicogenomics studies related to your test article and organ/tissue |
+
+The AI decides when to use these based on the data it's analyzing. Results include article titles, PMIDs, and abstract excerpts from up to 5 relevant papers per query. No API key is required — searches use NCBI's free E-utilities.
 
 #### Chart Interpretation (Prompt-Based)
 
@@ -398,4 +431,25 @@ Skill customizations (edited prompts, custom skills, enable/disable toggles) are
 - **Track progress with statuses** — Mark sections as Draft → Reviewed → Final to track completion. The progress bar in the report list gives you an at-a-glance view.
 
 - **Preview before exporting** — The document preview reveals numbering, ordering, and formatting issues that aren't obvious in the section editor.
+
+- **Write targeted instructions** — Instead of generic prompts, reference the prompt blocks the AI receives. For example: "Using the [CATEGORY ANALYSIS SUMMARY] data, compare the top 5 pathways by BMD and discuss which are most relevant to hepatotoxicity." The AI has access to all the structured blocks listed in [What the AI Sees](#what-the-ai-sees).
+
+
+## Troubleshooting
+
+**"No API key configured"** — Click the gear icon in the AI assistant dialog and enter your API key for the selected provider. Keys are stored per-provider; switching from Claude to OpenAI requires a separate key.
+
+**Generation fails with no useful error** — Check that your API key is valid and has sufficient quota. You can verify a key works using the "Test" button in LLM settings. Also ensure the BMDExpress server is running — data extraction skills require a server connection.
+
+**AI output is generic or ignores your data** — Make sure data extraction skills (Experiment Summary, etc.) are enabled in the skills drawer. If all four are disabled, the AI has no project data to work with. Also check that your section has data attached via "Attach Data."
+
+**Custom skill prompts aren't appearing in output** — Verify the skill is toggled on (switch is purple). Custom skills are auto-enabled on creation based on their "Enabled by Default" setting, but you can toggle them off accidentally.
+
+**Reports disappeared after clearing browser data** — Reports are stored in IndexedDB, which is cleared when you clear browser data. There is no server-side backup. Use the Export feature regularly to save copies as PDF or Word.
+
+**Chart snapshot shows nothing** — The "Capture Chart" feature captures the first Plotly chart visible on the page. Make sure a BMDExpress analysis chart is rendered and visible before clicking capture.
+
+**Section reordering doesn't persist** — Drag-and-drop changes save automatically. If they don't persist after a page refresh, check that your browser isn't blocking IndexedDB (common in private/incognito mode).
+
+**"Modified" tag won't go away** — Click the pencil icon on the skill, then click "Reset to Default" at the bottom of the edit dialog. This removes your override and restores the original prompt template.
 
