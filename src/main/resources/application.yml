@@ -2,6 +2,9 @@
 # Default values for filters and visibility
 
 bmdexpress:
+  questionnaire:
+    dir: data/questionnaires
+    access-code: bmdexpress2026
   reports:
     dir: data/reports
     max-size-mb: 50

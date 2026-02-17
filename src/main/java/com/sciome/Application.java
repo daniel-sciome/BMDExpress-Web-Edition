@@ -2,6 +2,7 @@ package com.sciome;
 
 import com.sciome.config.DefaultsConfig;
 import com.sciome.config.LlmConfig;
+import com.sciome.config.QuestionnaireConfig;
 import com.sciome.config.ReportConfig;
 import com.vaadin.flow.component.page.AppShellConfigurator;
 import com.vaadin.flow.server.PWA;
@@ -15,7 +16,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 
 @SpringBootApplication
 @EnableAsync
-@EnableConfigurationProperties({DefaultsConfig.class, ReportConfig.class, LlmConfig.class})
+@EnableConfigurationProperties({DefaultsConfig.class, ReportConfig.class, LlmConfig.class, QuestionnaireConfig.class})
 @Theme("default")
 @PWA(name = "BMDExpress Web", shortName = "BMDExpress")
 public class Application extends SpringBootServletInitializer implements AppShellConfigurator {
