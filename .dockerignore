@@ -2,9 +2,9 @@
 *
 !target/
 
-# Within target, only include the JAR
+# Within target, only include the build artifact
 target/*
-!target/bmdexpress-web-*.jar
+!target/bmdexpress-web-*.war
 
 # Exclude lib directory (contains old BMDExpress desktop versions)
 lib/

@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Empty, Button, Space, Tooltip } from 'antd';
-import { DatabaseOutlined, CameraOutlined, ExportOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, CameraOutlined, ExportOutlined, EyeOutlined } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
   selectActiveSection,
@@ -14,6 +14,7 @@ import DataAttachmentPanel from './DataAttachmentPanel';
 import ChartSnapshotPanel from './ChartSnapshotPanel';
 import ClinicalDataPanel from './ClinicalDataPanel';
 import ExportModal from './ExportModal';
+import ReportDocumentView from './ReportDocumentView';
 
 export default function SectionEditor() {
   const dispatch = useAppDispatch();
@@ -23,6 +24,7 @@ export default function SectionEditor() {
   const [showDataPanel, setShowDataPanel] = useState(false);
   const [showChartPanel, setShowChartPanel] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   const handleContentChange = useCallback((html: string) => {
     if (activeSection) {
@@ -63,6 +65,15 @@ export default function SectionEditor() {
               onClick={() => setShowChartPanel(true)}
             >
               Capture Chart
+            </Button>
+          </Tooltip>
+          <Tooltip title="Preview formatted document">
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => setShowPreview(true)}
+            >
+              Preview
             </Button>
           </Tooltip>
           <Tooltip title="Export report">
@@ -119,6 +130,13 @@ export default function SectionEditor() {
       <DataAttachmentPanel open={showDataPanel} onClose={() => setShowDataPanel(false)} />
       <ChartSnapshotPanel open={showChartPanel} onClose={() => setShowChartPanel(false)} />
       <ExportModal open={showExport} onClose={() => setShowExport(false)} />
+      {activeReport && (
+        <ReportDocumentView
+          report={activeReport}
+          open={showPreview}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </div>
   );
 }

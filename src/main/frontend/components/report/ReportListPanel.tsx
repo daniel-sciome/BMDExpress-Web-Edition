@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Button, List, Typography, Popconfirm, Progress, Modal } from 'antd';
+import { Button, List, Typography, Popconfirm, Progress, Modal, Alert } from 'antd';
 import { PlusOutlined, DeleteOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
   selectReportList,
   selectActiveReport,
+  selectReportError,
+  selectReportLoading,
   loadReport,
   deleteReport,
 } from '../../store/slices/reportSlice';
@@ -16,6 +18,8 @@ export default function ReportListPanel() {
   const dispatch = useAppDispatch();
   const reports = useAppSelector(selectReportList);
   const activeReport = useAppSelector(selectActiveReport);
+  const error = useAppSelector(selectReportError);
+  const loading = useAppSelector(selectReportLoading);
   const [showCreate, setShowCreate] = useState(false);
 
   const handleSelectReport = (reportId: string) => {
@@ -42,8 +46,9 @@ export default function ReportListPanel() {
 
       <List
         size="small"
+        loading={loading}
         dataSource={reports}
-        locale={{ emptyText: 'No reports yet' }}
+        locale={{ emptyText: error ? 'Failed to load reports' : 'No reports yet' }}
         renderItem={(item) => (
           <List.Item
             style={{

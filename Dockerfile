@@ -5,8 +5,8 @@ FROM eclipse-temurin:21-jre-jammy
 
 WORKDIR /app
 
-# Copy the pre-built JAR file (using wildcard to match any version)
-COPY target/bmdexpress-web-*.jar app.jar
+# Copy the pre-built WAR file (Spring Boot repackaged, executable as a JAR)
+COPY target/bmdexpress-web-*.war app.jar
 
 # Expose port 8080 for Cloud Run
 EXPOSE 8080

@@ -144,7 +144,8 @@ public class ProjectService {
     }
 
     /**
-     * Get a project by ID (package-private, not exposed to browser)
+     * Get a project by ID (public for use by skill pipeline, not exposed to browser
+     * because BMDProject is not a Hilla-serializable DTO)
      *
      * @param projectId The project ID
      * @return The BMDProject

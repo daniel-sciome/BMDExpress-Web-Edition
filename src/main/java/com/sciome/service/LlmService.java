@@ -1,15 +1,18 @@
 package com.sciome.service;
 
+import com.sciome.bmdexpress2.mvp.model.BMDProject;
 import com.sciome.config.LlmConfig;
 import com.sciome.dto.report.*;
 import com.sciome.service.llm.LlmProvider;
 import com.sciome.service.llm.PromptAssembler;
+import com.sciome.service.llm.skill.*;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.hilla.BrowserCallable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -24,16 +27,21 @@ public class LlmService {
     private final LlmConfig config;
     private final ReportService reportService;
     private final ClinicalDataService clinicalDataService;
+    private final ProjectService projectService;
     private final PromptAssembler promptAssembler;
+    private final SkillRegistry skillRegistry;
     private final Map<String, LlmProvider> providers;
 
     public LlmService(LlmConfig config, ReportService reportService,
-                      ClinicalDataService clinicalDataService, PromptAssembler promptAssembler,
+                      ClinicalDataService clinicalDataService, ProjectService projectService,
+                      PromptAssembler promptAssembler, SkillRegistry skillRegistry,
                       List<LlmProvider> providerList) {
         this.config = config;
         this.reportService = reportService;
         this.clinicalDataService = clinicalDataService;
+        this.projectService = projectService;
         this.promptAssembler = promptAssembler;
+        this.skillRegistry = skillRegistry;
         this.providers = providerList.stream()
                 .collect(Collectors.toMap(LlmProvider::getName, p -> p));
     }
@@ -66,11 +74,24 @@ public class LlmService {
             // Get clinical data summary
             String clinicalSummary = clinicalDataService.getClinicalDataSummary(request.getReportId());
 
+            // Execute skill pipeline if enabled
+            List<SkillResult> skillResults = new ArrayList<>();
+            List<String> skillsUsed = new ArrayList<>();
+
+            if (request.isUseSkills() && report.getProjectId() != null) {
+                skillResults = executeDataExtractionSkills(report.getProjectId(), report, section);
+                skillsUsed = skillResults.stream()
+                        .filter(SkillResult::isSuccess)
+                        .map(SkillResult::getSkillName)
+                        .collect(Collectors.toList());
+            }
+
             // Build prompts
-            String systemPrompt = promptAssembler.buildSystemPrompt(report);
-            String userPrompt = promptAssembler.buildUserPrompt(
+            String systemPrompt = promptAssembler.buildSystemPromptWithSkills(report, skillRegistry);
+            String userPrompt = promptAssembler.buildUserPromptWithSkillData(
                     report, section, clinicalSummary,
-                    request.getInstruction(), request.isIncludeAdjacentSections());
+                    request.getInstruction(), request.isIncludeAdjacentSections(),
+                    skillResults);
 
             // Resolve parameters
             double temperature = request.getTemperature() != null
@@ -78,8 +99,8 @@ public class LlmService {
             int maxTokens = request.getMaxTokens() != null
                     ? request.getMaxTokens() : config.getDefaultMaxTokens();
 
-            log.info("Generating content for section '{}' via {} (model: {})",
-                    section.getTitle(), providerName, request.getModel());
+            log.info("Generating content for section '{}' via {} (model: {}, skills: {})",
+                    section.getTitle(), providerName, request.getModel(), skillsUsed);
 
             // Call LLM
             LlmProvider.LlmResult result = provider.generate(
@@ -89,6 +110,7 @@ public class LlmService {
             LlmResponseDto response = new LlmResponseDto();
             response.setProvider(providerName);
             response.setModel(request.getModel() != null ? request.getModel() : provider.getDefaultModel());
+            response.setSkillsUsed(skillsUsed);
 
             if (result.isSuccess()) {
                 response.setSuccess(true);
@@ -109,6 +131,42 @@ public class LlmService {
             log.error("LLM generation failed", e);
             return errorResponse("Generation failed: " + e.getMessage());
         }
+    }
+
+    private List<SkillResult> executeDataExtractionSkills(String projectId,
+                                                           ReportDto report,
+                                                           ReportSectionDto section) {
+        List<SkillResult> results = new ArrayList<>();
+
+        try {
+            BMDProject project = projectService.getProject(projectId);
+            SkillContext context = new SkillContext(projectId, project, report, section);
+
+            List<Skill> extractionSkills = skillRegistry.getSkillsByCategory(SkillCategory.DATA_EXTRACTION);
+
+            for (Skill skill : extractionSkills) {
+                try {
+                    log.debug("Executing skill: {}", skill.getName());
+                    SkillResult result = skill.execute(context, Map.of());
+                    results.add(result);
+
+                    if (result.isSuccess()) {
+                        log.debug("Skill '{}' succeeded ({} chars)",
+                                skill.getName(),
+                                result.getContent() != null ? result.getContent().length() : 0);
+                    } else {
+                        log.warn("Skill '{}' failed: {}", skill.getName(), result.getError());
+                    }
+                } catch (Exception e) {
+                    log.warn("Skill '{}' threw exception: {}", skill.getName(), e.getMessage());
+                    results.add(SkillResult.failure(skill.getName(), e.getMessage()));
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to load project for skill execution: {}", e.getMessage());
+        }
+
+        return results;
     }
 
     public LlmResponseDto refineSectionContent(String reportId, String sectionId,

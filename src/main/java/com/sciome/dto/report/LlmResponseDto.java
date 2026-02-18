@@ -1,5 +1,7 @@
 package com.sciome.dto.report;
 
+import java.util.List;
+
 public class LlmResponseDto {
     private String content;
     private String provider;
@@ -8,6 +10,7 @@ public class LlmResponseDto {
     private int outputTokens;
     private boolean success;
     private String error;
+    private List<String> skillsUsed;
 
     public LlmResponseDto() {
     }
@@ -66,5 +69,13 @@ public class LlmResponseDto {
 
     public void setError(String error) {
         this.error = error;
+    }
+
+    public List<String> getSkillsUsed() {
+        return skillsUsed;
+    }
+
+    public void setSkillsUsed(List<String> skillsUsed) {
+        this.skillsUsed = skillsUsed;
     }
 }

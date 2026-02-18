@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Button, Modal, Input, Select, Space, Typography, Alert, Spin } from 'antd';
-import { RobotOutlined, SettingOutlined } from '@ant-design/icons';
+import { Button, Modal, Input, Select, Space, Typography, Alert, Spin, Badge, Tag } from 'antd';
+import { RobotOutlined, SettingOutlined, ExperimentOutlined } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
   selectActiveSection,
@@ -11,6 +11,7 @@ import {
 } from '../../store/slices/reportSlice';
 import { LlmService } from 'Frontend/generated/endpoints';
 import LlmSettingsModal from './LlmSettingsModal';
+import SkillConfigDrawer, { getEnabledSkillCount, getEnabledInterpretationPrompt } from './SkillConfigDrawer';
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -29,6 +30,7 @@ export default function AssistButton() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [skillsOpen, setSkillsOpen] = useState(false);
   const [instruction, setInstruction] = useState('');
   const [provider, setProvider] = useState(() =>
     localStorage.getItem('llm_provider') || 'claude'
@@ -38,6 +40,7 @@ export default function AssistButton() {
   );
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  const [skillsUsed, setSkillsUsed] = useState<string[]>([]);
 
   const getApiKey = () => {
     return localStorage.getItem(`llm_api_key_${provider}`) || '';
@@ -54,23 +57,33 @@ export default function AssistButton() {
 
     setError(null);
     setResult(null);
+    setSkillsUsed([]);
     dispatch(setLlmGenerating(true));
 
     try {
+      // Build combined instruction: user instruction + interpretation skill prompts
+      const baseInstruction = instruction || 'Draft this section based on the available data and section purpose.';
+      const interpretationPrompt = getEnabledInterpretationPrompt();
+      const combinedInstruction = interpretationPrompt
+        ? `${baseInstruction}\n\n--- ANALYSIS SKILLS ---\nApply the following analysis perspectives when interpreting the data:\n\n${interpretationPrompt}`
+        : baseInstruction;
+
       const response = await LlmService.generateSectionContent({
         reportId: activeReport.id,
         sectionId: activeSection.id,
         provider,
         apiKey,
         model: model || null,
-        instruction: instruction || 'Draft this section based on the available data and section purpose.',
+        instruction: combinedInstruction,
         includeAdjacentSections: true,
+        useSkills: true,
         temperature: null,
         maxTokens: null,
       });
 
       if (response?.success) {
         setResult(response.content || '');
+        setSkillsUsed(response.skillsUsed || []);
       } else {
         setError(response?.error || 'Generation failed');
       }
@@ -87,8 +100,11 @@ export default function AssistButton() {
       setModalOpen(false);
       setResult(null);
       setInstruction('');
+      setSkillsUsed([]);
     }
   };
+
+  const skillCount = getEnabledSkillCount();
 
   return (
     <>
@@ -104,11 +120,12 @@ export default function AssistButton() {
       <Modal
         title="AI Writing Assistant"
         open={modalOpen}
-        onCancel={() => { setModalOpen(false); setResult(null); setError(null); }}
+        onCancel={() => { setModalOpen(false); setResult(null); setError(null); setSkillsUsed([]); }}
         footer={null}
-        width={600}
+        width={640}
       >
         <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          {/* Provider row + settings + skills */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
             <div style={{ flex: 1 }}>
               <Text strong>Provider</Text>
@@ -124,8 +141,18 @@ export default function AssistButton() {
               onClick={() => setSettingsOpen(true)}
               size="small"
             />
+            <Badge count={skillCount} size="small" offset={[-4, 0]} color="#722ed1">
+              <Button
+                icon={<ExperimentOutlined />}
+                onClick={() => setSkillsOpen(true)}
+                size="small"
+              >
+                Skills
+              </Button>
+            </Badge>
           </div>
 
+          {/* Instruction */}
           <div>
             <Text strong>Instruction</Text>
             <TextArea
@@ -137,6 +164,7 @@ export default function AssistButton() {
             />
           </div>
 
+          {/* Generate button */}
           <Button
             type="primary"
             icon={<RobotOutlined />}
@@ -147,20 +175,33 @@ export default function AssistButton() {
             Generate
           </Button>
 
+          {/* Loading state */}
           {generating && (
             <div style={{ textAlign: 'center', padding: 16 }}>
               <Spin />
               <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
-                Generating content...
+                Running {skillCount} skills and generating content...
               </Text>
             </div>
           )}
 
           {error && <Alert type="error" message={error} showIcon />}
 
+          {/* Result preview */}
           {result && (
             <div>
-              <Text strong>Preview</Text>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text strong>Preview</Text>
+                {skillsUsed.length > 0 && (
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {skillsUsed.map(s => (
+                      <Tag key={s} color="purple" style={{ fontSize: 10, margin: 0 }}>
+                        {s}
+                      </Tag>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div style={{
                 border: '1px solid #d9d9d9',
                 borderRadius: 4,
@@ -176,7 +217,7 @@ export default function AssistButton() {
                 <Button type="primary" onClick={handleApply}>
                   Apply to Section
                 </Button>
-                <Button onClick={() => setResult(null)}>
+                <Button onClick={() => { setResult(null); setSkillsUsed([]); }}>
                   Discard
                 </Button>
               </Space>
@@ -186,6 +227,7 @@ export default function AssistButton() {
       </Modal>
 
       <LlmSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SkillConfigDrawer open={skillsOpen} onClose={() => setSkillsOpen(false)} />
     </>
   );
 }

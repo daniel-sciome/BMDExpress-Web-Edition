@@ -447,6 +447,13 @@ const SECTIONS: { title: string; description?: string; questions: QuestionDef[] 
 
 // ── Component ─────────────────────────────────────────────────────────
 
+const STORAGE_KEY = 'questionnaire_response_id';
+
+// Collect checkbox question keys so we can split "; " strings back to arrays when loading
+const CHECKBOX_KEYS = new Set(
+  SECTIONS.flatMap((s) => s.questions.filter((q) => q.type === 'checkbox').map((q) => q.key)),
+);
+
 export default function QuestionnaireForm() {
   const [accessGranted, setAccessGranted] = useState(false);
   const [codeInput, setCodeInput] = useState('');
@@ -455,6 +462,9 @@ export default function QuestionnaireForm() {
   const [submitted, setSubmitted] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState('');
+  const [savedId, setSavedId] = useState<string | null>(() => localStorage.getItem(STORAGE_KEY));
   const [form] = Form.useForm();
 
   // ── Access gate ───────────────────────────────────────────────────
@@ -477,6 +487,39 @@ export default function QuestionnaireForm() {
     }
   }
 
+  // ── Edit saved response ─────────────────────────────────────────
+
+  async function handleEditSaved() {
+    if (!savedId) return;
+    setEditLoading(true);
+    setEditError('');
+    try {
+      const dto = await QuestionnaireService.getResponse(savedId);
+      if (!dto) {
+        setEditError('Saved response not found. It may have been deleted.');
+        localStorage.removeItem(STORAGE_KEY);
+        setSavedId(null);
+        return;
+      }
+      // Populate form fields from the saved DTO
+      const formValues: Record<string, unknown> = {
+        respondentName: dto.respondentName,
+        respondentEmail: dto.respondentEmail,
+      };
+      if (dto.responses) {
+        for (const [key, val] of Object.entries(dto.responses)) {
+          formValues[key] = CHECKBOX_KEYS.has(key) ? val.split('; ') : val;
+        }
+      }
+      form.setFieldsValue(formValues);
+      setAccessGranted(true);
+    } catch {
+      setEditError('Failed to load saved response. Please try again.');
+    } finally {
+      setEditLoading(false);
+    }
+  }
+
   // ── Form submission ───────────────────────────────────────────────
 
   async function handleSubmit(values: Record<string, unknown>) {
@@ -494,11 +537,16 @@ export default function QuestionnaireForm() {
         }
       }
 
-      await QuestionnaireService.submitResponse({
+      const returnedId = await QuestionnaireService.submitResponse({
+        id: savedId ?? undefined,
         respondentName: (values.respondentName as string) || '',
         respondentEmail: (values.respondentEmail as string) || '',
         responses,
       });
+      if (returnedId) {
+        localStorage.setItem(STORAGE_KEY, returnedId);
+        setSavedId(returnedId);
+      }
       setSubmitted(true);
     } catch {
       setSubmitError('Failed to submit. Please try again.');
@@ -543,6 +591,21 @@ export default function QuestionnaireForm() {
           </Space.Compact>
           {codeError && (
             <Alert message={codeError} type="error" showIcon style={{ marginTop: 12 }} />
+          )}
+          {savedId && (
+            <>
+              <Divider plain>or</Divider>
+              <Button
+                block
+                onClick={handleEditSaved}
+                loading={editLoading}
+              >
+                Edit Saved Response
+              </Button>
+              {editError && (
+                <Alert message={editError} type="error" showIcon style={{ marginTop: 12 }} />
+              )}
+            </>
           )}
         </Card>
       </div>

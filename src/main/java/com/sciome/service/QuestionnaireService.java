@@ -49,8 +49,23 @@ public class QuestionnaireService {
         return accessCode.equals(code);
     }
 
-    public void submitResponse(QuestionnaireResponseDto response) {
-        response.setId(UUID.randomUUID().toString());
+    public QuestionnaireResponseDto getResponse(String id) {
+        Path file = questionnairesDir.resolve(id + ".json");
+        if (!Files.exists(file)) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(file.toFile(), QuestionnaireResponseDto.class);
+        } catch (IOException e) {
+            log.error("Failed to read questionnaire response: {}", id, e);
+            return null;
+        }
+    }
+
+    public String submitResponse(QuestionnaireResponseDto response) {
+        if (response.getId() == null || response.getId().isBlank()) {
+            response.setId(UUID.randomUUID().toString());
+        }
         response.setSubmittedAt(Instant.now().toString());
 
         Path file = questionnairesDir.resolve(response.getId() + ".json");
@@ -61,6 +76,7 @@ public class QuestionnaireService {
             log.error("Failed to save questionnaire response", e);
             throw new RuntimeException("Failed to save questionnaire response", e);
         }
+        return response.getId();
     }
 
     public List<QuestionnaireResponseDto> listResponses() {

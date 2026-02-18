@@ -11,6 +11,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.sciome.service.llm.skill.SkillRegistry;
+
 import java.nio.file.Path;
 import java.util.List;
 
@@ -55,8 +57,11 @@ class LlmServiceTest {
             }
         };
 
+        ProjectService projectService = new ProjectService();
+        SkillRegistry skillRegistry = new SkillRegistry(List.of());
+
         llmService = new LlmService(llmConfig, reportService, clinicalDataService,
-                promptAssembler, List.of(mockProvider));
+                projectService, promptAssembler, skillRegistry, List.of(mockProvider));
 
         // Create test report with sections
         ReportDto report = reportService.createReport("project-1", "EPA BMD Guidance", "Test Report");

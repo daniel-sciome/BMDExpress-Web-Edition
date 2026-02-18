@@ -7,6 +7,7 @@ import type {
   ReportSectionDto,
 } from '../../types/reportTypes';
 import { ReportService } from 'Frontend/generated/endpoints';
+import * as reportDb from '../../utils/reportDb';
 
 const initialState: ReportState = {
   reports: [],
@@ -18,44 +19,59 @@ const initialState: ReportState = {
   llmGenerating: false,
 };
 
-// Async thunks
+// Async thunks — all CRUD now goes through IndexedDB
 
 export const loadReportList = createAsyncThunk(
   'report/loadReportList',
   async () => {
-    const reports = await ReportService.listReports();
-    return (reports || []) as ReportMetadataDto[];
+    return await reportDb.listReports();
   }
 );
 
 export const loadReport = createAsyncThunk(
   'report/loadReport',
   async (reportId: string) => {
-    const report = await ReportService.getReport(reportId);
-    return report as ReportDto;
+    const report = await reportDb.loadReport(reportId);
+    if (!report) throw new Error(`Report ${reportId} not found`);
+    return report;
   }
 );
 
 export const createReport = createAsyncThunk(
   'report/createReport',
   async ({ projectId, templateName, title }: { projectId: string; templateName: string; title: string }) => {
-    const report = await ReportService.createReport(projectId, templateName, title);
-    return report as ReportDto;
+    // Fetch template sections from backend
+    const sections = await ReportService.getTemplatePreview(templateName);
+    const now = new Date().toISOString();
+    const report: ReportDto = {
+      id: crypto.randomUUID(),
+      title,
+      projectId,
+      templateName,
+      createdAt: now,
+      updatedAt: now,
+      sections: (sections || []) as ReportSectionDto[],
+      clinicalDatasets: [],
+      metadata: {},
+    };
+    await reportDb.saveReport(report);
+    return report;
   }
 );
 
 export const saveReport = createAsyncThunk(
   'report/saveReport',
   async (report: ReportDto) => {
-    await ReportService.saveReport(report);
-    return report;
+    const updated = { ...report, updatedAt: new Date().toISOString() };
+    await reportDb.saveReport(updated);
+    return updated;
   }
 );
 
 export const deleteReport = createAsyncThunk(
   'report/deleteReport',
   async (reportId: string) => {
-    await ReportService.deleteReport(reportId);
+    await reportDb.deleteReport(reportId);
     return reportId;
   }
 );
@@ -63,8 +79,14 @@ export const deleteReport = createAsyncThunk(
 export const updateSection = createAsyncThunk(
   'report/updateSection',
   async ({ reportId, section }: { reportId: string; section: ReportSectionDto }) => {
-    const report = await ReportService.updateSection(reportId, section);
-    return report as ReportDto;
+    const report = await reportDb.loadReport(reportId);
+    if (!report) throw new Error(`Report ${reportId} not found`);
+    const idx = report.sections.findIndex(s => s.id === section.id);
+    if (idx === -1) throw new Error(`Section ${section.id} not found`);
+    report.sections[idx] = section;
+    report.updatedAt = new Date().toISOString();
+    await reportDb.saveReport(report);
+    return report;
   }
 );
 
@@ -100,6 +122,9 @@ const reportSlice = createSlice({
     },
     setActiveReport: (state, action: PayloadAction<ReportDto>) => {
       state.activeReport = action.payload;
+    },
+    clearError: (state) => {
+      state.error = null;
     },
   },
   extraReducers: (builder) => {
@@ -141,7 +166,12 @@ const reportSlice = createSlice({
     });
 
     // createReport
+    builder.addCase(createReport.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
     builder.addCase(createReport.fulfilled, (state, action) => {
+      state.loading = false;
       state.activeReport = action.payload;
       // Add to list
       state.reports.unshift({
@@ -154,6 +184,10 @@ const reportSlice = createSlice({
         createdAt: action.payload.createdAt,
         updatedAt: action.payload.updatedAt,
       });
+    });
+    builder.addCase(createReport.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.error.message || 'Failed to create report';
     });
 
     // saveReport
@@ -169,17 +203,29 @@ const reportSlice = createSlice({
     });
 
     // deleteReport
+    builder.addCase(deleteReport.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
     builder.addCase(deleteReport.fulfilled, (state, action) => {
+      state.loading = false;
       state.reports = state.reports.filter(r => r.id !== action.payload);
       if (state.activeReport?.id === action.payload) {
         state.activeReport = null;
         state.activeSectionId = null;
       }
     });
+    builder.addCase(deleteReport.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.error.message || 'Failed to delete report';
+    });
 
     // updateSection
     builder.addCase(updateSection.fulfilled, (state, action) => {
       state.activeReport = action.payload;
+    });
+    builder.addCase(updateSection.rejected, (state, action) => {
+      state.error = action.error.message || 'Failed to update section';
     });
   },
 });
@@ -191,6 +237,7 @@ export const {
   clearActiveReport,
   setLlmGenerating,
   setActiveReport,
+  clearError,
 } = reportSlice.actions;
 
 // Selectors

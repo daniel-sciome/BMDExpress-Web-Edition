@@ -3,6 +3,8 @@ package com.sciome.service.llm;
 import com.sciome.dto.report.DataAttachmentDto;
 import com.sciome.dto.report.ReportDto;
 import com.sciome.dto.report.ReportSectionDto;
+import com.sciome.service.llm.skill.SkillRegistry;
+import com.sciome.service.llm.skill.SkillResult;
 import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
@@ -10,6 +12,16 @@ import java.util.List;
 
 @Component
 public class PromptAssembler {
+
+    private static final String[] SKILL_BLOCK_NAMES = {
+            "experiment_summary", "prefilter_summary",
+            "bmd_analysis_summary", "category_analysis_summary"
+    };
+
+    private static final String[] SKILL_BLOCK_HEADERS = {
+            "EXPERIMENT SUMMARY", "PREFILTER SUMMARY",
+            "BMD ANALYSIS SUMMARY", "CATEGORY ANALYSIS SUMMARY"
+    };
 
     public String buildSystemPrompt(ReportDto report) {
         StringBuilder sb = new StringBuilder();
@@ -22,9 +34,26 @@ public class PromptAssembler {
         return sb.toString();
     }
 
+    public String buildSystemPromptWithSkills(ReportDto report, SkillRegistry registry) {
+        String base = buildSystemPrompt(report);
+        String toolDescriptions = registry.buildToolDescriptionText();
+        if (toolDescriptions.isEmpty()) {
+            return base;
+        }
+        return base + toolDescriptions;
+    }
+
     public String buildUserPrompt(ReportDto report, ReportSectionDto section,
                                    String clinicalSummary, String instruction,
                                    boolean includeAdjacentSections) {
+        return buildUserPromptWithSkillData(report, section, clinicalSummary,
+                instruction, includeAdjacentSections, List.of());
+    }
+
+    public String buildUserPromptWithSkillData(ReportDto report, ReportSectionDto section,
+                                                String clinicalSummary, String instruction,
+                                                boolean includeAdjacentSections,
+                                                List<SkillResult> skillResults) {
         StringBuilder sb = new StringBuilder();
 
         // Section purpose
@@ -40,6 +69,19 @@ public class PromptAssembler {
             sb.append("Project: ").append(report.getProjectId()).append("\n");
         }
         sb.append("\n");
+
+        // Skill data blocks — inserted before genomic/clinical data
+        if (skillResults != null && !skillResults.isEmpty()) {
+            for (SkillResult result : skillResults) {
+                if (!result.isSuccess() || result.getContent() == null || result.getContent().isBlank()) {
+                    continue;
+                }
+                String header = getBlockHeader(result.getSkillName());
+                sb.append("[").append(header).append("]\n");
+                sb.append(result.getContent());
+                sb.append("\n\n");
+            }
+        }
 
         // Genomic data attachments
         List<DataAttachmentDto> attachments = section.getDataAttachments();
@@ -90,6 +132,16 @@ public class PromptAssembler {
         sb.append("\n");
 
         return sb.toString();
+    }
+
+    private String getBlockHeader(String skillName) {
+        for (int i = 0; i < SKILL_BLOCK_NAMES.length; i++) {
+            if (SKILL_BLOCK_NAMES[i].equals(skillName)) {
+                return SKILL_BLOCK_HEADERS[i];
+            }
+        }
+        // Fallback: convert skill_name to SKILL NAME
+        return skillName.toUpperCase().replace('_', ' ');
     }
 
     private void appendAdjacentSections(StringBuilder sb, ReportDto report, ReportSectionDto currentSection) {

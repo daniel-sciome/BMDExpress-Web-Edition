@@ -8,6 +8,7 @@ public class LlmRequestDto {
     private String model;
     private String instruction;
     private boolean includeAdjacentSections;
+    private boolean useSkills = true;
     private Double temperature;
     private Integer maxTokens;
 
@@ -68,6 +69,14 @@ public class LlmRequestDto {
 
     public void setIncludeAdjacentSections(boolean includeAdjacentSections) {
         this.includeAdjacentSections = includeAdjacentSections;
+    }
+
+    public boolean isUseSkills() {
+        return useSkills;
+    }
+
+    public void setUseSkills(boolean useSkills) {
+        this.useSkills = useSkills;
     }
 
     public Double getTemperature() {

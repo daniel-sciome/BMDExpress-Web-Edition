@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Select, Input, Typography, Space } from 'antd';
+import { Modal, Select, Input, Typography, Space, Alert } from 'antd';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { createReport } from '../../store/slices/reportSlice';
+import { createReport, selectReportLoading } from '../../store/slices/reportSlice';
 import { ProjectService } from 'Frontend/generated/endpoints';
 
 const { Text } = Typography;
@@ -20,13 +20,16 @@ const TEMPLATES = [
 
 export default function TemplateSelector({ visible, onClose }: TemplateSelectorProps) {
   const dispatch = useAppDispatch();
+  const loading = useAppSelector(selectReportLoading);
   const [title, setTitle] = useState('');
   const [template, setTemplate] = useState('EPA BMD Guidance');
   const [projectId, setProjectId] = useState<string>('');
   const [projects, setProjects] = useState<string[]>([]);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
+      setCreateError(null);
       ProjectService.getAllProjectIds().then((ids) => {
         const validIds = (ids || []).filter((p): p is string => p !== undefined);
         setProjects(validIds);
@@ -37,11 +40,16 @@ export default function TemplateSelector({ visible, onClose }: TemplateSelectorP
     }
   }, [visible]);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!title.trim() || !projectId) return;
-    dispatch(createReport({ projectId, templateName: template, title: title.trim() }));
-    setTitle('');
-    onClose();
+    setCreateError(null);
+    try {
+      await dispatch(createReport({ projectId, templateName: template, title: title.trim() })).unwrap();
+      setTitle('');
+      onClose();
+    } catch (err: any) {
+      setCreateError(err?.message || 'Failed to create report');
+    }
   };
 
   return (
@@ -51,9 +59,13 @@ export default function TemplateSelector({ visible, onClose }: TemplateSelectorP
       onOk={handleCreate}
       onCancel={onClose}
       okText="Create"
-      okButtonProps={{ disabled: !title.trim() || !projectId }}
+      okButtonProps={{ disabled: !title.trim() || !projectId, loading }}
+      cancelButtonProps={{ disabled: loading }}
     >
       <Space direction="vertical" style={{ width: '100%' }} size="middle">
+        {createError && (
+          <Alert type="error" message={createError} closable onClose={() => setCreateError(null)} />
+        )}
         <div>
           <Text strong>Report Title</Text>
           <Input
