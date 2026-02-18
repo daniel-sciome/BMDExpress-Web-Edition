@@ -1,8 +1,8 @@
 /**
  * Chart Export Utilities
  *
- * Multi-format export using Plotly.toImage() directly.
- * Supports SVG, PNG, JPEG, WebP with custom dimensions/scale.
+ * SVG-only export using Plotly.toImage().
+ * SVG is vector — PowerPoint can import directly and rasterize if needed.
  *
  * NOTE: We do NOT `import Plotly from 'plotly.js'` here because
  * the raw plotly.js bundle uses CommonJS `global` which Vite doesn't
@@ -11,52 +11,34 @@
  * (react-plotly.js attaches it) or lazy-import it.
  */
 
-export type ExportFormat = 'png' | 'svg' | 'jpeg' | 'webp';
-
 export interface ExportOptions {
-  format: ExportFormat;
   width: number;
   height: number;
-  scale: number;
   filename: string;
 }
 
 export const EXPORT_PRESETS: Record<string, ExportOptions> = {
-  'presentation-png': {
-    format: 'png',
+  'presentation': {
     width: 1920,
     height: 1080,
-    scale: 2,
     filename: 'chart',
   },
-  'publication-png': {
-    format: 'png',
+  'publication': {
     width: 2400,
     height: 1800,
-    scale: 4,
     filename: 'chart',
   },
-  'vector-svg': {
-    format: 'svg',
+  'standard': {
     width: 1200,
     height: 800,
-    scale: 1,
-    filename: 'chart',
-  },
-  'quick-png': {
-    format: 'png',
-    width: 1200,
-    height: 800,
-    scale: 2,
     filename: 'chart',
   },
 };
 
 export const EXPORT_PRESET_LABELS: Record<string, string> = {
-  'quick-png': 'Quick PNG (1200x800 @2x)',
-  'presentation-png': 'Presentation PNG (1920x1080 @2x)',
-  'publication-png': 'Publication PNG (2400x1800 @4x, 300dpi)',
-  'vector-svg': 'Vector SVG (1200x800)',
+  'standard': 'Standard (1200×800)',
+  'presentation': 'Presentation (1920×1080)',
+  'publication': 'Publication (2400×1800)',
 };
 
 /** Plotly graph div shape (subset of what react-plotly.js attaches) */
@@ -115,15 +97,14 @@ export async function exportChart(
 
   const Plotly = await getPlotly();
   const dataUrl = await Plotly.toImage(graphDiv, {
-    format: options.format,
+    format: 'svg',
     width: options.width,
     height: options.height,
-    scale: options.scale,
+    scale: 1,
   });
 
   // Trigger download
-  const extension = options.format === 'svg' ? 'svg' : options.format;
-  const filename = `${options.filename}.${extension}`;
+  const filename = `${options.filename}.svg`;
 
   const link = document.createElement('a');
   link.href = dataUrl;

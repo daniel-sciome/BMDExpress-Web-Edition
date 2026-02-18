@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DuckDB Explorer — bmdx.duckdb</title>
+<script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Header */
+  .header { background: #1a1a2e; color: #fff; padding: 10px 20px; display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+  .header h1 { font-size: 17px; font-weight: 600; }
+  .header .status { font-size: 13px; color: #aaa; margin-left: auto; }
+  .header .status.ready { color: #4ec9b0; }
+  .header .status.error { color: #f44; }
+
+  /* Main layout: sidebar + content */
+  .main-layout { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+
+  /* Left sidebar: full height */
+  .left-sidebar { width: 260px; background: #fff; border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
+
+  /* Content area: graph + resize + results stacked vertically */
+  .content-area { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+  .table-sidebar-header { padding: 10px 12px; font-weight: 600; font-size: 13px; border-bottom: 1px solid #e0e0e0; background: #fafafa; flex-shrink: 0; }
+  .table-list { overflow-y: auto; flex: 1; min-height: 0; border-bottom: 1px solid #e0e0e0; }
+  .sidebar-scroll { overflow-y: auto; min-height: 0; flex-shrink: 0; max-height: 40%; }
+  .table-item { padding: 6px 12px; cursor: pointer; font-size: 12px; border-bottom: 1px solid #f0f0f0; transition: background 0.15s; }
+  .table-item:hover { background: #e6f7ff; }
+  .table-item.active { background: #1890ff; color: #fff; }
+  .table-count { font-size: 10px; color: #999; padding: 6px 12px; }
+
+  /* Graph canvas */
+  .graph-panel { flex: 1; position: relative; background: #fff; min-width: 0; min-height: 0; overflow: hidden; }
+  #graphCanvas { width: 100%; height: 100%; }
+  .graph-toolbar { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; z-index: 10; }
+  .graph-toolbar button { padding: 3px 8px; font-size: 11px; border: 1px solid #d9d9d9; border-radius: 3px; background: #fff; cursor: pointer; }
+  .graph-toolbar button:hover { background: #e6f7ff; border-color: #1890ff; }
+
+  /* Sidebar sections */
+  .sidebar-section { padding: 10px 12px; border-bottom: 1px solid #e0e0e0; }
+  .sidebar-section h3 { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+
+  /* Table info */
+  .table-info-name { font-size: 14px; font-weight: 600; color: #1890ff; margin-bottom: 4px; }
+  .col-list { max-height: 120px; overflow-y: auto; }
+  .col-item { font-size: 11px; font-family: 'SF Mono', 'Fira Code', Consolas, monospace; padding: 1px 0; display: flex; gap: 6px; }
+  .col-item .name { color: #333; }
+  .col-item .type { color: #999; }
+
+  /* Active joins */
+  .join-item { display: flex; align-items: flex-start; gap: 5px; padding: 4px 0; font-size: 11px; border-bottom: 1px solid #f5f5f5; }
+  .join-item:last-of-type { border-bottom: none; }
+  .join-item .join-detail { flex: 1; }
+  .join-item .join-types { display: flex; align-items: center; gap: 3px; margin-bottom: 2px; }
+  .join-item .type-badge { font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; background: #e6f7ff; color: #1890ff; border: 1px solid #91d5ff; white-space: nowrap; }
+  .join-item .type-arrow { color: #999; font-size: 9px; }
+  .join-item .join-cols { font-family: monospace; font-size: 10px; color: #666; }
+  .join-item .remove-btn { background: none; border: none; color: #f44; cursor: pointer; font-size: 13px; padding: 0 3px; }
+  .join-item .remove-btn:hover { color: #cf1322; }
+  .edge-join-type { font-size: 9px; padding: 1px 3px; border: 1px solid #d9d9d9; border-radius: 3px; background: #fff; cursor: pointer; flex-shrink: 0; }
+  .join-actions { display: flex; gap: 6px; margin-top: 6px; }
+  .no-joins { font-size: 11px; color: #999; font-style: italic; }
+
+  /* Join config */
+  .config-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .config-row label { font-size: 11px; color: #666; min-width: 55px; }
+  .config-row select, .config-row input { font-size: 11px; padding: 3px 6px; border: 1px solid #d9d9d9; border-radius: 3px; }
+  .config-row select { flex: 1; }
+  .config-row input[type="number"] { width: 70px; }
+
+  /* SQL preview */
+  .sql-preview { font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 10px; background: #1a1a2e; color: #e0e0e0; padding: 8px 10px; border-radius: 4px; white-space: pre-wrap; word-break: break-all; max-height: 140px; overflow-y: auto; min-height: 30px; cursor: text; }
+  .sql-preview .keyword { color: #4ec9b0; }
+  .sql-preview .table-ref { color: #dcdcaa; }
+
+  /* Legend */
+  .legend { display: flex; gap: 10px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #666; }
+  .legend-line { width: 18px; height: 2px; }
+  .legend-line.solid { background: #888; }
+  .legend-line.dashed { background: repeating-linear-gradient(90deg, #888 0, #888 3px, transparent 3px, transparent 6px); }
+  .legend-line.selected { background: #1890ff; height: 3px; }
+
+  /* Bottom half: SQL editor + results */
+  .bottom-half { display: flex; flex-direction: column; background: #fff; flex-shrink: 0; }
+  .bottom-half.expanded { flex: 1; }
+
+  /* Resize handle */
+  .resize-handle { height: 5px; background: #e0e0e0; cursor: ns-resize; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .resize-handle:hover { background: #1890ff; }
+  .resize-handle::after { content: ''; width: 30px; height: 2px; background: #999; border-radius: 1px; }
+  .resize-handle:hover::after { background: #fff; }
+
+  /* SQL Editor */
+  .sql-section { padding: 8px 16px; display: flex; gap: 8px; align-items: flex-start; flex-shrink: 0; border-bottom: 1px solid #e0e0e0; }
+  .sql-section label { font-size: 11px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; padding-top: 6px; }
+  .sql-input { flex: 1; font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 12px; padding: 6px 10px; border: 1px solid #d9d9d9; border-radius: 4px; outline: none; resize: vertical; min-height: 32px; max-height: 120px; }
+  .sql-input:focus { border-color: #1890ff; box-shadow: 0 0 0 2px rgba(24,144,255,0.2); }
+
+  /* Schema panel */
+  .schema-section { border-bottom: 1px solid #e0e0e0; background: #fafafa; padding: 6px 16px; flex-shrink: 0; max-height: 80px; overflow-y: auto; }
+  .schema-section h3 { font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #333; display: inline; }
+  .schema-cols { display: flex; flex-wrap: wrap; gap: 3px 10px; }
+  .schema-col { font-size: 11px; font-family: monospace; }
+  .schema-col .col-name { color: #1890ff; }
+  .schema-col .col-type { color: #999; }
+
+  /* Buttons */
+  .btn { padding: 5px 14px; border: none; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
+  .btn-primary { background: #1890ff; color: #fff; }
+  .btn-primary:hover { background: #40a9ff; }
+  .btn-primary:disabled { background: #d9d9d9; cursor: not-allowed; color: #999; }
+  .btn-secondary { background: #f0f0f0; color: #333; border: 1px solid #d9d9d9; }
+  .btn-secondary:hover { background: #e0e0e0; }
+  .btn-sm { padding: 2px 8px; font-size: 10px; }
+
+  /* Data table */
+  .table-wrapper { flex: 1; overflow: auto; min-height: 0; }
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.data-table th { position: sticky; top: 0; background: #fafafa; border-bottom: 2px solid #e0e0e0; padding: 5px 10px; text-align: left; font-weight: 600; font-size: 11px; color: #666; white-space: nowrap; z-index: 1; }
+  table.data-table td { padding: 4px 10px; border-bottom: 1px solid #f0f0f0; white-space: nowrap; max-width: 250px; overflow: hidden; text-overflow: ellipsis; }
+  table.data-table tr:hover td { background: #f5f5ff; }
+  table.data-table td.null-val { color: #ccc; font-style: italic; }
+
+  /* Pagination */
+  .pagination { padding: 6px 16px; background: #fff; border-top: 1px solid #e0e0e0; display: flex; align-items: center; gap: 10px; font-size: 12px; flex-shrink: 0; }
+  .pagination .info { color: #666; margin-left: auto; }
+
+  /* Error */
+  .error-box { background: #fff2f0; border: 1px solid #ffccc7; border-radius: 4px; padding: 8px 16px; margin: 6px 16px; font-size: 12px; color: #cf1322; white-space: pre-wrap; font-family: monospace; max-height: 80px; overflow-y: auto; }
+  .join-error { background: #fff2f0; border: 1px solid #ffccc7; border-radius: 4px; padding: 6px 8px; font-size: 11px; color: #cf1322; margin-top: 6px; }
+
+  /* Loading / empty states */
+  .center-msg { display: flex; align-items: center; justify-content: center; flex: 1; color: #999; font-size: 13px; flex-direction: column; gap: 10px; padding: 20px; }
+  .spinner { width: 28px; height: 28px; border: 3px solid #e0e0e0; border-top-color: #1890ff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>DuckDB Explorer</h1>
+  <span id="status" class="status">Initializing...</span>
+</div>
+
+<div class="main-layout">
+  <!-- Left sidebar: full viewport height -->
+  <div class="left-sidebar">
+    <div class="table-sidebar-header">Tables</div>
+    <div id="tableList" class="table-list">
+      <div class="center-msg"><div class="spinner"></div></div>
+    </div>
+
+    <div class="sidebar-section" style="flex-shrink:0; border-bottom: 1px solid #e0e0e0;">
+      <h3>Active Joins</h3>
+      <div id="joinsList"><div class="no-joins">Click a table to auto-join its neighbors</div></div>
+      <div id="joinError"></div>
+      <div class="join-actions" id="joinActions" style="display:none;">
+        <button id="clearAllBtn" class="btn btn-secondary btn-sm">Clear All</button>
+      </div>
+    </div>
+
+    <div class="sidebar-scroll">
+      <div id="tableInfoSection" class="sidebar-section" style="display:none;">
+        <h3>Table Info</h3>
+        <div id="tableInfoContent"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3>Legend</h3>
+        <div class="legend">
+          <div class="legend-item"><span class="legend-line solid"></span> FK / Pattern</div>
+          <div class="legend-item"><span class="legend-line dashed"></span> Shared Col</div>
+          <div class="legend-item"><span class="legend-line selected"></span> Selected</div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3>Config</h3>
+        <div class="config-row">
+          <label>Limit:</label>
+          <input type="number" id="limitInput" value="1000" min="1" max="100000">
+        </div>
+        <div style="display: flex; gap: 6px; margin-top: 4px;">
+          <button id="copySqlBtn" class="btn btn-secondary btn-sm">Copy SQL</button>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3>SQL Preview</h3>
+        <div id="sqlPreview" class="sql-preview" tabindex="0">Select edges to build a JOIN query</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content area: graph + resize + results -->
+  <div class="content-area">
+    <div class="graph-panel" id="topHalf">
+      <div id="graphCanvas"></div>
+      <div class="graph-toolbar">
+        <button id="fitBtn" title="Fit graph to view">Fit</button>
+        <button id="physicsBtn" title="Toggle physics">Physics: On</button>
+      </div>
+    </div>
+
+    <!-- Resize handle -->
+    <div class="resize-handle" id="resizeHandle"></div>
+
+    <!-- Bottom: SQL editor + results -->
+    <div class="bottom-half" id="bottomHalf" style="height: 280px;">
+  <div class="sql-section">
+    <label>SQL</label>
+    <textarea id="sqlInput" class="sql-input" rows="1" placeholder="SELECT * FROM bmdx.table_name ..." spellcheck="false"></textarea>
+    <button id="runBtn" class="btn btn-primary" disabled>Run</button>
+  </div>
+
+  <div id="schemaSection" class="schema-section" style="display:none;"></div>
+  <div id="errorBox" class="error-box" style="display:none;"></div>
+
+  <div id="tableWrapper" class="table-wrapper">
+    <div class="center-msg">Click a table or run a query</div>
+  </div>
+
+  <div id="pagination" class="pagination" style="display:none;">
+    <button id="prevBtn" class="btn btn-secondary btn-sm">&laquo; Prev</button>
+    <button id="nextBtn" class="btn btn-secondary btn-sm">Next &raquo;</button>
+    <span id="pageInfo" class="info"></span>
+  </div>
+</div>
+  </div><!-- /content-area -->
+</div><!-- /main-layout -->
+
+<script type="module">
+import * as duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/+esm';
+
+// ─── State ────────────────────────────────────────────────────────
+const PAGE_SIZE = 100;
+let db, conn;
+let network;
+let nodesDataset, edgesDataset;
+let allTables = [];
+let allEdges = [];
+let selectedEdges = new Set();
+let selectedTables = new Set();
+let edgeJoinTypes = new Map(); // edgeId -> 'INNER JOIN' | 'LEFT JOIN' | etc.
+let currentJoinSQL = '';
+let currentTable = null;
+let currentOffset = 0;
+let currentTotalRows = 0;
+let currentQuery = null;
+
+const NOISE_COLUMNS = new Set(['name', 'description', 'status', 'type', 'value', 'id', 'created_at', 'updated_at']);
+
+// ─── DOM refs ─────────────────────────────────────────────────────
+const statusEl = document.getElementById('status');
+const tableListEl = document.getElementById('tableList');
+const tableInfoSection = document.getElementById('tableInfoSection');
+const tableInfoContent = document.getElementById('tableInfoContent');
+const joinsList = document.getElementById('joinsList');
+const joinError = document.getElementById('joinError');
+const joinActions = document.getElementById('joinActions');
+const clearAllBtn = document.getElementById('clearAllBtn');
+const limitInput = document.getElementById('limitInput');
+const copySqlBtn = document.getElementById('copySqlBtn');
+const sqlPreview = document.getElementById('sqlPreview');
+const sqlInput = document.getElementById('sqlInput');
+const runBtn = document.getElementById('runBtn');
+const schemaSection = document.getElementById('schemaSection');
+const errorBox = document.getElementById('errorBox');
+const tableWrapper = document.getElementById('tableWrapper');
+const paginationEl = document.getElementById('pagination');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const pageInfo = document.getElementById('pageInfo');
+const fitBtn = document.getElementById('fitBtn');
+const physicsBtn = document.getElementById('physicsBtn');
+const topHalf = document.getElementById('topHalf');
+const bottomHalf = document.getElementById('bottomHalf');
+const resizeHandle = document.getElementById('resizeHandle');
+
+// ─── Init DuckDB-WASM ────────────────────────────────────────────
+async function init() {
+  try {
+    const BUNDLES = duckdb.getJsDelivrBundles();
+    const bundle = await duckdb.selectBundle(BUNDLES);
+
+    const workerUrl = URL.createObjectURL(
+      new Blob([`importScripts("${bundle.mainWorker}");`], { type: 'text/javascript' })
+    );
+    const worker = new Worker(workerUrl);
+    const logger = new duckdb.ConsoleLogger();
+    db = new duckdb.AsyncDuckDB(logger, worker);
+    await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+    URL.revokeObjectURL(workerUrl);
+
+    statusEl.textContent = 'Loading database...';
+
+    const resp = await fetch('/api/duckdb/file');
+    if (!resp.ok) throw new Error(`Failed to fetch bmdx.duckdb: ${resp.status}`);
+    const buf = new Uint8Array(await resp.arrayBuffer());
+
+    await db.registerFileBuffer('bmdx.duckdb', buf);
+    conn = await db.connect();
+    await conn.query("ATTACH 'bmdx.duckdb' AS bmdx (READ_ONLY)");
+
+    statusEl.textContent = 'Discovering schema...';
+    await discoverSchema();
+
+    statusEl.textContent = 'Ready';
+    statusEl.classList.add('ready');
+    runBtn.disabled = false;
+  } catch (err) {
+    statusEl.textContent = 'Error: ' + err.message;
+    statusEl.classList.add('error');
+    console.error(err);
+  }
+}
+
+// ─── Discover schema & relationships ─────────────────────────────
+async function discoverSchema() {
+  const tablesResult = await conn.query(
+    "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main' AND table_catalog = 'bmdx' ORDER BY table_name"
+  );
+  const tableNames = tablesResult.toArray().map(r => r.table_name);
+
+  for (const tname of tableNames) {
+    const colsResult = await conn.query(
+      `SELECT column_name, data_type FROM information_schema.columns WHERE table_catalog = 'bmdx' AND table_schema = 'main' AND table_name = '${tname.replace(/'/g, "''")}' ORDER BY ordinal_position`
+    );
+    const countResult = await conn.query(`SELECT count(*)::INTEGER AS cnt FROM bmdx."${tname}"`);
+    const rowCount = countResult.toArray()[0].cnt;
+    allTables.push({
+      name: tname,
+      columns: colsResult.toArray().map(c => ({ name: c.column_name, type: c.data_type })),
+      rowCount
+    });
+  }
+
+  await detectRelationships();
+  populateTableList();
+  buildGraph();
+}
+
+// ─── Table list (left sidebar) ───────────────────────────────────
+function populateTableList() {
+  if (allTables.length === 0) {
+    tableListEl.innerHTML = '<div class="center-msg" style="font-size:12px;">No tables found</div>';
+    return;
+  }
+
+  tableListEl.innerHTML = `<div class="table-count">${allTables.length} tables</div>`;
+
+  for (const t of allTables) {
+    const item = document.createElement('div');
+    item.className = 'table-item';
+    item.textContent = t.name;
+    item.addEventListener('click', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        toggleTableSelection(t.name);
+      } else {
+        selectTable(t.name);
+      }
+    });
+    tableListEl.appendChild(item);
+  }
+}
+
+// Single-click: select table + all connected neighbors, auto-execute join
+async function selectTable(tableName) {
+  currentTable = tableName;
+  currentOffset = 0;
+  currentQuery = null;
+
+  // Clear previous selection, start fresh
+  selectedTables.clear();
+  selectedEdges.clear();
+  selectedTables.add(tableName);
+
+  // Find all edges connected to this table, include neighbor tables
+  for (const e of allEdges) {
+    if (e.from === tableName || e.to === tableName) {
+      selectedEdges.add(e.id);
+      if (!edgeJoinTypes.has(e.id)) edgeJoinTypes.set(e.id, 'INNER JOIN');
+      selectedTables.add(e.from);
+      selectedTables.add(e.to);
+    }
+  }
+
+  updateTableListHighlights();
+  showTableInfo(tableName);
+
+  if (network) {
+    network.selectNodes([...selectedTables]);
+    network.focus(tableName, { scale: 1.2, animation: { duration: 300 } });
+  }
+
+  updateEdgeVisuals();
+  updateJoinsList();
+
+  if (selectedEdges.size > 0) {
+    // Build join SQL and auto-execute
+    await updateJoinSQLAndExecute();
+  } else {
+    // No connections — just show this table's raw data
+    sqlInput.value = `SELECT * FROM bmdx."${tableName}"`;
+    await loadSchema(tableName);
+    await loadTableData();
+  }
+}
+
+// Ctrl+click: toggle table in/out of selection, auto-join between selected
+async function toggleTableSelection(tableName) {
+  if (selectedTables.has(tableName)) {
+    selectedTables.delete(tableName);
+  } else {
+    selectedTables.add(tableName);
+  }
+
+  updateTableListHighlights();
+  if (network) network.selectNodes([...selectedTables]);
+
+  // Select edges between the explicitly selected tables
+  selectedEdges.clear();
+  for (const e of allEdges) {
+    if (selectedTables.has(e.from) && selectedTables.has(e.to)) {
+      selectedEdges.add(e.id);
+      if (!edgeJoinTypes.has(e.id)) edgeJoinTypes.set(e.id, 'INNER JOIN');
+    }
+  }
+
+  updateEdgeVisuals();
+  updateJoinsList();
+
+  if (selectedEdges.size > 0) {
+    await updateJoinSQLAndExecute();
+  } else if (selectedTables.size === 1) {
+    // Single table left — show its data
+    const t = [...selectedTables][0];
+    currentTable = t;
+    currentOffset = 0;
+    currentQuery = null;
+    sqlInput.value = `SELECT * FROM bmdx."${t}"`;
+    showTableInfo(t);
+    await loadSchema(t);
+    await loadTableData();
+  } else {
+    currentJoinSQL = '';
+    sqlPreview.textContent = 'Select tables to build a JOIN query';
+    sqlInput.value = '';
+  }
+}
+
+function updateTableListHighlights() {
+  tableListEl.querySelectorAll('.table-item').forEach(el => {
+    el.classList.toggle('active', selectedTables.has(el.textContent));
+  });
+}
+
+function clearSelection() {
+  selectedTables.clear();
+  selectedEdges.clear();
+  currentJoinSQL = '';
+  updateTableListHighlights();
+  updateEdgeVisuals();
+  updateJoinsList();
+  sqlPreview.textContent = 'Select tables or edges to build a JOIN query';
+  sqlInput.value = '';
+  tableWrapper.innerHTML = '<div class="center-msg">Click a table or run a query</div>';
+  paginationEl.style.display = 'none';
+  schemaSection.style.display = 'none';
+  hideError();
+  if (network) network.selectNodes([]);
+}
+
+// ─── Relationship detection ──────────────────────────────────────
+async function detectRelationships() {
+  const edgeSet = new Set();
+
+  function canonKey(t1, c1, t2, c2) {
+    const [a, b] = [t1, t2].sort();
+    if (a === t1) return `${a}.${c1}--${b}.${c2}`;
+    return `${a}.${c2}--${b}.${c1}`;
+  }
+
+  function addEdge(fromTable, fromCol, toTable, toCol, type) {
+    const key = canonKey(fromTable, fromCol, toTable, toCol);
+    if (edgeSet.has(key)) return;
+    edgeSet.add(key);
+    allEdges.push({ id: `e${allEdges.length}`, from: fromTable, to: toTable, fromCol, toCol, type });
+  }
+
+  // Layer 1: Explicit FKs
+  try {
+    const fkResult = await conn.query(`
+      SELECT tc.table_name AS from_table, kcu.column_name AS from_col,
+             ccu.table_name AS to_table, ccu.column_name AS to_col
+      FROM bmdx.information_schema.table_constraints tc
+      JOIN bmdx.information_schema.key_column_usage kcu
+        ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+      JOIN bmdx.information_schema.constraint_column_usage ccu
+        ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema
+      WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_catalog = 'bmdx'
+    `);
+    for (const row of fkResult.toArray()) {
+      addEdge(row.from_table, row.from_col, row.to_table, row.to_col, 'fk');
+    }
+  } catch (e) {
+    console.warn('FK detection failed:', e.message);
+  }
+
+  // Layer 2: FK naming pattern
+  const tableNameSet = new Set(allTables.map(t => t.name));
+  for (const table of allTables) {
+    for (const col of table.columns) {
+      if (col.name.endsWith('_id')) {
+        const refTableName = col.name.slice(0, -3);
+        if (tableNameSet.has(refTableName) && refTableName !== table.name) {
+          const refTable = allTables.find(t => t.name === refTableName);
+          if (refTable && refTable.columns.some(c => c.name === 'id')) {
+            addEdge(table.name, col.name, refTableName, 'id', 'pattern');
+          }
+        }
+      }
+    }
+  }
+
+  // Layer 3: Shared column names
+  const colIndex = new Map();
+  for (const table of allTables) {
+    for (const col of table.columns) {
+      if (NOISE_COLUMNS.has(col.name.toLowerCase())) continue;
+      if (!colIndex.has(col.name)) colIndex.set(col.name, []);
+      colIndex.get(col.name).push(table.name);
+    }
+  }
+  for (const [colName, tables] of colIndex) {
+    if (tables.length < 2 || tables.length > 6) continue;
+    for (let i = 0; i < tables.length; i++) {
+      for (let j = i + 1; j < tables.length; j++) {
+        addEdge(tables[i], colName, tables[j], colName, 'shared');
+      }
+    }
+  }
+}
+
+// ─── Build vis-network graph ─────────────────────────────────────
+function buildGraph() {
+  const nodes = allTables.map(t => ({
+    id: t.name,
+    label: t.name,
+    title: `${t.name}\n${t.columns.length} columns`,
+    shape: 'box',
+    font: { size: 12, face: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif' },
+    color: { background: '#fff', border: '#1890ff', highlight: { background: '#e6f7ff', border: '#1890ff' } },
+    borderWidth: 2,
+    margin: 8
+  }));
+
+  const edges = allEdges.map(e => ({
+    id: e.id,
+    from: e.from,
+    to: e.to,
+    title: `${e.fromCol} → ${e.toCol}\n[${e.from}] → [${e.to}]\nType: ${e.type}`,
+    color: { color: '#ccc', highlight: '#1890ff' },
+    width: 1,
+    dashes: e.type === 'shared',
+    smooth: { type: 'cubicBezier', roundness: 0.3 },
+    arrows: e.type === 'fk' ? { to: { enabled: true, scaleFactor: 0.5 } } : {}
+  }));
+
+  nodesDataset = new vis.DataSet(nodes);
+  edgesDataset = new vis.DataSet(edges);
+
+  const container = document.getElementById('graphCanvas');
+  network = new vis.Network(container, { nodes: nodesDataset, edges: edgesDataset }, {
+    physics: {
+      enabled: true,
+      solver: 'forceAtlas2Based',
+      forceAtlas2Based: { gravitationalConstant: -80, springLength: 150, springConstant: 0.04 },
+      stabilization: { iterations: 200 }
+    },
+    interaction: { hover: true, tooltipDelay: 200, zoomView: true, dragView: true },
+    edges: { smooth: { type: 'cubicBezier', roundness: 0.3 } },
+    layout: { improvedLayout: true }
+  });
+
+  network.on('click', function(params) {
+    if (params.edges.length > 0 && params.nodes.length === 0) {
+      toggleEdge(params.edges[0]);
+    } else if (params.nodes.length > 0) {
+      if (params.event.srcEvent.ctrlKey || params.event.srcEvent.metaKey) {
+        toggleTableSelection(params.nodes[0]);
+      } else {
+        selectTable(params.nodes[0]);
+      }
+    }
+  });
+}
+
+// ─── Edge selection ──────────────────────────────────────────────
+async function toggleEdge(edgeId) {
+  if (selectedEdges.has(edgeId)) {
+    selectedEdges.delete(edgeId);
+  } else {
+    selectedEdges.add(edgeId);
+    if (!edgeJoinTypes.has(edgeId)) edgeJoinTypes.set(edgeId, 'INNER JOIN');
+  }
+  // Sync selectedTables with edges
+  selectedTables.clear();
+  for (const eid of selectedEdges) {
+    const edge = allEdges.find(e => e.id === eid);
+    if (edge) { selectedTables.add(edge.from); selectedTables.add(edge.to); }
+  }
+  updateTableListHighlights();
+  if (network) network.selectNodes([...selectedTables]);
+  updateEdgeVisuals();
+  updateJoinsList();
+  if (selectedEdges.size > 0) {
+    await updateJoinSQLAndExecute();
+  } else {
+    currentJoinSQL = '';
+    sqlPreview.textContent = 'Select tables or edges to build a JOIN query';
+  }
+}
+
+async function deselectEdge(edgeId) {
+  selectedEdges.delete(edgeId);
+  selectedTables.clear();
+  for (const eid of selectedEdges) {
+    const edge = allEdges.find(e => e.id === eid);
+    if (edge) { selectedTables.add(edge.from); selectedTables.add(edge.to); }
+  }
+  updateTableListHighlights();
+  if (network) network.selectNodes([...selectedTables]);
+  updateEdgeVisuals();
+  updateJoinsList();
+  if (selectedEdges.size > 0) {
+    await updateJoinSQLAndExecute();
+  } else {
+    currentJoinSQL = '';
+    sqlPreview.textContent = 'Select tables or edges to build a JOIN query';
+    tableWrapper.innerHTML = '<div class="center-msg">Click a table or run a query</div>';
+    paginationEl.style.display = 'none';
+  }
+}
+
+function updateEdgeVisuals() {
+  const involvedTables = new Set();
+  for (const eid of selectedEdges) {
+    const edge = allEdges.find(e => e.id === eid);
+    if (edge) { involvedTables.add(edge.from); involvedTables.add(edge.to); }
+  }
+
+  const edgeUpdates = allEdges.map(e => ({
+    id: e.id,
+    color: { color: selectedEdges.has(e.id) ? '#1890ff' : '#ccc', highlight: '#1890ff' },
+    width: selectedEdges.has(e.id) ? 3 : 1,
+    dashes: selectedEdges.has(e.id) ? false : (e.type === 'shared')
+  }));
+  edgesDataset.update(edgeUpdates);
+
+  const hasSelection = selectedEdges.size > 0;
+  const nodeUpdates = allTables.map(t => ({
+    id: t.name,
+    color: {
+      background: involvedTables.has(t.name) ? '#e6f7ff' : (hasSelection ? '#f5f5f5' : '#fff'),
+      border: involvedTables.has(t.name) ? '#1890ff' : (hasSelection ? '#d9d9d9' : '#1890ff'),
+      highlight: { background: '#e6f7ff', border: '#1890ff' }
+    },
+    font: { size: 12, color: hasSelection && !involvedTables.has(t.name) ? '#bbb' : '#333', face: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif' }
+  }));
+  nodesDataset.update(nodeUpdates);
+}
+
+function updateJoinsList() {
+  if (selectedEdges.size === 0) {
+    joinsList.innerHTML = '<div class="no-joins">Click a table to auto-join its neighbors</div>';
+    joinActions.style.display = 'none';
+    joinError.innerHTML = '';
+    return;
+  }
+
+  joinActions.style.display = 'flex';
+  let html = '';
+  for (const eid of selectedEdges) {
+    const edge = allEdges.find(e => e.id === eid);
+    if (!edge) continue;
+    const currentType = edgeJoinTypes.get(edge.id) || 'INNER JOIN';
+    html += `<div class="join-item">
+      <div class="join-detail">
+        <div class="join-types">
+          <span class="type-badge">${esc(edge.from)}</span>
+          <span class="type-arrow">&rarr;</span>
+          <span class="type-badge">${esc(edge.to)}</span>
+        </div>
+        <div class="join-cols">${esc(edge.fromCol)} = ${esc(edge.toCol)}</div>
+      </div>
+      <select class="edge-join-type" data-edge="${edge.id}">
+        <option value="INNER JOIN"${currentType === 'INNER JOIN' ? ' selected' : ''}>INNER</option>
+        <option value="LEFT JOIN"${currentType === 'LEFT JOIN' ? ' selected' : ''}>LEFT</option>
+        <option value="RIGHT JOIN"${currentType === 'RIGHT JOIN' ? ' selected' : ''}>RIGHT</option>
+        <option value="FULL OUTER JOIN"${currentType === 'FULL OUTER JOIN' ? ' selected' : ''}>FULL OUTER</option>
+      </select>
+      <button class="remove-btn" data-edge="${edge.id}" title="Remove">&times;</button>
+    </div>`;
+  }
+  joinsList.innerHTML = html;
+
+  joinsList.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => { e.stopPropagation(); deselectEdge(btn.dataset.edge); });
+  });
+
+  joinsList.querySelectorAll('.edge-join-type').forEach(sel => {
+    sel.addEventListener('change', async (e) => {
+      edgeJoinTypes.set(sel.dataset.edge, sel.value);
+      await updateJoinSQLAndExecute();
+    });
+  });
+}
+
+// ─── Show table info (right sidebar) ─────────────────────────────
+function showTableInfo(tableName) {
+  const table = allTables.find(t => t.name === tableName);
+  if (!table) return;
+
+  tableInfoSection.style.display = 'block';
+  tableInfoContent.innerHTML = `
+    <div class="table-info-name">${esc(table.name)}</div>
+    <div class="col-list">
+      ${table.columns.map(c => `<div class="col-item"><span class="name">${esc(c.name)}</span><span class="type">${esc(c.type)}</span></div>`).join('')}
+    </div>
+  `;
+}
+
+// ─── Schema display (bottom half) ────────────────────────────────
+async function loadSchema(tableName) {
+  try {
+    const result = await conn.query(`SELECT column_name, data_type FROM information_schema.columns WHERE table_catalog = 'bmdx' AND table_schema = 'main' AND table_name = '${tableName.replace(/'/g, "''")}' ORDER BY ordinal_position`);
+    const cols = result.toArray();
+    if (cols.length === 0) { schemaSection.style.display = 'none'; return; }
+
+    schemaSection.style.display = 'block';
+    schemaSection.innerHTML = `<h3>${esc(tableName)} (${cols.length} cols)</h3> <div class="schema-cols">${
+      cols.map(c => `<span class="schema-col"><span class="col-name">${esc(c.column_name)}</span> <span class="col-type">${esc(c.data_type)}</span></span>`).join('')
+    }</div>`;
+  } catch (err) {
+    schemaSection.style.display = 'none';
+  }
+}
+
+// ─── Load paginated table data ───────────────────────────────────
+async function loadTableData() {
+  hideError();
+  try {
+    const countResult = await conn.query(`SELECT count(*)::INTEGER AS cnt FROM bmdx."${currentTable}"`);
+    currentTotalRows = countResult.toArray()[0].cnt;
+    const dataResult = await conn.query(`SELECT * FROM bmdx."${currentTable}" LIMIT ${PAGE_SIZE} OFFSET ${currentOffset}`);
+    renderResultTable(dataResult);
+    updatePagination();
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+// ─── Run ad-hoc SQL ──────────────────────────────────────────────
+async function runQuery() {
+  const sql = sqlInput.value.trim();
+  if (!sql) return;
+
+  hideError();
+  schemaSection.style.display = 'none';
+  currentQuery = sql;
+  currentTable = null;
+  currentOffset = 0;
+
+  tableListEl.querySelectorAll('.table-item').forEach(el => el.classList.remove('active'));
+
+  try {
+    const result = await conn.query(sql);
+    renderResultTable(result);
+    currentTotalRows = 0;
+    paginationEl.style.display = 'none';
+  } catch (err) {
+    showError(err.message);
+    tableWrapper.innerHTML = '';
+  }
+}
+
+// ─── Join SQL Generation ─────────────────────────────────────────
+function buildJoinSQL() {
+  joinError.innerHTML = '';
+
+  if (selectedEdges.size === 0) {
+    currentJoinSQL = '';
+    sqlPreview.textContent = 'Select tables or edges to build a JOIN query';
+    return false;
+  }
+
+  const edges = [];
+  for (const eid of selectedEdges) {
+    const edge = allEdges.find(e => e.id === eid);
+    if (edge) edges.push(edge);
+  }
+
+  const tableSet = new Set();
+  for (const e of edges) { tableSet.add(e.from); tableSet.add(e.to); }
+  const tables = [...tableSet];
+
+  // Connectivity check
+  const parent = {};
+  for (const t of tables) parent[t] = t;
+  function find(x) { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
+  function union(a, b) { parent[find(a)] = find(b); }
+  for (const e of edges) union(e.from, e.to);
+
+  const roots = new Set(tables.map(t => find(t)));
+  if (roots.size > 1) {
+    joinError.innerHTML = '<div class="join-error">Disconnected selection — select connecting edges or remove some.</div>';
+    currentJoinSQL = '';
+    sqlPreview.textContent = '-- Disconnected selection';
+    return false;
+  }
+
+  // BFS join order
+  const adjacency = new Map();
+  for (const t of tables) adjacency.set(t, []);
+  for (const e of edges) {
+    adjacency.get(e.from).push({ edge: e, neighbor: e.to });
+    adjacency.get(e.to).push({ edge: e, neighbor: e.from });
+  }
+
+  let startTable = tables[0], maxDeg = 0;
+  for (const t of tables) { const d = adjacency.get(t).length; if (d > maxDeg) { maxDeg = d; startTable = t; } }
+
+  const visited = new Set([startTable]);
+  const joinOrder = [];
+  const queue = [startTable];
+  const usedEdges = new Set();
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    for (const { edge, neighbor } of adjacency.get(current)) {
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor);
+        queue.push(neighbor);
+        const leftTable = current, rightTable = neighbor;
+        const onClauses = [];
+        const edgeIds = [];
+        for (const e of edges) {
+          if ((e.from === leftTable && e.to === rightTable) || (e.from === rightTable && e.to === leftTable)) {
+            onClauses.push({
+              leftTable, leftCol: e.from === leftTable ? e.fromCol : e.toCol,
+              rightTable, rightCol: e.from === rightTable ? e.fromCol : e.toCol
+            });
+            edgeIds.push(e.id);
+            usedEdges.add(e.id);
+          }
+        }
+        // Use the join type from the first edge in this pair for the JOIN keyword
+        const joinType = edgeJoinTypes.get(edgeIds[0]) || 'INNER JOIN';
+        joinOrder.push({ table: rightTable, leftTable, onClauses, joinType });
+      }
+    }
+  }
+
+  const extraClauses = edges.filter(e => !usedEdges.has(e.id));
+  const limit = parseInt(limitInput.value) || 1000;
+  const q = quote;
+
+  // Build explicit column list, deduplicating join keys by keeping the copy from the table with the most rows
+  const joinKeyCols = new Map(); // "colName" -> Set of { table, col } pairs where it's a join key
+  for (const j of joinOrder) {
+    for (const c of j.onClauses) {
+      const key = c.leftCol === c.rightCol ? c.leftCol : null; // only dedupe same-named cols
+      if (key) {
+        if (!joinKeyCols.has(key)) joinKeyCols.set(key, []);
+        joinKeyCols.get(key).push({ table: c.leftTable, col: c.leftCol });
+        joinKeyCols.get(key).push({ table: c.rightTable, col: c.rightCol });
+      }
+    }
+  }
+
+  // For each duplicated join key column, pick the table with the most rows
+  const suppressedCols = new Set(); // "tableName.colName" entries to skip
+  for (const [colName, entries] of joinKeyCols) {
+    const uniqueTables = [...new Set(entries.map(e => e.table))];
+    if (uniqueTables.length < 2) continue;
+    // Find the table with the most rows
+    let bestTable = uniqueTables[0], bestCount = 0;
+    for (const t of uniqueTables) {
+      const tbl = allTables.find(x => x.name === t);
+      const rc = tbl ? tbl.rowCount : 0;
+      if (rc > bestCount) { bestCount = rc; bestTable = t; }
+    }
+    // Suppress this column from all other tables
+    for (const t of uniqueTables) {
+      if (t !== bestTable) suppressedCols.add(`${t}.${colName}`);
+    }
+  }
+
+  // Build SELECT list: all columns from each table in join order, skipping suppressed
+  const selectParts = [];
+  const joinedTables = [startTable, ...joinOrder.map(j => j.table)];
+  for (const tName of joinedTables) {
+    const tbl = allTables.find(x => x.name === tName);
+    if (!tbl) continue;
+    for (const col of tbl.columns) {
+      if (suppressedCols.has(`${tName}.${col.name}`)) continue;
+      selectParts.push(`${q(tName)}.${q(col.name)}`);
+    }
+  }
+
+  let sql = `SELECT ${selectParts.join(',\n       ')}\nFROM bmdx.${q(startTable)}`;
+  for (const j of joinOrder) {
+    const onParts = j.onClauses.map(c => `${q(c.leftTable)}.${q(c.leftCol)} = ${q(c.rightTable)}.${q(c.rightCol)}`);
+    sql += `\n${j.joinType} bmdx.${q(j.table)}\n  ON ${onParts.join('\n  AND ')}`;
+  }
+  if (extraClauses.length > 0) {
+    const whereParts = extraClauses.map(e => `${q(e.from)}.${q(e.fromCol)} = ${q(e.to)}.${q(e.toCol)}`);
+    sql += `\nWHERE ${whereParts.join('\n  AND ')}`;
+  }
+  sql += `\nLIMIT ${limit}`;
+
+  currentJoinSQL = sql;
+  renderSQLPreview(sql);
+  return true;
+}
+
+async function updateJoinSQLAndExecute() {
+  if (!buildJoinSQL()) return;
+  if (!currentJoinSQL) return;
+
+  sqlInput.value = currentJoinSQL;
+  currentQuery = currentJoinSQL;
+  currentOffset = 0;
+  hideError();
+  schemaSection.style.display = 'none';
+
+  statusEl.textContent = 'Running join...';
+  statusEl.classList.remove('ready');
+
+  try {
+    const result = await conn.query(currentJoinSQL);
+    renderResultTable(result);
+    currentTotalRows = 0;
+    paginationEl.style.display = 'none';
+    statusEl.textContent = 'Ready';
+    statusEl.classList.add('ready');
+  } catch (err) {
+    showError(err.message);
+    tableWrapper.innerHTML = '';
+    statusEl.textContent = 'Ready';
+    statusEl.classList.add('ready');
+  }
+}
+
+function renderSQLPreview(sql) {
+  const highlighted = esc(sql)
+    .replace(/\b(SELECT|FROM|INNER JOIN|LEFT JOIN|RIGHT JOIN|FULL OUTER JOIN|ON|AND|WHERE|LIMIT)\b/g, '<span class="keyword">$1</span>')
+    .replace(/\bbmdx\.("?\w+"?)/g, 'bmdx.<span class="table-ref">$1</span>');
+  sqlPreview.innerHTML = highlighted;
+}
+
+function quote(name) { return `"${name.replace(/"/g, '""')}"`; }
+
+// ─── Render result table ─────────────────────────────────────────
+function renderResultTable(arrowTable) {
+  const colNames = arrowTable.schema.fields.map(f => f.name);
+  const rows = arrowTable.toArray();
+
+  if (colNames.length === 0) { tableWrapper.innerHTML = '<div class="center-msg">No columns</div>'; return; }
+
+  let html = '<table class="data-table"><thead><tr><th>#</th>';
+  for (const name of colNames) html += `<th>${esc(name)}</th>`;
+  html += '</tr></thead><tbody>';
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    html += `<tr><td style="color:#999;">${currentOffset + i + 1}</td>`;
+    for (const name of colNames) {
+      const val = row[name];
+      html += (val === null || val === undefined)
+        ? '<td class="null-val">NULL</td>'
+        : `<td title="${esc(String(val))}">${esc(String(val))}</td>`;
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  tableWrapper.innerHTML = rows.length === 0 ? '<div class="center-msg">No rows</div>' : html;
+}
+
+// ─── Pagination ──────────────────────────────────────────────────
+function updatePagination() {
+  if (!currentTable || currentTotalRows === 0) { paginationEl.style.display = 'none'; return; }
+  paginationEl.style.display = 'flex';
+  const page = Math.floor(currentOffset / PAGE_SIZE) + 1;
+  const totalPages = Math.ceil(currentTotalRows / PAGE_SIZE);
+  const showing = Math.min(PAGE_SIZE, currentTotalRows - currentOffset);
+  pageInfo.textContent = `Rows ${currentOffset + 1}–${currentOffset + showing} of ${currentTotalRows.toLocaleString()} (page ${page}/${totalPages})`;
+  prevBtn.disabled = currentOffset === 0;
+  nextBtn.disabled = currentOffset + PAGE_SIZE >= currentTotalRows;
+}
+
+prevBtn.addEventListener('click', async () => {
+  if (currentTable && currentOffset > 0) { currentOffset = Math.max(0, currentOffset - PAGE_SIZE); await loadTableData(); }
+});
+nextBtn.addEventListener('click', async () => {
+  if (currentTable && currentOffset + PAGE_SIZE < currentTotalRows) { currentOffset += PAGE_SIZE; await loadTableData(); }
+});
+
+// ─── Event listeners ─────────────────────────────────────────────
+runBtn.addEventListener('click', runQuery);
+sqlInput.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runQuery(); }
+});
+
+clearAllBtn.addEventListener('click', clearSelection);
+
+copySqlBtn.addEventListener('click', () => {
+  if (currentJoinSQL) {
+    navigator.clipboard.writeText(currentJoinSQL).then(() => {
+      copySqlBtn.textContent = 'Copied!';
+      setTimeout(() => copySqlBtn.textContent = 'Copy SQL', 1500);
+    });
+  }
+});
+
+limitInput.addEventListener('change', async () => {
+  if (selectedEdges.size > 0) await updateJoinSQLAndExecute();
+});
+
+fitBtn.addEventListener('click', () => {
+  if (network) network.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
+});
+
+let physicsEnabled = true;
+physicsBtn.addEventListener('click', () => {
+  physicsEnabled = !physicsEnabled;
+  if (network) network.setOptions({ physics: { enabled: physicsEnabled } });
+  physicsBtn.textContent = `Physics: ${physicsEnabled ? 'On' : 'Off'}`;
+});
+
+// ─── Resize handle ───────────────────────────────────────────────
+let isResizing = false;
+resizeHandle.addEventListener('mousedown', (e) => {
+  isResizing = true;
+  e.preventDefault();
+  document.body.style.cursor = 'ns-resize';
+  document.body.style.userSelect = 'none';
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!isResizing) return;
+  const bodyRect = document.body.getBoundingClientRect();
+  const headerH = document.querySelector('.header').offsetHeight;
+  const handleH = resizeHandle.offsetHeight;
+  const bottomH = bodyRect.bottom - e.clientY;
+  const minBottom = 100;
+  const minTop = 200;
+  const maxBottom = bodyRect.height - headerH - handleH - minTop;
+  const clamped = Math.max(minBottom, Math.min(maxBottom, bottomH));
+  bottomHalf.style.height = clamped + 'px';
+});
+
+document.addEventListener('mouseup', () => {
+  if (isResizing) {
+    isResizing = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    if (network) network.redraw();
+  }
+});
+
+// ─── Helpers ─────────────────────────────────────────────────────
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function showError(msg) { errorBox.textContent = msg; errorBox.style.display = 'block'; }
+function hideError() { errorBox.style.display = 'none'; }
+
+// ─── Start ───────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
