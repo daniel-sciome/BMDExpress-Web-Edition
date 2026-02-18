@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   Form,
   Input,
@@ -8,10 +8,10 @@ import {
   Select,
   Checkbox,
   Alert,
-  Result,
   Card,
   Space,
 } from 'antd';
+import { CheckCircleFilled, LoadingOutlined, WarningFilled } from '@ant-design/icons';
 import { QuestionnaireService } from 'Frontend/generated/endpoints';
 
 const { Title, Text, Paragraph } = Typography;
@@ -454,18 +454,77 @@ const CHECKBOX_KEYS = new Set(
   SECTIONS.flatMap((s) => s.questions.filter((q) => q.type === 'checkbox').map((q) => q.key)),
 );
 
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
 export default function QuestionnaireForm() {
   const [accessGranted, setAccessGranted] = useState(false);
   const [codeInput, setCodeInput] = useState('');
   const [codeError, setCodeError] = useState('');
   const [codeLoading, setCodeLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [submitLoading, setSubmitLoading] = useState(false);
-  const [submitError, setSubmitError] = useState('');
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState('');
   const [savedId, setSavedId] = useState<string | null>(() => localStorage.getItem(STORAGE_KEY));
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [form] = Form.useForm();
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savingRef = useRef(false);
+  const pendingSave = useRef(false);
+
+  // ── Auto-save logic ────────────────────────────────────────────────
+
+  const doSave = useCallback(async () => {
+    if (savingRef.current) {
+      pendingSave.current = true;
+      return;
+    }
+    savingRef.current = true;
+    setSaveStatus('saving');
+    try {
+      const values = form.getFieldsValue(true);
+      const responses: Record<string, string> = {};
+      for (const [key, val] of Object.entries(values)) {
+        if (key === 'respondentName' || key === 'respondentEmail') continue;
+        if (Array.isArray(val)) {
+          responses[key] = val.join('; ');
+        } else if (val != null && String(val).trim()) {
+          responses[key] = String(val);
+        }
+      }
+
+      const returnedId = await QuestionnaireService.submitResponse({
+        id: savedId ?? undefined,
+        respondentName: (values.respondentName as string) || '',
+        respondentEmail: (values.respondentEmail as string) || '',
+        responses,
+      });
+      if (returnedId) {
+        localStorage.setItem(STORAGE_KEY, returnedId);
+        setSavedId(returnedId);
+      }
+      setSaveStatus('saved');
+    } catch {
+      setSaveStatus('error');
+    } finally {
+      savingRef.current = false;
+      if (pendingSave.current) {
+        pendingSave.current = false;
+        doSave();
+      }
+    }
+  }, [form, savedId]);
+
+  // Save on blur — debounced briefly to coalesce rapid focus changes (e.g. clicking from one field to another)
+  const handleBlurSave = useCallback(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(doSave, 300);
+  }, [doSave]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, []);
 
   // ── Access gate ───────────────────────────────────────────────────
 
@@ -520,55 +579,6 @@ export default function QuestionnaireForm() {
     }
   }
 
-  // ── Form submission ───────────────────────────────────────────────
-
-  async function handleSubmit(values: Record<string, unknown>) {
-    setSubmitLoading(true);
-    setSubmitError('');
-    try {
-      // Flatten all form values into a string map
-      const responses: Record<string, string> = {};
-      for (const [key, val] of Object.entries(values)) {
-        if (key === 'respondentName' || key === 'respondentEmail') continue;
-        if (Array.isArray(val)) {
-          responses[key] = val.join('; ');
-        } else if (val != null) {
-          responses[key] = String(val);
-        }
-      }
-
-      const returnedId = await QuestionnaireService.submitResponse({
-        id: savedId ?? undefined,
-        respondentName: (values.respondentName as string) || '',
-        respondentEmail: (values.respondentEmail as string) || '',
-        responses,
-      });
-      if (returnedId) {
-        localStorage.setItem(STORAGE_KEY, returnedId);
-        setSavedId(returnedId);
-      }
-      setSubmitted(true);
-    } catch {
-      setSubmitError('Failed to submit. Please try again.');
-    } finally {
-      setSubmitLoading(false);
-    }
-  }
-
-  // ── Render: Success ───────────────────────────────────────────────
-
-  if (submitted) {
-    return (
-      <div style={{ maxWidth: 600, margin: '80px auto', padding: '0 24px' }}>
-        <Result
-          status="success"
-          title="Thank you!"
-          subTitle="Your responses have been recorded. We appreciate your time and feedback."
-        />
-      </div>
-    );
-  }
-
   // ── Render: Access gate ───────────────────────────────────────────
 
   if (!accessGranted) {
@@ -614,29 +624,31 @@ export default function QuestionnaireForm() {
 
   // ── Render: Questionnaire form ────────────────────────────────────
 
+  const statusIndicator = (
+    <span style={{ fontSize: 13, color: saveStatus === 'error' ? '#ff4d4f' : '#8c8c8c' }}>
+      {saveStatus === 'saving' && <><LoadingOutlined style={{ marginRight: 6 }} />Saving...</>}
+      {saveStatus === 'saved' && <><CheckCircleFilled style={{ marginRight: 6, color: '#52c41a' }} />Saved</>}
+      {saveStatus === 'error' && <><WarningFilled style={{ marginRight: 6 }} />Save failed</>}
+    </span>
+  );
+
   return (
     <div style={{ maxWidth: 800, margin: '40px auto', padding: '0 24px 80px' }}>
-      <Title level={2}>BMDExpress Report Builder Questionnaire</Title>
-      <Paragraph type="secondary">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <Title level={2} style={{ marginBottom: 0 }}>BMDExpress Report Builder Questionnaire</Title>
+        {statusIndicator}
+      </div>
+      <Paragraph type="secondary" style={{ marginTop: 8 }}>
         Help us understand your report-writing workflow so we can build the right tools.
         All fields are optional -- answer as many or as few as you like.
+        Your responses are saved automatically.
       </Paragraph>
 
-      {submitError && (
-        <Alert
-          message={submitError}
-          type="error"
-          showIcon
-          closable
-          style={{ marginBottom: 24 }}
-          onClose={() => setSubmitError('')}
-        />
-      )}
-
+      {/* onBlur bubbles up from all child inputs — saves when the user leaves any field */}
       <Form
         form={form}
         layout="vertical"
-        onFinish={handleSubmit}
+        onBlur={handleBlurSave}
         requiredMark={false}
       >
         {/* Contact info */}
@@ -668,17 +680,6 @@ export default function QuestionnaireForm() {
             ))}
           </Card>
         ))}
-
-        <Form.Item>
-          <Button
-            type="primary"
-            htmlType="submit"
-            size="large"
-            loading={submitLoading}
-          >
-            Submit Questionnaire
-          </Button>
-        </Form.Item>
       </Form>
     </div>
   );

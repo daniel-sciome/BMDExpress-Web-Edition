@@ -8,6 +8,9 @@ WORKDIR /app
 # Copy the pre-built WAR file (Spring Boot repackaged, executable as a JAR)
 COPY target/bmdexpress-web-*.war app.jar
 
+# Copy questionnaire data (read from filesystem at runtime)
+COPY data/questionnaires/ data/questionnaires/
+
 # Expose port 8080 for Cloud Run
 EXPOSE 8080
 
