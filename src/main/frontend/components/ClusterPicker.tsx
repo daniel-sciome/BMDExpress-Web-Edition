@@ -118,13 +118,14 @@ export default function ClusterPicker({ vertical = false }: ClusterPickerProps) 
   }
 
   // Shared cluster button renderer
-  const renderClusterButton = (set: typeof clusterSets[0]) => {
+  const renderClusterButton = (set: typeof clusterSets[0], small?: boolean) => {
     const { state, selectedCount, totalCount } = getClusterSelectionState(
       set.categoryIds,
       highlightedIds
     );
     const shortLabel = set.label.replace(/^Cluster\s*/i, '');
     const isSpecialLabel = shortLabel === 'Unclassified' || shortLabel === 'Not in Semantic Space';
+    const scale = small ? 0.75 : 1;
 
     return (
       <Tooltip
@@ -138,7 +139,7 @@ export default function ClusterPicker({ vertical = false }: ClusterPickerProps) 
             alignItems: 'center',
             gap: vertical ? 2 : 4,
             cursor: 'pointer',
-            padding: vertical ? '3px 4px' : '4px 6px',
+            padding: vertical ? `${4 * scale}px ${5 * scale}px` : '4px 6px',
             borderRadius: 4,
             transition: 'background-color 0.2s',
             backgroundColor: state !== 'none' ? '#e6f7ff' : '#ffffff',
@@ -155,14 +156,14 @@ export default function ClusterPicker({ vertical = false }: ClusterPickerProps) 
           }}
         >
           <div style={{
-            width: 15, height: 15,
+            width: 14 * scale, height: 14 * scale,
             background: set.color, borderRadius: 2,
             border: '1px solid rgba(0,0,0,0.1)', flexShrink: 0,
           }} />
           <span style={{
             color: '#595959',
             fontWeight: state !== 'none' ? 600 : 400,
-            fontSize: '13px',
+            fontSize: vertical ? `${18 * scale}px` : '13px',
             whiteSpace: 'nowrap',
           }}>
             {shortLabel}
@@ -213,7 +214,7 @@ export default function ClusterPicker({ vertical = false }: ClusterPickerProps) 
                 const label = set.label.replace(/^Cluster\s*/i, '');
                 return label === 'Unclassified' || label === 'Not in Semantic Space';
               })
-              .map(renderClusterButton)}
+              .map(set => renderClusterButton(set, true))}
           </div>
         </div>
         <div style={{ fontSize: '10px', color: '#8c8c8c', fontStyle: 'italic', marginTop: 4, flexShrink: 0 }}>
@@ -248,7 +249,7 @@ export default function ClusterPicker({ vertical = false }: ClusterPickerProps) 
       children: (
         <div style={{ fontSize: '13px', paddingTop: '8px' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
-            {clusterSets.map(renderClusterButton)}
+            {clusterSets.map(set => renderClusterButton(set))}
           </div>
           <div style={{ marginTop: '4px', marginBottom: '-4px', fontSize: '11px', color: '#8c8c8c', fontStyle: 'italic' }}>
             Cmd/Ctrl+click to add to selection

@@ -114,7 +114,7 @@ export default function UmapScatterPlot({ height = 600, chartId }: UmapScatterPl
         type: 'scatter',
         name: 'Reference Space',
         marker: {
-          size: 3,
+          size: 3.5,
           color: '#000000',
           opacity: 0.2,
         },
@@ -156,13 +156,13 @@ export default function UmapScatterPlot({ height = 600, chartId }: UmapScatterPl
         includedPoints.push(point);
 
         // Get base style from inFocus state
-        const focusStyle = getPointStyle(inFocus, baseColor);
+        const focusStyle = getPointStyle(inFocus, baseColor, { focusedSize: 11.5, normalSize: 9 });
 
         // Styling priority: selection > focus
         if (isSelected && hasSelection) {
           // Selected: larger, full opacity, white border
           markerColors.push(focusStyle.color);
-          markerSizes.push(12);
+          markerSizes.push(14);
           markerOpacities.push(1.0);
           markerLineWidths.push(2);
           markerLineColors.push('white');
@@ -246,24 +246,23 @@ export default function UmapScatterPlot({ height = 600, chartId }: UmapScatterPl
 
   // Layout configuration
   const layout: any = applyAppearance({
-    title: { text: 'GO Term UMAP Embedding Space' },
     xaxis: {
-      title: 'UMAP 1',
       zeroline: false,
       showticklabels: false,
+      showgrid: false,
       scaleanchor: 'y',
       scaleratio: 1,
     },
     yaxis: {
-      title: 'UMAP 2',
       zeroline: false,
       showticklabels: false,
+      showgrid: false,
     },
-    height,
+    autosize: true,
     hovermode: 'closest' as const,
     dragmode: 'lasso' as const,
     showlegend: false,
-    margin: { l: 60, r: 60, t: 80, b: 60 },
+    margin: { l: 0, r: 0, t: 0, b: 0 },
   });
 
   // Config for Plotly
@@ -309,7 +308,7 @@ export default function UmapScatterPlot({ height = 600, chartId }: UmapScatterPl
       style={{ marginBottom: 16 }}
     >
       <div style={{ position: 'relative' }}>
-        <div ref={plotRef} style={{ width: '70%', aspectRatio: '1/1' }}>
+        <div ref={plotRef} style={{ width: '70%', aspectRatio: '1/1', border: '1px solid #ccc', borderRadius: 4, overflow: 'hidden' }}>
           <Plot
             data={traces as any}
             layout={layout}
@@ -323,10 +322,14 @@ export default function UmapScatterPlot({ height = 600, chartId }: UmapScatterPl
         {plotHeight > 0 && (
           <div style={{
             position: 'absolute',
-            top: 60,
+            top: 0,
             left: '72%',
-            right: 0,
-            height: plotHeight - 120,
+            height: plotHeight,
+            border: '1px solid #ccc',
+            borderRadius: 4,
+            padding: '8px',
+            boxSizing: 'border-box',
+            background: '#fff',
           }}>
             <ClusterPicker vertical />
           </div>
