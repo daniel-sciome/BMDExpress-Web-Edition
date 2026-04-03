@@ -21,71 +21,83 @@ export default function PathwayCurveViewer({ projectId, resultName, chartId }: P
   const filteredCategories = useAppSelector(selectFilteredData);
 
   const [curveData, setCurveData] = useState<CurveDataDto[]>([]);
+  const [loadedCategories, setLoadedCategories] = useState<typeof filteredCategories>([]);
   const [loadingCurves, setLoadingCurves] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Stable key for selected IDs — prevents useEffect from re-firing on array reference changes
+  const selectedIdList = useMemo(() =>
+    Array.from(categoryState.selectedIds).sort(),
+    [categoryState.selectedIds]
+  );
+  const selectedIdsKey = selectedIdList.join(',');
+
   // Get selected category details
   const selectedCategories = useMemo(() => {
-    const selectedIds = Array.from(categoryState.selectedIds);
     return filteredCategories.filter(cat =>
-      cat.categoryId && selectedIds.includes(cat.categoryId)
+      cat.categoryId && selectedIdList.includes(cat.categoryId)
     );
-  }, [categoryState.selectedIds, filteredCategories]);
-
-  console.log('[PathwayCurveViewer] Selected categories:', selectedCategories.length);
+  }, [selectedIdsKey, filteredCategories]);
 
   // Automatically load curves when categories are selected
   useEffect(() => {
-    const loadCurvesForSelectedCategories = async () => {
-      if (selectedCategories.length === 0) {
-        setCurveData([]);
-        return;
-      }
+    if (selectedCategories.length === 0) {
+      setCurveData([]);
+      return;
+    }
 
+    let cancelled = false;
+
+    const loadCurvesForSelectedCategories = async () => {
       setLoadingCurves(true);
       setError(null);
 
       try {
-        // Load curves for each selected category
-        const allCurves: CurveDataDto[] = [];
+        // Load top 20 categories by lowest BMD median to get the most relevant curves
+        const categoriesToLoad = [...selectedCategories]
+          .filter(c => c.categoryDescription)
+          .sort((a, b) => (a.bmdMedian ?? Infinity) - (b.bmdMedian ?? Infinity))
+          .slice(0, 20);
 
-        for (const category of selectedCategories) {
-          if (!category.categoryDescription) continue;
+        // Load all categories in parallel
+        const results = await Promise.all(
+          categoriesToLoad.map(async (category) => {
+            if (cancelled) return [];
+            const genes = await CategoryResultsService.getGenesInPathway(
+              projectId,
+              resultName,
+              category.categoryDescription!
+            );
+            if (!genes || genes.length === 0) return [];
 
-          // Get genes in this category
-          const genes = await CategoryResultsService.getGenesInPathway(
-            projectId,
-            resultName,
-            category.categoryDescription
-          );
+            const curves = await CategoryResultsService.getCurveData(
+              projectId,
+              resultName,
+              category.categoryDescription!,
+              genes.filter((g): g is string => g !== undefined)
+            );
+            return curves?.filter((c): c is CurveDataDto => c !== undefined) ?? [];
+          })
+        );
 
-          if (!genes || genes.length === 0) continue;
-
-          // Get curve data for these genes
-          const curves = await CategoryResultsService.getCurveData(
-            projectId,
-            resultName,
-            category.categoryDescription,
-            genes.filter((g): g is string => g !== undefined)
-          );
-
-          if (curves) {
-            allCurves.push(...curves.filter((c): c is CurveDataDto => c !== undefined));
-          }
+        if (!cancelled) {
+          setCurveData(results.flat());
+          setLoadedCategories(categoriesToLoad);
         }
-
-        console.log('[PathwayCurveViewer] Loaded curves:', allCurves.length);
-        setCurveData(allCurves);
       } catch (err: unknown) {
-        setError(`Failed to load curve data: ${err instanceof Error ? err.message : String(err)}`);
-        console.error('Error loading curve data:', err);
+        if (!cancelled) {
+          setError(`Failed to load curve data: ${err instanceof Error ? err.message : String(err)}`);
+        }
       } finally {
-        setLoadingCurves(false);
+        if (!cancelled) {
+          setLoadingCurves(false);
+        }
       }
     };
 
     loadCurvesForSelectedCategories();
-  }, [selectedCategories, projectId, resultName]);
+    return () => { cancelled = true; };
+  }, [selectedIdsKey, projectId, resultName]);
 
   return (
     <Card
@@ -131,7 +143,7 @@ export default function PathwayCurveViewer({ projectId, resultName, chartId }: P
       {/* Curve Plot */}
       {!loadingCurves && curveData.length > 0 && (
         <div style={{ marginTop: '1rem' }}>
-          <DoseResponseCurveChart curves={curveData} selectedCategories={selectedCategories} chartId={chartId} />
+          <DoseResponseCurveChart curves={curveData} selectedCategories={loadedCategories} chartId={chartId} />
         </div>
       )}
 

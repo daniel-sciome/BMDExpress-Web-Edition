@@ -37,11 +37,8 @@ export default function DoseResponseCurveChart({ curves, selectedCategories, cha
   // Track which categories are included in overlay
   const [includedInOverlay, setIncludedInOverlay] = useState<Set<string>>(defaultOverlayCategories);
 
-  // Track which outer collapse sections are expanded (for lazy rendering)
-  const [expandedSections, setExpandedSections] = useState<string[]>(['selected']);
-
-  // Track which individual category plots are expanded (for lazy rendering)
-  const [expandedPlots, setExpandedPlots] = useState<Set<string>>(new Set());
+  // Track whether the individual plots section is expanded
+  const [plotsSectionExpanded, setPlotsSectionExpanded] = useState(true);
 
   // Reset to defaults when selected categories change
   useEffect(() => {
@@ -516,274 +513,122 @@ export default function DoseResponseCurveChart({ curves, selectedCategories, cha
         </div>
       </div>
 
-      {/* Individual category plots - split into selected/unselected sections */}
-      {(() => {
-        // Sort all categories by BMD median
-        const sortedCategories = Array.from(curvesByCategory.entries())
-          .sort(([descA], [descB]) => {
-            const catA = selectedCategories.find(c => c.categoryDescription === descA);
-            const catB = selectedCategories.find(c => c.categoryDescription === descB);
-            const bmdA = catA?.bmdMedian ?? Infinity;
-            const bmdB = catB?.bmdMedian ?? Infinity;
-            return bmdA - bmdB;
-          });
+      {/* Individual category plots - sorted by BMD median, always rendered */}
+      <Collapse
+        activeKey={plotsSectionExpanded ? ['individual'] : []}
+        onChange={(keys) => {
+          const keyArray = Array.isArray(keys) ? keys : [keys];
+          setPlotsSectionExpanded(keyArray.includes('individual'));
+        }}
+        items={[{
+          key: 'individual',
+          label: (
+            <span style={{ fontWeight: 600, fontSize: '14px' }}>
+              Individual Category Plots ({curvesByCategory.size})
+            </span>
+          ),
+          children: (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(600px, 1fr))', gap: '20px' }}>
+              {Array.from(curvesByCategory.entries())
+                .sort(([descA], [descB]) => {
+                  const catA = selectedCategories.find(c => c.categoryDescription === descA);
+                  const catB = selectedCategories.find(c => c.categoryDescription === descB);
+                  return (catA?.bmdMedian ?? Infinity) - (catB?.bmdMedian ?? Infinity);
+                })
+                .map(([pathwayDesc, categoryCurves]) => {
+                  const pathwayInfo = pathwayToCluster.get(pathwayDesc);
+                  const clusterId = pathwayInfo?.clusterId ?? -1;
+                  const clusterColor = clusterColors[clusterId] || '#999999';
 
-        // Split into selected (in overlay) and unselected
-        const selectedCats = sortedCategories.filter(([desc]) => includedInOverlay.has(desc));
-        const unselectedCats = sortedCategories.filter(([desc]) => !includedInOverlay.has(desc));
+                  // Calculate y-range for this category
+                  let minY = Infinity;
+                  let maxY = -Infinity;
+                  categoryCurves.forEach(curve => {
+                    curve.curvePoints?.filter(p => p).forEach(p => {
+                      minY = Math.min(minY, p!.response);
+                      maxY = Math.max(maxY, p!.response);
+                    });
+                    curve.measuredPoints?.filter(p => p).forEach(p => {
+                      minY = Math.min(minY, p!.response);
+                      maxY = Math.max(maxY, p!.response);
+                    });
+                  });
+                  const yPadding = (maxY - minY) * 0.05;
+                  minY -= yPadding;
+                  maxY += yPadding;
 
-        // Helper function to render a single category plot
-        const renderCategoryPlot = ([pathwayDesc, categoryCurves]: [string, CurveDataDto[]]) => {
-          const pathwayInfo = pathwayToCluster.get(pathwayDesc);
-          const clusterId = pathwayInfo?.clusterId ?? -1;
-          const clusterColor = clusterColors[clusterId] || '#999999';
+                  // Build traces for this category
+                  const categoryTraces: any[] = [];
+                  categoryCurves.forEach(curve => {
+                    const curveName = `${curve.geneSymbol} (${curve.probeId})`;
+                    if (curve.curvePoints && curve.curvePoints.length > 0) {
+                      categoryTraces.push({
+                        x: curve.curvePoints.filter(p => p).map(p => doseTransform.transformDose(p!.dose)),
+                        y: curve.curvePoints.filter(p => p).map(p => p!.response),
+                        customdata: curve.curvePoints.filter(p => p).map(p => p!.dose),
+                        type: 'scatter', mode: 'lines',
+                        name: curveName,
+                        line: { width: 2, color: clusterColor },
+                        showlegend: false,
+                        hovertemplate: `${curveName}<br>Dose: %{customdata}<br>Response: %{y:.3f}<extra></extra>`,
+                      });
+                    }
+                    if (curve.measuredPoints && curve.measuredPoints.length > 0) {
+                      categoryTraces.push({
+                        x: curve.measuredPoints.filter(p => p).map(p => doseTransform.transformDose(p!.dose)),
+                        y: curve.measuredPoints.filter(p => p).map(p => p!.response),
+                        customdata: curve.measuredPoints.filter(p => p).map(p => p!.dose),
+                        type: 'scatter', mode: 'markers',
+                        marker: { size: 8, symbol: 'circle', color: clusterColor },
+                        showlegend: false,
+                        hovertemplate: `${curveName} (measured)<br>Dose: %{customdata}<br>Response: %{y:.3f}<extra></extra>`,
+                      });
+                    }
+                    if (curve.bmdMarkers) {
+                      const m = curve.bmdMarkers;
+                      if (m.bmd != null) categoryTraces.push({ x: [m.bmd, m.bmd], y: [minY, maxY], type: 'scatter', mode: 'lines', line: { color: '#00FF00', width: 2 }, name: 'BMD', showlegend: false, hovertemplate: `BMD<br>Dose: ${m.bmd.toFixed(3)}<extra></extra>` });
+                      if (m.bmdl != null) categoryTraces.push({ x: [m.bmdl, m.bmdl], y: [minY, maxY], type: 'scatter', mode: 'lines', line: { color: '#FF0000', width: 2 }, name: 'BMDL', showlegend: false, hovertemplate: `BMDL<br>Dose: ${m.bmdl.toFixed(3)}<extra></extra>` });
+                      if (m.bmdu != null) categoryTraces.push({ x: [m.bmdu, m.bmdu], y: [minY, maxY], type: 'scatter', mode: 'lines', line: { color: '#0000FF', width: 2 }, name: 'BMDU', showlegend: false, hovertemplate: `BMDU<br>Dose: ${m.bmdu.toFixed(3)}<extra></extra>` });
+                    }
+                  });
 
-          // Calculate y-range for this category
-          let minY = Infinity;
-          let maxY = -Infinity;
+                  const categoryLayout = parentApply({
+                    xaxis: {
+                      title: { text: 'Dose' },
+                      type: useLogScale ? 'log' as const : 'linear' as const,
+                      ...(useLogScale && doseTransform.tickvals.length > 0 ? { tickmode: 'array' as const, tickvals: doseTransform.tickvals, ticktext: doseTransform.ticktext } : {}),
+                      showgrid: true,
+                    },
+                    yaxis: { title: { text: 'Log(Expression)' }, showgrid: true },
+                    height: 350,
+                    margin: { l: 60, r: 20, t: 20, b: 60 },
+                    hovermode: 'closest' as const,
+                    showlegend: false,
+                  });
 
-          categoryCurves.forEach(curve => {
-            if (curve.curvePoints && curve.curvePoints.length > 0) {
-              curve.curvePoints.filter(p => p).forEach(p => {
-                minY = Math.min(minY, p!.response);
-                maxY = Math.max(maxY, p!.response);
-              });
-            }
-            if (curve.measuredPoints && curve.measuredPoints.length > 0) {
-              curve.measuredPoints.filter(p => p).forEach(p => {
-                minY = Math.min(minY, p!.response);
-                maxY = Math.max(maxY, p!.response);
-              });
-            }
-          });
-
-          const yPadding = (maxY - minY) * 0.05;
-          minY -= yPadding;
-          maxY += yPadding;
-
-          // Build traces for this category
-          const categoryTraces: any[] = [];
-
-          categoryCurves.forEach(curve => {
-            const curveName = `${curve.geneSymbol} (${curve.probeId})`;
-
-            // Curve line
-            if (curve.curvePoints && curve.curvePoints.length > 0) {
-              const xValues = curve.curvePoints.filter(p => p).map(p => doseTransform.transformDose(p!.dose));
-              const yValues = curve.curvePoints.filter(p => p).map(p => p!.response);
-              const originalDoses = curve.curvePoints.filter(p => p).map(p => p!.dose);
-
-              categoryTraces.push({
-                x: xValues,
-                y: yValues,
-                customdata: originalDoses,
-                type: 'scatter',
-                mode: 'lines',
-                name: curveName,
-                line: { width: 2, color: clusterColor },
-                showlegend: false,
-                hovertemplate: `${curveName}<br>Dose: %{customdata}<br>Response: %{y:.3f}<extra></extra>`,
-              });
-            }
-
-            // Measured points
-            if (curve.measuredPoints && curve.measuredPoints.length > 0) {
-              const xMeasured = curve.measuredPoints.filter(p => p).map(p => doseTransform.transformDose(p!.dose));
-              const yMeasured = curve.measuredPoints.filter(p => p).map(p => p!.response);
-              const originalDoses = curve.measuredPoints.filter(p => p).map(p => p!.dose);
-
-              categoryTraces.push({
-                x: xMeasured,
-                y: yMeasured,
-                customdata: originalDoses,
-                type: 'scatter',
-                mode: 'markers',
-                marker: { size: 8, symbol: 'circle', color: clusterColor },
-                showlegend: false,
-                hovertemplate: `${curveName} (measured)<br>Dose: %{customdata}<br>Response: %{y:.3f}<extra></extra>`,
-              });
-            }
-
-            // BMD vertical lines
-            if (curve.bmdMarkers) {
-              const markers = curve.bmdMarkers;
-
-              if (markers.bmd != null) {
-                categoryTraces.push({
-                  x: [markers.bmd, markers.bmd],
-                  y: [minY, maxY],
-                  type: 'scatter',
-                  mode: 'lines',
-                  line: { color: '#00FF00', width: 2 },
-                  name: 'BMD',
-                  showlegend: false,
-                  hovertemplate: `BMD<br>Dose: ${markers.bmd.toFixed(3)}<extra></extra>`,
-                });
-              }
-
-              if (markers.bmdl != null) {
-                categoryTraces.push({
-                  x: [markers.bmdl, markers.bmdl],
-                  y: [minY, maxY],
-                  type: 'scatter',
-                  mode: 'lines',
-                  line: { color: '#FF0000', width: 2 },
-                  name: 'BMDL',
-                  showlegend: false,
-                  hovertemplate: `BMDL<br>Dose: ${markers.bmdl.toFixed(3)}<extra></extra>`,
-                });
-              }
-
-              if (markers.bmdu != null) {
-                categoryTraces.push({
-                  x: [markers.bmdu, markers.bmdu],
-                  y: [minY, maxY],
-                  type: 'scatter',
-                  mode: 'lines',
-                  line: { color: '#0000FF', width: 2 },
-                  name: 'BMDU',
-                  showlegend: false,
-                  hovertemplate: `BMDU<br>Dose: ${markers.bmdu.toFixed(3)}<extra></extra>`,
-                });
-              }
-            }
-          });
-
-          const categoryLayout = parentApply({
-            xaxis: {
-              title: { text: 'Dose' },
-              type: useLogScale ? 'log' as const : 'linear' as const,
-              ...(useLogScale && doseTransform.tickvals.length > 0 ? {
-                tickmode: 'array' as const,
-                tickvals: doseTransform.tickvals,
-                ticktext: doseTransform.ticktext,
-              } : {}),
-              showgrid: true,
-            },
-            yaxis: {
-              title: { text: 'Log(Expression)' },
-              showgrid: true,
-            },
-            height: 350,
-            margin: { l: 60, r: 20, t: 20, b: 60 },
-            hovermode: 'closest' as const,
-            showlegend: false,
-          });
-
-          const isPlotExpanded = expandedPlots.has(pathwayDesc);
-
-          return (
-            <Collapse
-              key={pathwayDesc}
-              size="small"
-              activeKey={isPlotExpanded ? ['1'] : []}
-              onChange={(keys) => {
-                setExpandedPlots(prev => {
-                  const newSet = new Set(prev);
-                  if (Array.isArray(keys) && keys.includes('1')) {
-                    newSet.add(pathwayDesc);
-                  } else {
-                    newSet.delete(pathwayDesc);
-                  }
-                  return newSet;
-                });
-              }}
-              items={[{
-                key: '1',
-                label: (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <Checkbox
-                      checked={includedInOverlay.has(pathwayDesc)}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={() => toggleCategoryInOverlay(pathwayDesc)}
-                    />
-                    <span style={{ fontWeight: 500, fontSize: '13px' }}>{pathwayDesc}</span>
-                  </div>
-                ),
-                children: isPlotExpanded ? (
-                  <Plot
-                    data={categoryTraces}
-                    layout={categoryLayout}
-                    config={config}
-                    style={{ width: '100%' }}
-                  />
-                ) : null,
-              }]}
-            />
-          );
-        };
-
-        return (
-          <div>
-            {/* Selected categories (in overlay) */}
-            <Collapse
-              activeKey={expandedSections.filter(s => s === 'selected')}
-              onChange={(keys) => {
-                const keyArray = Array.isArray(keys) ? keys : [keys];
-                setExpandedSections(prev => {
-                  const withoutSelected = prev.filter(s => s !== 'selected');
-                  return keyArray.includes('selected')
-                    ? [...withoutSelected, 'selected']
-                    : withoutSelected;
-                });
-              }}
-              style={{ marginBottom: 16 }}
-              items={[{
-                key: 'selected',
-                label: (
-                  <span style={{ fontWeight: 600, fontSize: '14px' }}>
-                    In Overlay ({selectedCats.length})
-                  </span>
-                ),
-                children: expandedSections.includes('selected') ? (
-                  selectedCats.length > 0 ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(600px, 1fr))', gap: '20px' }}>
-                      {selectedCats.map(renderCategoryPlot)}
+                  return (
+                    <div key={pathwayDesc} style={{ border: '1px solid #e0e0e0', borderRadius: '8px', padding: '12px' }}>
+                      <div style={{ marginBottom: 8 }}>
+                        <Checkbox
+                          checked={includedInOverlay.has(pathwayDesc)}
+                          onChange={() => toggleCategoryInOverlay(pathwayDesc)}
+                        >
+                          <span style={{ fontWeight: 500, fontSize: '13px' }}>{pathwayDesc}</span>
+                        </Checkbox>
+                      </div>
+                      <Plot
+                        data={categoryTraces}
+                        layout={categoryLayout}
+                        config={config}
+                        style={{ width: '100%' }}
+                      />
                     </div>
-                  ) : (
-                    <div style={{ padding: '1rem', color: '#999', textAlign: 'center' }}>
-                      No categories selected for overlay. Check categories below to add them.
-                    </div>
-                  )
-                ) : null,
-              }]}
-            />
-
-            {/* Unselected categories (not in overlay) */}
-            <Collapse
-              activeKey={expandedSections.filter(s => s === 'unselected')}
-              onChange={(keys) => {
-                const keyArray = Array.isArray(keys) ? keys : [keys];
-                setExpandedSections(prev => {
-                  const withoutUnselected = prev.filter(s => s !== 'unselected');
-                  return keyArray.includes('unselected')
-                    ? [...withoutUnselected, 'unselected']
-                    : withoutUnselected;
-                });
-              }}
-              items={[{
-                key: 'unselected',
-                label: (
-                  <span style={{ fontWeight: 600, fontSize: '14px' }}>
-                    Not in Overlay ({unselectedCats.length})
-                  </span>
-                ),
-                children: expandedSections.includes('unselected') ? (
-                  unselectedCats.length > 0 ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(600px, 1fr))', gap: '20px' }}>
-                      {unselectedCats.map(renderCategoryPlot)}
-                    </div>
-                  ) : (
-                    <div style={{ padding: '1rem', color: '#999', textAlign: 'center' }}>
-                      All categories are included in the overlay.
-                    </div>
-                  )
-                ) : null,
-              }]}
-            />
-          </div>
-        );
-      })()}
+                  );
+                })}
+            </div>
+          ),
+        }]}
+      />
     </div>
   );
 }

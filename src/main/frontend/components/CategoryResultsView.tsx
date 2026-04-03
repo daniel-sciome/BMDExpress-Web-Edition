@@ -187,6 +187,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   // Per-chart appearance modal
   const [appearanceChartId, setAppearanceChartId] = useState<string | null>(null);
 
+
   // Chart configuration
   const userConfigurations = useAppSelector(selectUserConfigurations);
   const presetConfigurations = useAppSelector(selectPresetConfigurations);
@@ -553,10 +554,10 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           }
         `}
       </style>
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', marginLeft: '40px' }}>
         {/* Formatted header with annotation metadata */}
         {annotation && annotation.parseSuccess ? (
-          <div style={{ padding: '1rem 1rem 0 50px', flexShrink: 0 }}>
+          <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
             {/* TODO: Project-level metadata is not well-defined. Currently using experiment-level metadata. */}
             <h2 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               {experimentDescription.testArticle || annotation.chemical || 'Unknown Test Article'}
@@ -658,7 +659,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
 
           </div>
         ) : (
-          <div style={{ padding: '1rem 1rem 0 50px', flexShrink: 0 }}>
+          <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
             {/* TODO: Project-level metadata is not well-defined. Currently using experiment-level metadata. */}
             <h2 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               {experimentDescription.testArticle || resultName}
@@ -766,7 +767,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                   overflowX: 'hidden',
                   minHeight: 0,
                   padding: '1rem',
-                  paddingLeft: '50px'
+                  paddingLeft: '1rem'
                 }}>
                   {/* Charts - Direct rendering based on checkbox selection (Power User mode only) */}
                   {viewMode === 'power' && CHART_CONFIG.map(config => renderChartCollapse(config.id))}
@@ -798,7 +799,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                   overflowX: 'hidden',
                   minHeight: 0,
                   padding: '1rem',
-                  paddingLeft: '50px'
+                  paddingLeft: '1rem'
                 }}>
                   <Collapse
                     defaultActiveKey={['comparisonTable', 'venn', 'accumulation', 'globalViolin']}
@@ -864,7 +865,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           overflowX: 'hidden',
           minHeight: 0,
           padding: '1rem',
-          paddingLeft: '50px'
+          paddingLeft: '1rem'
         }}>
         {/* Charts - Direct rendering based on checkbox selection (Power User mode only) */}
         {viewMode === 'power' && CHART_CONFIG.map(config => renderChartCollapse(config.id))}
@@ -886,20 +887,21 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
       </div>
       )}
 
-      {/* Icon Toolbar - Left Edge */}
+
+      {/* Icon Toolbar - fixed strip between sidebar and content */}
       <div
         style={{
-          position: 'absolute',
-          left: 4,
-          top: '50%',
-          transform: 'translateY(-50%)',
+          position: 'fixed',
+          left: 300,
+          top: 0,
+          bottom: 0,
           display: 'flex',
           flexDirection: 'column',
+          justifyContent: 'center',
           gap: '4px',
-          background: '#fff',
-          borderRadius: '4px',
-          padding: '8px 6px',
-          border: '1px solid #d9d9d9',
+          background: '#fafafa',
+          padding: '8px 4px',
+          borderRight: '1px solid #d9d9d9',
           zIndex: 10,
         }}
       >
@@ -949,7 +951,6 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
             size="small"
           />
         </Tooltip>
-        {/* Divider */}
         <div style={{ borderTop: '1px solid #d9d9d9', margin: '4px 0' }} />
         <Tooltip title="Collapse All Charts" placement="right">
           <Button
