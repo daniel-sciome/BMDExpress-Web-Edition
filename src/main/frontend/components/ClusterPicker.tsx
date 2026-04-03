@@ -139,13 +139,14 @@ export default function ClusterPicker({ vertical = false }: ClusterPickerProps) 
             alignItems: 'center',
             gap: vertical ? 2 : 4,
             cursor: 'pointer',
-            padding: vertical ? `${4 * scale}px ${5 * scale}px` : '4px 6px',
+            padding: vertical ? `${4 * scale}px ${10 * scale}px ${4 * scale}px ${5 * scale}px` : '4px 6px',
             borderRadius: 4,
             transition: 'background-color 0.2s',
             backgroundColor: state !== 'none' ? '#e6f7ff' : '#ffffff',
             border: '1px solid #91d5ff',
             boxShadow: state !== 'none' ? '0 0 0 1px #91d5ff' : 'none',
-            width: isSpecialLabel ? 'auto' : (vertical ? '3.5em' : 40),
+            minWidth: isSpecialLabel ? undefined : (vertical ? '3.5em' : 40),
+            width: isSpecialLabel ? 'auto' : undefined,
             boxSizing: 'border-box',
           }}
           onMouseEnter={(e) => {
