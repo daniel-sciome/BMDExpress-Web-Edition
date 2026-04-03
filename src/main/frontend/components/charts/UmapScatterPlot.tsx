@@ -4,7 +4,7 @@
 // Respects global displayMode from visibilitySlice for consistent styling across table and charts
 // Two-layer styling: inFocus-based (primary filter) + selection highlighting (additive)
 
-import React, { useMemo, useCallback, useState } from 'react';
+import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import Plot from 'react-plotly.js';
 import { Card, Button, Space, Tag, Tooltip } from 'antd';
 import { ClearOutlined, InfoCircleOutlined } from '@ant-design/icons';
@@ -15,6 +15,7 @@ import { useClusterColors } from './utils/clusterColors';
 import { createPlotlyConfig } from './utils/plotlyConfig';
 import { useChartAppearance } from './hooks/useChartAppearance';
 import type { ReferenceUmapItem } from 'Frontend/data/referenceUmapData';
+import ClusterPicker from 'Frontend/components/ClusterPicker';
 
 interface UmapScatterPlotProps {
   height?: number;
@@ -31,6 +32,16 @@ export default function UmapScatterPlot({ height = 600, chartId }: UmapScatterPl
 
   // Reference space visibility toggle
   const [showReference, setShowReference] = useState<boolean>(true);
+
+  // Measure plot container height so cluster picker matches it
+  const plotRef = useRef<HTMLDivElement>(null);
+  const [plotHeight, setPlotHeight] = useState<number>(0);
+  useEffect(() => {
+    if (!plotRef.current) return;
+    const observer = new ResizeObserver(([entry]) => setPlotHeight(entry.contentRect.height));
+    observer.observe(plotRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   // Debug logging
   React.useEffect(() => {
@@ -239,10 +250,14 @@ export default function UmapScatterPlot({ height = 600, chartId }: UmapScatterPl
     xaxis: {
       title: 'UMAP 1',
       zeroline: false,
+      showticklabels: false,
+      scaleanchor: 'y',
+      scaleratio: 1,
     },
     yaxis: {
       title: 'UMAP 2',
       zeroline: false,
+      showticklabels: false,
     },
     height,
     hovermode: 'closest' as const,
@@ -293,28 +308,29 @@ export default function UmapScatterPlot({ height = 600, chartId }: UmapScatterPl
       }
       style={{ marginBottom: 16 }}
     >
-      <div style={{ width: '100%', aspectRatio: '2/1' }}>
-        <Plot
-          data={traces as any}
-          layout={layout}
-          config={config}
-          onSelected={handleSelected}
-          onDeselect={handleDeselect}
-          style={{ width: '100%', height: '100%' }}
-          useResizeHandler={true}
-        />
-      </div>
-
-      <div style={{ marginTop: 16, fontSize: '12px', color: '#666' }}>
-        <p>
-          <strong>How to use:</strong> Select individual categories by clicking table rows, using the lasso/box select tool on this plot, or use the <strong>Cluster Picker</strong> in the sidebar to select entire clusters.
-        </p>
-        <p style={{ marginTop: '8px' }}>
-          <strong>Visualization:</strong> In-focus categories (passing Primary Filter) appear with <strong>full-size markers</strong>.
-          Out-of-focus categories are <strong>dimmed or hidden</strong> based on the display mode setting.
-          Selected categories have <strong>larger markers with white borders</strong>.
-          Small black points form the backdrop (entire UMAP reference space).
-        </p>
+      <div style={{ position: 'relative' }}>
+        <div ref={plotRef} style={{ width: '70%', aspectRatio: '1/1' }}>
+          <Plot
+            data={traces as any}
+            layout={layout}
+            config={config}
+            onSelected={handleSelected}
+            onDeselect={handleDeselect}
+            style={{ width: '100%', height: '100%' }}
+            useResizeHandler={true}
+          />
+        </div>
+        {plotHeight > 0 && (
+          <div style={{
+            position: 'absolute',
+            top: 60,
+            left: '72%',
+            right: 0,
+            height: plotHeight - 120,
+          }}>
+            <ClusterPicker vertical />
+          </div>
+        )}
       </div>
     </Card>
   );

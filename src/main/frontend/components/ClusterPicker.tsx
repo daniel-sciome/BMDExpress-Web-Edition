@@ -40,7 +40,12 @@ function getClusterSelectionState(
   return { state, selectedCount, totalCount };
 }
 
-export default function ClusterPicker() {
+interface ClusterPickerProps {
+  /** When true, renders as a vertical column without the Collapse wrapper */
+  vertical?: boolean;
+}
+
+export default function ClusterPicker({ vertical = false }: ClusterPickerProps) {
   const dispatch = useAppDispatch();
   const categoryState = useReactiveState('categoryId');
   // Category IDs are always strings, cast for type safety
@@ -112,6 +117,112 @@ export default function ClusterPicker() {
     return null;
   }
 
+  // Shared cluster button renderer
+  const renderClusterButton = (set: typeof clusterSets[0]) => {
+    const { state, selectedCount, totalCount } = getClusterSelectionState(
+      set.categoryIds,
+      highlightedIds
+    );
+    const shortLabel = set.label.replace(/^Cluster\s*/i, '');
+    const isSpecialLabel = shortLabel === 'Unclassified' || shortLabel === 'Not in Semantic Space';
+
+    return (
+      <Tooltip
+        key={set.setId}
+        title={`${set.label}: ${selectedCount}/${totalCount} selected`}
+      >
+        <div
+          onClick={(e) => handleClusterClick(set.categoryIds, state, e)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: vertical ? 2 : 4,
+            cursor: 'pointer',
+            padding: vertical ? '3px 4px' : '4px 6px',
+            borderRadius: 4,
+            transition: 'background-color 0.2s',
+            backgroundColor: state !== 'none' ? '#e6f7ff' : '#ffffff',
+            border: '1px solid #91d5ff',
+            boxShadow: state !== 'none' ? '0 0 0 1px #91d5ff' : 'none',
+            width: isSpecialLabel ? 'auto' : (vertical ? 'auto' : 40),
+            boxSizing: 'border-box',
+          }}
+          onMouseEnter={(e) => {
+            if (state === 'none') e.currentTarget.style.backgroundColor = '#f5f5f5';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = state !== 'none' ? '#e6f7ff' : '#ffffff';
+          }}
+        >
+          <div style={{
+            width: 15, height: 15,
+            background: set.color, borderRadius: 2,
+            border: '1px solid rgba(0,0,0,0.1)', flexShrink: 0,
+          }} />
+          <span style={{
+            color: '#595959',
+            fontWeight: state !== 'none' ? 600 : 400,
+            fontSize: '13px',
+            whiteSpace: 'nowrap',
+          }}>
+            {shortLabel}
+          </span>
+        </div>
+      </Tooltip>
+    );
+  };
+
+  // Vertical layout: column flow that wraps into multiple columns when overflowing
+  if (vertical) {
+    return (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Text strong style={{ fontSize: '12px', color: '#262626', marginBottom: 4, flexShrink: 0 }}>
+          Clusters
+          {stats.totalHighlighted > 0 && (
+            <Tag color="blue" style={{ fontSize: '10px', marginLeft: 6 }}>
+              {stats.totalHighlighted} sel
+            </Tag>
+          )}
+        </Text>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', width: 'fit-content', fontSize: '13px' }}>
+          {/* Numbered cluster columns */}
+          <div style={{
+            flex: 1,
+            display: 'grid',
+            gridTemplateColumns: 'auto auto',
+            gridAutoFlow: 'column',
+            gap: '3px',
+          }}>
+            {(() => {
+              const regular = clusterSets.filter(set => {
+                const label = set.label.replace(/^Cluster\s*/i, '');
+                return label !== 'Unclassified' && label !== 'Not in Semantic Space';
+              });
+              const rows = Math.ceil(regular.length / 2);
+              return regular.map((set, i) => (
+                <div key={set.setId} style={{ gridRow: (i % rows) + 1, gridColumn: i < rows ? 1 : 2, width: 'fit-content', justifySelf: i < rows ? 'start' : 'end' }}>
+                  {renderClusterButton(set)}
+                </div>
+              ));
+            })()}
+          </div>
+          {/* Special clusters */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: 4, alignItems: 'stretch' }}>
+            {clusterSets
+              .filter(set => {
+                const label = set.label.replace(/^Cluster\s*/i, '');
+                return label === 'Unclassified' || label === 'Not in Semantic Space';
+              })
+              .map(renderClusterButton)}
+          </div>
+        </div>
+        <div style={{ fontSize: '10px', color: '#8c8c8c', fontStyle: 'italic', marginTop: 4, flexShrink: 0 }}>
+          Cmd/Ctrl+click to add
+        </div>
+      </div>
+    );
+  }
+
   // Build collapse items
   const collapseItems = [
     {
@@ -136,92 +247,10 @@ export default function ClusterPicker() {
       ),
       children: (
         <div style={{ fontSize: '13px', paddingTop: '8px' }}>
-          {/* Cluster buttons - flex wrap to flow within container */}
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '4px',
-              alignItems: 'center',
-            }}
-          >
-            {clusterSets.map(set => {
-              const { state, selectedCount, totalCount } = getClusterSelectionState(
-                set.categoryIds,
-                highlightedIds
-              );
-
-              // Remove "Cluster " prefix from label
-              const shortLabel = set.label.replace(/^Cluster\s*/i, '');
-
-              // Special labels that get auto width
-              const isSpecialLabel = shortLabel === 'Unclassified' || shortLabel === 'Not in Semantic Space';
-
-              return (
-                <Tooltip
-                  key={set.setId}
-                  title={`${set.label}: ${selectedCount}/${totalCount} selected`}
-                >
-                  <div
-                    onClick={(e) => handleClusterClick(set.categoryIds, state, e)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 4,
-                      cursor: 'pointer',
-                      padding: '4px 6px',
-                      borderRadius: 4,
-                      transition: 'background-color 0.2s',
-                      backgroundColor: state !== 'none' ? '#e6f7ff' : '#ffffff',
-                      border: '1px solid #91d5ff',
-                      boxShadow: state !== 'none' ? '0 0 0 1px #91d5ff' : 'none',
-                      width: isSpecialLabel ? 'auto' : 40,
-                    }}
-                    onMouseEnter={(e) => {
-                      if (state === 'none') {
-                        e.currentTarget.style.backgroundColor = '#f5f5f5';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = state !== 'none' ? '#e6f7ff' : '#ffffff';
-                    }}
-                  >
-                    {/* Color swatch */}
-                    <div
-                      style={{
-                        width: 10,
-                        height: 10,
-                        background: set.color,
-                        borderRadius: 2,
-                        border: '1px solid rgba(0,0,0,0.1)',
-                        flexShrink: 0,
-                      }}
-                    />
-
-                    {/* Short label */}
-                    <span style={{
-                      color: '#595959',
-                      fontWeight: state !== 'none' ? 600 : 400,
-                      fontSize: '11px',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {shortLabel}
-                    </span>
-                  </div>
-                </Tooltip>
-              );
-            })}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+            {clusterSets.map(renderClusterButton)}
           </div>
-
-          {/* Hint text */}
-          <div style={{
-            marginTop: '4px',
-            marginBottom: '-4px',
-            fontSize: '11px',
-            color: '#8c8c8c',
-            fontStyle: 'italic',
-          }}>
+          <div style={{ marginTop: '4px', marginBottom: '-4px', fontSize: '11px', color: '#8c8c8c', fontStyle: 'italic' }}>
             Cmd/Ctrl+click to add to selection
           </div>
         </div>
