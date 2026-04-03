@@ -145,7 +145,7 @@ export default function ClusterPicker({ vertical = false }: ClusterPickerProps) 
             backgroundColor: state !== 'none' ? '#e6f7ff' : '#ffffff',
             border: '1px solid #91d5ff',
             boxShadow: state !== 'none' ? '0 0 0 1px #91d5ff' : 'none',
-            width: isSpecialLabel ? 'auto' : (vertical ? 'auto' : 40),
+            width: isSpecialLabel ? 'auto' : (vertical ? '3.5em' : 40),
             boxSizing: 'border-box',
           }}
           onMouseEnter={(e) => {
@@ -177,15 +177,15 @@ export default function ClusterPicker({ vertical = false }: ClusterPickerProps) 
   if (vertical) {
     return (
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <Text strong style={{ fontSize: '12px', color: '#262626', marginBottom: 4, flexShrink: 0 }}>
-          Clusters
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', width: 'fit-content', fontSize: '13px' }}>
+          <Tag style={{ fontSize: '18px', fontWeight: 400, color: '#262626', marginBottom: 4, textAlign: 'center', width: '100%' }}>
+            Clusters
+          </Tag>
           {stats.totalHighlighted > 0 && (
-            <Tag color="blue" style={{ fontSize: '10px', marginLeft: 6 }}>
-              {stats.totalHighlighted} sel
+            <Tag color="blue" style={{ fontSize: '15px', marginBottom: 4, textAlign: 'center', width: '100%' }}>
+              {stats.totalHighlighted} selected
             </Tag>
           )}
-        </Text>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', width: 'fit-content', fontSize: '13px' }}>
           {/* Numbered cluster columns */}
           <div style={{
             flex: 1,
