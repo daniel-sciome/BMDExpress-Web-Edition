@@ -9,6 +9,7 @@ import visibilityReducer from './slices/visibilitySlice';
 import categoryGroupsReducer from './slices/categoryGroupsSlice';
 import uiStateReducer from './slices/uiStateSlice';
 import chartConfigReducer from './slices/chartConfigSlice';
+import datasetSelectionReducer from './slices/datasetSelectionSlice';
 import { saveFilterGroups } from '../utils/filterGroupPersistence';
 
 // Enable Immer support for Map and Set
@@ -38,6 +39,7 @@ export const store = configureStore({
     categoryGroups: categoryGroupsReducer,
     uiState: uiStateReducer,
     chartConfig: chartConfigReducer,
+    datasetSelection: datasetSelectionReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -47,6 +49,7 @@ export const store = configureStore({
           'categoryResults.reactiveSelection.category.selectedIds',
           'categoryResults.reactiveSelection.cluster.selectedIds',
           'visibility.highlightedIds',
+          'datasetSelection.enabledDatasets',
         ],
         ignoredActions: [
           // Reactive selection actions
@@ -65,6 +68,12 @@ export const store = configureStore({
           'categoryResults/setFilters',
           'navigation/setSelectedProject',
           'navigation/setSelectedCategoryResult',
+          // Dataset selection actions (enabledDatasets is a Set)
+          'datasetSelection/toggleDataset',
+          'datasetSelection/enableAllOfType',
+          'datasetSelection/disableAllOfType',
+          'datasetSelection/clearDatasetSelection',
+          'datasetSelection/loadAnnotations/fulfilled',
           // Visibility actions (highlightedIds is a Set)
           'visibility/setVisibility',
           'visibility/setVisibilityBatch',

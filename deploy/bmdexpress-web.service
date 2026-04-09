@@ -1,0 +1,98 @@
+# ============================================================================
+# BMDExpress Web Edition — systemd service unit
+# ============================================================================
+# Purpose:
+#   Runs the BMDExpress Web Edition Spring Boot application as a system
+#   service managed by systemd. The app is a Java 21 WAR (repackaged as an
+#   executable JAR by Spring Boot) that serves a Vaadin/React web UI for
+#   benchmark dose modeling.
+#
+# Install location (default):  /opt/bmdexpress-web
+# Config override file:        /opt/bmdexpress-web/bmdexpress-web.conf
+#
+# Installation:
+#   sudo cp bmdexpress-web.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now bmdexpress-web
+#
+# Logs:
+#   journalctl -u bmdexpress-web -f
+# ============================================================================
+
+[Unit]
+# Human-readable description shown in systemctl status output
+Description=BMDExpress Web Edition — Benchmark Dose Modeling Platform
+
+# Wait for networking so the app can bind to 0.0.0.0:8080
+After=network.target
+
+[Service]
+# "simple" — systemd considers the service started once the ExecStart process
+# is running (appropriate for a long-lived Java process)
+Type=simple
+
+# Dedicated unprivileged user/group for security isolation.
+# Created by the deploy script: deploy.sh
+User=bmdexpress
+Group=bmdexpress
+
+# Working directory — the app resolves relative paths (like data/questionnaires)
+# from here
+WorkingDirectory=/opt/bmdexpress-web
+
+# Load environment variables from this file. This is where you override
+# PORT, JAVA_OPTS, or any Spring properties without editing the unit file.
+EnvironmentFile=/opt/bmdexpress-web/bmdexpress-web.conf
+
+# Start the application.
+# $JAVA_OPTS is defined in bmdexpress-web.conf (heap size, GC flags, etc.)
+# $APP_OPTS allows passing extra Spring Boot flags (e.g. --server.port=9090)
+ExecStart=/usr/bin/java $JAVA_OPTS -jar /opt/bmdexpress-web/app.jar $APP_OPTS
+
+# Restart automatically on failure (exit code != 0), but not on clean shutdown.
+# Combined with RestartSec, this handles transient JVM crashes gracefully.
+Restart=on-failure
+
+# Wait 10 seconds before restarting to avoid tight crash loops
+RestartSec=10
+
+# Give the JVM up to 30 seconds to shut down gracefully (Spring Boot shutdown
+# hooks flush the H2 database, close connections, etc.)
+TimeoutStopSec=30
+
+# Send SIGTERM for graceful shutdown; Spring Boot catches this and runs
+# shutdown hooks. If it doesn't stop in TimeoutStopSec, systemd sends SIGKILL.
+KillSignal=SIGTERM
+
+# Security hardening — restrict what the service process can do.
+# These are defense-in-depth measures; the app doesn't need any of these
+# capabilities, so we deny them.
+
+# No new privileges can be gained via setuid/setgid binaries
+NoNewPrivileges=true
+
+# Private /tmp so the app can't read/write other services' temp files
+PrivateTmp=true
+
+# Make /usr, /boot, /etc read-only (the app only writes to its own WorkingDirectory)
+ProtectSystem=strict
+
+# Prevent access to /root, /run/user — but NOT /home, because the bmdexpress3
+# library writes preferences and config to ~/bmdexpress3/ (the service user's
+# home directory). Using "tmpfs" instead of "true" would hide /home entirely.
+ProtectHome=false
+
+# Allow writes to the app directory and the service user's home (for bmdexpress3
+# preferences, tableInformation.json, and default filters)
+ReadWritePaths=/opt/bmdexpress-web /home/bmdexpress
+
+# Standard output/error go to the systemd journal, viewable with journalctl
+StandardOutput=journal
+StandardError=journal
+
+# Tag journal entries so you can filter: journalctl -t bmdexpress-web
+SyslogIdentifier=bmdexpress-web
+
+[Install]
+# Start automatically on boot when enabled
+WantedBy=multi-user.target

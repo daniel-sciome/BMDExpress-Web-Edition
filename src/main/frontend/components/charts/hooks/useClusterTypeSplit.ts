@@ -13,6 +13,7 @@ import { useMemo } from 'react';
 import { useAppSelector } from '../../../store/hooks';
 import { selectSortedDataWithFocus } from '../../../store/slices/categoryResultsSlice';
 import type { CategoryWithFocus } from '../../../types/categoryTypes';
+import { useDatasetContext, type CategoryDataRow } from '../../../context/DatasetContext';
 
 // Cluster ID constants
 export const CLUSTER_NOT_IN_REF = -2;
@@ -78,7 +79,12 @@ export interface ClusterTypeSplitResult {
  * ```
  */
 export function useClusterTypeSplit(): ClusterTypeSplitResult {
-  const allData = useAppSelector(selectSortedDataWithFocus);
+  // Use DatasetContext data if available, otherwise fall back to Redux.
+  // Both sources provide data with clusterId — context via CategoryDataRow,
+  // Redux via CategoryAnalysisResultWithCluster & CategoryWithFocus.
+  const datasetCtx = useDatasetContext();
+  const reduxData = useAppSelector(selectSortedDataWithFocus);
+  const allData: CategoryDataRow[] = datasetCtx ? datasetCtx.data : reduxData;
 
   const split = useMemo(() => {
     const clustered: CategoryWithFocus[] = [];

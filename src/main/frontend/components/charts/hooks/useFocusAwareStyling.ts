@@ -15,6 +15,7 @@ import type { CategoryWithFocus } from '../../../types/categoryTypes';
 import { selectDisplayMode } from '../../../store/slices/visibilitySlice';
 import { getMarkerStyleByFocus, type MarkerStyle } from '../utils/displayModeStyles';
 import type { DisplayMode } from '../../../types/visibilityTypes';
+import { useDatasetContext, type CategoryDataRow } from '../../../context/DatasetContext';
 
 /**
  * Input for building marker style arrays - one entry per point
@@ -73,8 +74,16 @@ export interface FocusAwareStylingResult {
  * ```
  */
 export function useFocusAwareStyling(): FocusAwareStylingResult {
-  const data = useAppSelector(selectSortedDataWithFocus);
+  // Check for DatasetContext first — when present, use its data instead of Redux.
+  // This allows multiple chart instances to render different datasets side by side
+  // without conflicting over the shared categoryResults Redux slice.
+  const datasetCtx = useDatasetContext();
+
+  const reduxData = useAppSelector(selectSortedDataWithFocus);
   const displayMode = useAppSelector(selectDisplayMode);
+
+  // Use context data if available, otherwise fall back to Redux
+  const data: CategoryDataRow[] = datasetCtx ? datasetCtx.data : reduxData;
 
   /**
    * Get marker style for a single point based on its inFocus state

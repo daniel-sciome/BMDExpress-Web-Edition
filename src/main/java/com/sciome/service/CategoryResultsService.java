@@ -8,7 +8,6 @@ import com.sciome.bmdexpress2.mvp.model.stat.BMDResult;
 import com.sciome.bmdexpress2.mvp.model.stat.ProbeStatResult;
 import com.sciome.dto.AnalysisAnnotationDto;
 import com.sciome.dto.BMDMarkersDto;
-import com.sciome.dto.CategoryAnalysisResultDto;
 import com.sciome.dto.CategoryAnalysisResultsDto;
 import com.sciome.dto.CurveDataDto;
 import com.sciome.dto.DosePointDto;
@@ -35,12 +34,10 @@ public class CategoryResultsService {
     private static final Logger logger = LoggerFactory.getLogger(CategoryResultsService.class);
 
     private final ProjectService projectService;
-    private final AnalysisNameParser analysisNameParser;
 
     @Autowired
-    public CategoryResultsService(ProjectService projectService, AnalysisNameParser analysisNameParser) {
+    public CategoryResultsService(ProjectService projectService) {
         this.projectService = projectService;
-        this.analysisNameParser = analysisNameParser;
     }
 
     /**
@@ -186,31 +183,142 @@ public class CategoryResultsService {
     }
 
     /**
-     * Get parsed annotation metadata for a category analysis result.
+     * Get annotation metadata for a category analysis result.
+     *
+     * Builds the annotation from the deserialized ExperimentDescription metadata
+     * (chemical, sex, organ, species, platform) rather than parsing the name string.
+     * The analysis type (GO_BP, GENE, etc.) is still extracted from the name since
+     * it's not stored as structured data in the bm2 model.
      *
      * @param projectId the project identifier
      * @param categoryResultName the name of the category result
-     * @return AnalysisAnnotationDto with parsed metadata
+     * @return AnalysisAnnotationDto with metadata from ExperimentDescription
      * @throws IllegalArgumentException if the project or result is not found
      */
     public AnalysisAnnotationDto getCategoryResultAnnotation(String projectId, String categoryResultName) {
-        // Verify the result exists (will throw if not found)
-        findCategoryResult(projectId, categoryResultName);
-
-        // Parse the name into structured metadata
-        return analysisNameParser.parse(categoryResultName);
+        BMDProject project = projectService.getProject(projectId);
+        CategoryAnalysisResults catResults = findCategoryResult(projectId, categoryResultName);
+        return buildAnnotationFromObject(project, catResults);
     }
 
     /**
-     * Get parsed annotation metadata for all category analysis results in a project.
+     * Get annotation metadata for all category analysis results in a project.
+     *
+     * Iterates over the actual deserialized CategoryAnalysisResults objects and
+     * pulls metadata from their linked ExperimentDescription. This handles projects
+     * with multiple category analyses of the same type (e.g., multiple GO_BP results
+     * from different experiments within the same bm2 file).
      *
      * @param projectId the project identifier
      * @return list of AnalysisAnnotationDto objects
      * @throws IllegalArgumentException if the project is not found
      */
     public List<AnalysisAnnotationDto> getAllCategoryResultAnnotations(String projectId) {
-        List<String> resultNames = getCategoryResultNames(projectId);
-        return analysisNameParser.parseAll(resultNames);
+        BMDProject project = projectService.getProject(projectId);
+
+        if (project.getCategoryAnalysisResults() == null) {
+            return List.of();
+        }
+
+        return project.getCategoryAnalysisResults().stream()
+                .map(catResults -> buildAnnotationFromObject(project, catResults))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Build an AnalysisAnnotationDto from a CategoryAnalysisResults object.
+     *
+     * Pulls structured metadata (chemical, sex, organ, species, platform) from the
+     * ExperimentDescription attached to the category result's DoseResponseExperiment.
+     * Extracts analysis type (GO_BP, GENE, etc.) from the category result name since
+     * this isn't stored as a separate field in the bm2 data model.
+     *
+     * Falls back gracefully when ExperimentDescription is missing — the annotation
+     * will still have the fullName and analysis type, just no biological metadata.
+     */
+    private AnalysisAnnotationDto buildAnnotationFromObject(BMDProject project, CategoryAnalysisResults catResults) {
+        String fullName = catResults.getName();
+        AnalysisAnnotationDto dto = new AnalysisAnnotationDto(fullName);
+
+        // --- Analysis type: extracted from the name string ---
+        // This is universal across all bm2 files — the type indicator (GO_BP, GENE, etc.)
+        // is always embedded in the category result name.
+        dto.setAnalysisType(extractAnalysisType(fullName));
+
+        // --- Experiment name: the linked DoseResponseExperiment name ---
+        // This is the most distinguishing piece of info (e.g., "Furan_S1_kidney_RNAseqExtrapolated")
+        // and includes chemical set and platform variant that aren't in ExperimentDescription yet.
+        String experimentName = null;
+        if (catResults.getBmdResult() != null &&
+            catResults.getBmdResult().getDoseResponseExperiment() != null) {
+            experimentName = catResults.getBmdResult().getDoseResponseExperiment().getName();
+        }
+
+        // --- Biological metadata: pulled from ExperimentDescription ---
+        com.sciome.bmdexpress2.mvp.model.info.ExperimentDescription desc =
+            findExperimentDescriptionByName(project, catResults);
+
+        if (desc != null) {
+            // Chemical name from TestArticleIdentifier
+            if (desc.getTestArticle() != null && desc.getTestArticle().getName() != null) {
+                dto.setChemical(desc.getTestArticle().getName());
+            }
+            dto.setSex(desc.getSex());
+            dto.setOrgan(desc.getOrgan());
+            dto.setSpecies(desc.getSpecies());
+            dto.setPlatform(desc.getPlatform());
+        }
+
+        // --- Display names ---
+        // Use the experiment name as the primary display since it contains all
+        // distinguishing info (chemical set, organ, platform variant). Clean it
+        // up by replacing underscores with spaces for readability.
+        if (experimentName != null) {
+            dto.setDisplayName(experimentName.replace('_', ' '));
+        } else {
+            // Fall back to metadata fields if experiment name isn't available
+            String sex = dto.getSex() != null ? dto.getSex() : "?";
+            String organ = dto.getOrgan() != null ? dto.getOrgan() : "?";
+            String species = dto.getSpecies() != null ? dto.getSpecies() : "?";
+            dto.setDisplayName(String.format("%s %s (%s)", sex, organ, species));
+        }
+
+        // Medium format: experiment name + metadata summary
+        String sex = dto.getSex() != null ? dto.getSex() : "?";
+        String organ = dto.getOrgan() != null ? dto.getOrgan() : "?";
+        String species = dto.getSpecies() != null ? dto.getSpecies() : "?";
+        String platform = dto.getPlatform() != null ? dto.getPlatform() : "?";
+        dto.setDisplayNameMedium(String.format("%s %s | %s | %s", sex, organ, platform, species));
+
+        // Store experiment name in prefix field for frontend access
+        dto.setPrefix(experimentName);
+
+        dto.setParseSuccess(desc != null);
+        return dto;
+    }
+
+    /**
+     * Extract the analysis type indicator from a category result name.
+     *
+     * Checks for known type strings embedded in the name. Checks specific GO subtypes
+     * (GO_BP, GO_CC, GO_MF) before GO_ALL to avoid false matches.
+     *
+     * @param fullName the full category result name
+     * @return the analysis type string, or null if not recognized
+     */
+    private String extractAnalysisType(String fullName) {
+        if (fullName == null) return null;
+
+        // Check specific GO subtypes first to avoid matching GO_ALL prematurely
+        if (fullName.contains("GO_BP"))      return "GO_BP";
+        if (fullName.contains("GO_CC"))      return "GO_CC";
+        if (fullName.contains("GO_MF"))      return "GO_MF";
+        if (fullName.contains("GO_ALL"))     return "GO_ALL";
+        if (fullName.contains("GENE"))       return "GENE";
+        if (fullName.contains("BioPlanet"))  return "BioPlanet";
+        if (fullName.contains("Reactome"))   return "Reactome";
+        if (fullName.contains("KEGG"))       return "KEGG";
+        return null;
     }
 
     /**

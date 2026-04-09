@@ -46,6 +46,7 @@ export default function ProjectTreeSidebar() {
     loadProjects();
   }, []);
 
+
   const loadProjects = async () => {
     try {
       setLoading(true);
