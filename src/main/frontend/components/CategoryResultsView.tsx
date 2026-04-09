@@ -769,6 +769,17 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                   padding: '1rem',
                   paddingLeft: '1rem'
                 }}>
+                  {/* Cluster Picker — non-collapsible, always visible at top of chart area */}
+                  <div style={{
+                    marginBottom: '8px',
+                    padding: '8px 12px',
+                    background: '#fafafa',
+                    border: '1px solid #f0f0f0',
+                    borderRadius: '4px',
+                  }}>
+                    <ClusterPicker />
+                  </div>
+
                   {/* Charts - Direct rendering based on checkbox selection (Power User mode only) */}
                   {viewMode === 'power' && CHART_CONFIG.map(config => renderChartCollapse(config.id))}
 
@@ -867,6 +878,17 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           padding: '1rem',
           paddingLeft: '1rem'
         }}>
+        {/* Cluster Picker — non-collapsible, always visible at top of chart area */}
+        <div style={{
+          marginBottom: '8px',
+          padding: '8px 12px',
+          background: '#fafafa',
+          border: '1px solid #f0f0f0',
+          borderRadius: '4px',
+        }}>
+          <ClusterPicker />
+        </div>
+
         {/* Charts - Direct rendering based on checkbox selection (Power User mode only) */}
         {viewMode === 'power' && CHART_CONFIG.map(config => renderChartCollapse(config.id))}
 

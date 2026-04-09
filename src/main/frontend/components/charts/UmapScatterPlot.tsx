@@ -15,7 +15,6 @@ import { useClusterColors } from './utils/clusterColors';
 import { createPlotlyConfig } from './utils/plotlyConfig';
 import { useChartAppearance } from './hooks/useChartAppearance';
 import type { ReferenceUmapItem } from 'Frontend/data/referenceUmapData';
-import ClusterPicker from 'Frontend/components/ClusterPicker';
 
 interface UmapScatterPlotProps {
   height?: number;
@@ -33,15 +32,7 @@ export default function UmapScatterPlot({ height = 600, chartId }: UmapScatterPl
   // Reference space visibility toggle
   const [showReference, setShowReference] = useState<boolean>(true);
 
-  // Measure plot container height so cluster picker matches it
   const plotRef = useRef<HTMLDivElement>(null);
-  const [plotHeight, setPlotHeight] = useState<number>(0);
-  useEffect(() => {
-    if (!plotRef.current) return;
-    const observer = new ResizeObserver(([entry]) => setPlotHeight(entry.contentRect.height));
-    observer.observe(plotRef.current);
-    return () => observer.disconnect();
-  }, []);
 
   // Debug logging
   React.useEffect(() => {
@@ -307,33 +298,16 @@ export default function UmapScatterPlot({ height = 600, chartId }: UmapScatterPl
       }
       style={{ marginBottom: 16 }}
     >
-      <div style={{ position: 'relative' }}>
-        <div ref={plotRef} style={{ width: '70%', aspectRatio: '1/1', border: '1px solid #ccc', borderRadius: 4, overflow: 'hidden' }}>
-          <Plot
-            data={traces as any}
-            layout={layout}
-            config={config}
-            onSelected={handleSelected}
-            onDeselect={handleDeselect}
-            style={{ width: '100%', height: '100%' }}
-            useResizeHandler={true}
-          />
-        </div>
-        {plotHeight > 0 && (
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: '72%',
-            height: plotHeight,
-            border: '1px solid #ccc',
-            borderRadius: 4,
-            padding: '8px',
-            boxSizing: 'border-box',
-            background: '#fff',
-          }}>
-            <ClusterPicker vertical />
-          </div>
-        )}
+      <div ref={plotRef} style={{ aspectRatio: '1/1', border: '1px solid #ccc', borderRadius: 4, overflow: 'hidden' }}>
+        <Plot
+          data={traces as any}
+          layout={layout}
+          config={config}
+          onSelected={handleSelected}
+          onDeselect={handleDeselect}
+          style={{ width: '100%', height: '100%' }}
+          useResizeHandler={true}
+        />
       </div>
     </Card>
   );

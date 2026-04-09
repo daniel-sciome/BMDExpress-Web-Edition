@@ -114,7 +114,11 @@ export default function ClusterPicker({ vertical = false }: ClusterPickerProps) 
   }, [dispatch, highlightedIds]);
 
   if (clusterSets.length === 0) {
-    return null;
+    return (
+      <div style={{ fontSize: '12px', color: '#999', fontStyle: 'italic', padding: '4px' }}>
+        No cluster data available for this dataset.
+      </div>
+    );
   }
 
   // Shared cluster button renderer

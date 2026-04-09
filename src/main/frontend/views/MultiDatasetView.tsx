@@ -24,6 +24,7 @@ import UmapScatterPlot from '../components/charts/UmapScatterPlot';
 import BMDvsPValueScatter from '../components/charts/BMDvsPValueScatter';
 import BMDBoxPlot from '../components/charts/BMDBoxPlot';
 import CategoryResultsGrid from '../components/CategoryResultsGrid';
+import ClusterPicker from '../components/ClusterPicker';
 
 const { Text } = Typography;
 
@@ -228,6 +229,17 @@ export default function MultiDatasetView({
             {ds.label}
           </Tag>
         ))}
+      </div>
+
+      {/* Cluster Picker — non-collapsible, always visible at top */}
+      <div style={{
+        marginBottom: '8px',
+        padding: '8px 12px',
+        background: '#fafafa',
+        border: '1px solid #f0f0f0',
+        borderRadius: '4px',
+      }}>
+        <ClusterPicker />
       </div>
 
       {/* One collapse per chart type */}
