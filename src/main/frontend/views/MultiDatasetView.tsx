@@ -26,6 +26,10 @@ import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
 import { DatasetProvider, type DatasetContextValue, type CategoryDataRow } from '../context/DatasetContext';
+import { useAppDispatch } from '../store/hooks';
+import { initializeCategories, upsertCategorySet } from '../store/slices/renderStateSlice';
+import { createClusterSets } from '../store/utils/initializeRenderState';
+import { umapDataService } from '../data/umapDataService';
 
 // Chart components — imported individually so we can render them per-dataset
 import UmapScatterPlot from '../components/charts/UmapScatterPlot';
@@ -73,6 +77,8 @@ export default function MultiDatasetView({
   resultNames,
   annotations,
 }: MultiDatasetViewProps) {
+  const dispatch = useAppDispatch();
+
   // Loaded data for each dataset, keyed by resultName
   const [datasets, setDatasets] = useState<Record<string, LoadedDataset>>({});
 
@@ -105,13 +111,20 @@ export default function MultiDatasetView({
           (r): r is CategoryAnalysisResultDto => r !== undefined
         );
 
-        // Mark all rows as inFocus and assign default clusterId (-2 = not in reference).
-        // Cluster assignment from UMAP is not available in multi-dataset view yet.
-        const dataWithFocus: CategoryDataRow[] = rows.map(row => ({
-          ...row,
-          inFocus: true,
-          clusterId: (row as any).clusterId ?? -2,
-        }));
+        // Enrich each row with cluster ID from the UMAP reference (same
+        // logic as the Redux reducer in categoryResultsSlice.fulfilled).
+        const dataWithFocus: CategoryDataRow[] = rows.map(row => {
+          const umapData = row.categoryId ? umapDataService.getByGoId(row.categoryId) : undefined;
+          let clusterId: number;
+          if (!umapData) {
+            clusterId = -2; // Not in UMAP reference
+          } else {
+            const raw = umapData.cluster_id;
+            clusterId = typeof raw === 'number' ? raw
+              : (raw !== undefined ? parseInt(String(raw), 10) : -1);
+          }
+          return { ...row, inFocus: true, clusterId };
+        });
 
         setDatasets(prev => ({
           ...prev,
@@ -140,6 +153,29 @@ export default function MultiDatasetView({
   const loadedDatasets = resultNames
     .map(name => datasets[name])
     .filter((d): d is LoadedDataset => d !== undefined && !d.loading && !d.error);
+
+  // Rebuild Redux render state (clusters) from the union of all loaded datasets.
+  // The cluster picker and reactive selection read from Redux, so we need valid
+  // cluster sets even though the per-dataset data lives in DatasetContext.
+  useEffect(() => {
+    if (anyLoading || loadedDatasets.length === 0) return;
+
+    // Deduplicate categories across datasets by categoryId
+    const seen = new Set<string>();
+    const allCategories: CategoryAnalysisResultDto[] = [];
+    for (const ds of loadedDatasets) {
+      for (const row of ds.data) {
+        if (row.categoryId && !seen.has(row.categoryId)) {
+          seen.add(row.categoryId);
+          allCategories.push(row);
+        }
+      }
+    }
+
+    dispatch(initializeCategories(allCategories));
+    const clusterSets = createClusterSets(allCategories);
+    clusterSets.forEach(set => dispatch(upsertCategorySet(set)));
+  }, [anyLoading, loadedDatasets.length]);
 
   if (anyLoading) {
     return (

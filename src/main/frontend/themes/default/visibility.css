@@ -209,9 +209,16 @@
    FOCUS-BASED ROW STYLES (used by CategoryResultsGrid via getRowClassNameByFocus)
    ============================================================================= */
 
-/* Row highlighting uses Ant Design's built-in ant-table-row-selected class
-   (applied via rowClassName in CategoryResultsGrid) which properly handles
-   fixed/sticky columns and hover states through Ant's CSS-in-JS system. */
+/* Row highlighting uses Ant Design's rowSelection prop (selectedRowKeys)
+   which applies ant-table-row-selected and handles fixed columns + hover.
+   Hide the checkbox column since selection is driven by cluster picker / clicks. */
+.ant-table-selection-column {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
 
 /* Out-of-focus rows dimmed — display mode "dim" */
 .ant-table-tbody > tr.dimmed-row > td {

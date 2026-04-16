@@ -385,18 +385,23 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
     return cols;
   }, [columnVisibility, viewMode, paddingMap, analysisType, analysisParameters]);
 
-  // Custom row styles based on inFocus state and displayMode.
-  // Uses Ant Design's built-in ant-table-row-selected class for highlights
-  // because it properly covers fixed/sticky columns and hover states —
-  // custom CSS classes cannot reliably override Ant's CSS-in-JS.
+  // Focus/dim styling via rowClassName (for display mode: dim/isolate).
+  // Row highlighting is handled by Ant's rowSelection prop instead of
+  // manual class names — this ensures fixed columns and hover work correctly.
   const getRowClassName = (record: CategoryResultWithFocusAndRank) => {
-    const categoryId = record.categoryId || '';
-    const isHighlighted = categoryState.selectedIds.has(categoryId);
+    return getRowClassNameByFocus(record.inFocus, displayMode);
+  };
 
-    const focusClass = getRowClassNameByFocus(record.inFocus, displayMode);
-    const highlightClass = isHighlighted ? 'ant-table-row-selected' : '';
-
-    return `${focusClass} ${highlightClass}`.trim();
+  // Ant Table rowSelection config — drives the built-in ant-table-row-selected
+  // styling which properly covers fixed/sticky columns and hover states.
+  // The checkbox column is hidden via CSS (selection-column-hidden class on
+  // the table wrapper) since columnWidth:0 can cause layout issues.
+  const rowSelection = {
+    selectedRowKeys: selectedKeys,
+    onChange: handleSelectionChange,
+    columnWidth: 1,
+    renderCell: () => null,
+    hideSelectAll: true,
   };
 
   // Column visibility popover content
@@ -1381,10 +1386,12 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
       children: (
         <div>
           <Table<CategoryResultWithFocusAndRank>
+            key={`table-${categoryState.selectedIds.size}-${selectedKeys[0] || 'none'}`}
             columns={columns}
             dataSource={data}
             rowKey="categoryId"
             rowClassName={getRowClassName}
+            rowSelection={rowSelection}
             onChange={handleTableChange}
             onRow={(record) => ({
               onClick: () => handleRowClick(record),
