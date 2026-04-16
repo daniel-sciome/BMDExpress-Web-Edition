@@ -88,7 +88,15 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
   const categoryState = useReactiveState('categoryId');
   const displayMode = useAppSelector(selectDisplayMode);
   const hasHighlights = categoryState.selectedIds.size > 0;
-  const selectedCount = categoryState.selectedIds.size;
+
+  // Count selected categories that exist in this dataset's data (not the global total)
+  const selectedCount = useMemo(() => {
+    let count = 0;
+    for (const row of allDataWithFocus) {
+      if (row.categoryId && categoryState.selectedIds.has(row.categoryId)) count++;
+    }
+    return count;
+  }, [allDataWithFocus, categoryState.selectedIds]);
 
   // Count in-focus vs out-of-focus for display
   const inFocusCount = useMemo(() =>

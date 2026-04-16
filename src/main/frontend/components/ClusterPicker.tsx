@@ -40,12 +40,20 @@ function getClusterSelectionState(
   return { state, selectedCount, totalCount };
 }
 
+/** Per-dataset info for multi-dataset selected count display */
+export interface DatasetInfo {
+  label: string;
+  categoryIds: Set<string>;
+}
+
 interface ClusterPickerProps {
   /** When true, renders as a vertical column without the Collapse wrapper */
   vertical?: boolean;
+  /** When provided (multi-dataset view), shows per-dataset selected counts */
+  datasets?: DatasetInfo[];
 }
 
-export default function ClusterPicker({ vertical = false }: ClusterPickerProps) {
+export default function ClusterPicker({ vertical = false, datasets }: ClusterPickerProps) {
   const dispatch = useAppDispatch();
   const categoryState = useReactiveState('categoryId');
   // Category IDs are always strings, cast for type safety
@@ -69,6 +77,18 @@ export default function ClusterPicker({ vertical = false }: ClusterPickerProps) 
 
     return { totalHighlighted, totalCategories, clustersWithSelection };
   }, [clusterSets, highlightedIds]);
+
+  // Per-dataset selected counts (only computed in multi-dataset view)
+  const perDatasetCounts = useMemo(() => {
+    if (!datasets) return null;
+    return datasets.map(ds => {
+      let count = 0;
+      highlightedIds.forEach(id => {
+        if (ds.categoryIds.has(id as string)) count++;
+      });
+      return { label: ds.label, count };
+    });
+  }, [datasets, highlightedIds]);
 
   /**
    * Handle cluster checkbox click.
@@ -255,11 +275,18 @@ export default function ClusterPicker({ vertical = false }: ClusterPickerProps) 
           <Tag color="default" style={{ fontSize: '11px' }}>
             {clusterSets.length}
           </Tag>
-          {stats.totalHighlighted > 0 && (
+          {stats.totalHighlighted > 0 && perDatasetCounts ? (
+            // Multi-dataset: show per-dataset selected counts
+            perDatasetCounts.map(ds => (
+              <Tag key={ds.label} color="blue" style={{ fontSize: '11px' }}>
+                {ds.label}: {ds.count}
+              </Tag>
+            ))
+          ) : stats.totalHighlighted > 0 ? (
             <Tag color="blue" style={{ fontSize: '11px' }}>
               {stats.totalHighlighted} selected
             </Tag>
-          )}
+          ) : null}
         </div>
       ),
       children: (

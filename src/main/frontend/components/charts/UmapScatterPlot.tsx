@@ -65,10 +65,19 @@ export default function UmapScatterPlot({ height = 600, chartId, syncedRange, on
     return new Set(allCategories.map(cat => cat.categoryId).filter(Boolean) as string[]);
   }, [allCategories]);
 
-  // Count in-focus categories
+  // Count in-focus categories and selected categories within this dataset
   const inFocusCount = useMemo(() => {
     return allCategories.filter(cat => cat.inFocus).length;
   }, [allCategories]);
+
+  // Count selected categories that belong to this dataset (not the global total)
+  const selectedInDataset = useMemo(() => {
+    let count = 0;
+    categoryState.selectedIds.forEach(id => {
+      if (analysisGoIds.has(id as string)) count++;
+    });
+    return count;
+  }, [categoryState.selectedIds, analysisGoIds]);
 
   // Get all UMAP reference data
   const allUmapData = useMemo(() => umapDataService.getAllData(), []);
@@ -302,7 +311,7 @@ export default function UmapScatterPlot({ height = 600, chartId, syncedRange, on
           <Tag color="default">{analysisPoints.length} total</Tag>
           {categoryState.isAnythingSelected && (
             <>
-              <Tag color="orange">{categoryState.selectedIds.size} selected</Tag>
+              <Tag color="orange">{selectedInDataset} selected</Tag>
               <Button
                 size="small"
                 icon={<ClearOutlined />}

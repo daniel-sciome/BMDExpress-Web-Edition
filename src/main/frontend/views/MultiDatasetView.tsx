@@ -12,7 +12,7 @@
  *   passed to charts via DatasetContext.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { SyncedRange } from '../types/chartSync';
 import { Button, Collapse, Drawer, Spin, Tag, Tooltip, Typography } from 'antd';
 import {
@@ -37,7 +37,7 @@ import UmapScatterPlot from '../components/charts/UmapScatterPlot';
 import BMDvsPValueScatter from '../components/charts/BMDvsPValueScatter';
 import BMDBoxPlot from '../components/charts/BMDBoxPlot';
 import CategoryResultsGrid from '../components/CategoryResultsGrid';
-import ClusterPicker from '../components/ClusterPicker';
+import ClusterPicker, { type DatasetInfo } from '../components/ClusterPicker';
 import AppearancePanel from '../components/charts/appearance/AppearancePanel';
 
 const { Text } = Typography;
@@ -188,6 +188,15 @@ export default function MultiDatasetView({
     clusterSets.forEach(set => dispatch(upsertCategorySet(set)));
   }, [anyLoading, loadedDatasets.length]);
 
+  // Per-dataset category ID sets for the cluster picker's per-dataset counts
+  const datasetInfos: DatasetInfo[] = useMemo(() =>
+    loadedDatasets.map(ds => ({
+      label: ds.label,
+      categoryIds: new Set(ds.data.map(r => r.categoryId).filter(Boolean) as string[]),
+    })),
+    [loadedDatasets]
+  );
+
   if (anyLoading) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center' }}>
@@ -304,7 +313,7 @@ export default function MultiDatasetView({
         border: '1px solid #f0f0f0',
         borderRadius: '4px',
       }}>
-        <ClusterPicker />
+        <ClusterPicker datasets={datasetInfos} />
       </div>
 
       {/* One collapse per chart type — controlled so the toolbar can collapse all */}
