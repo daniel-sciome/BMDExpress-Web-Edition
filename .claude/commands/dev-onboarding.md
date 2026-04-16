@@ -12,7 +12,7 @@ This produces a high-level overview aimed at a new developer joining the project
    - How data flows: .bm2 files → Java services → Hilla → React → Plotly
    - Key external dependencies (DuckDB-WASM, vis-network, Ant Design, Apache POI)
 
-3. **Getting started** — clone, prerequisites (Java 21, Maven, Node), `mvn spring-boot:run`, open localhost:8080.
+3. **Getting started** — clone, prerequisites (Java 21, Maven, Node), `mvn spring-boot:run`, open localhost:8082.
 
 4. **Project structure** — a directory tree with one-line descriptions of each top-level directory and the major subdirectories under `src/main/`.
 

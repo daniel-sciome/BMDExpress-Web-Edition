@@ -6,8 +6,8 @@ Run these checks and report results:
    - Show current branch, uncommitted changes, recent commits
    - Show if ahead/behind remote
 
-2. **Dev server**: Check if anything is listening on port 8080 (`lsof -ti:8080`)
-   - If running, report PID and try `curl -s -o /dev/null -w '%{http_code}' http://localhost:8080`
+2. **Dev server**: Check if anything is listening on port 8082 (`lsof -ti:8082`)
+   - If running, report PID and try `curl -s -o /dev/null -w '%{http_code}' http://localhost:8082`
 
 3. **Cloud Run deployment**: `gcloud run services describe bmdexpress-web --region us-east1 --format="value(status.url)"` and `gcloud run revisions list --service bmdexpress-web --region us-east1 --limit 3 --format="table(metadata.name,metadata.creationTimestamp,status.conditions.status)"`
    - Show service URL and last 3 revisions

@@ -156,7 +156,14 @@
 	        <artifactId>jackson-databind</artifactId>
 	        <version>2.18.1</version>
 		</dependency>
-		
+
+		<!-- YAML support for Jackson -->
+		<dependency>
+		    <groupId>com.fasterxml.jackson.dataformat</groupId>
+		    <artifactId>jackson-dataformat-yaml</artifactId>
+		    <version>2.18.1</version>
+		</dependency>
+
 		<!-- https://mvnrepository.com/artifact/commons-cli/commons-cli -->
 		<dependency>
 		    <groupId>commons-cli</groupId>
@@ -206,8 +213,19 @@
 		    <artifactId>jama</artifactId>
 		    <version>1.0.3</version>
 		</dependency>
-        
-        
+
+        <!-- Easy Rules - Lightweight rule engine for metadata validation -->
+        <dependency>
+            <groupId>org.jeasy</groupId>
+            <artifactId>easy-rules-core</artifactId>
+            <version>4.1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jeasy</groupId>
+            <artifactId>easy-rules-support</artifactId>
+            <version>4.1.0</version>
+        </dependency>
+
     </dependencies>
     
       <build>
@@ -237,7 +255,10 @@
                                 <arg>--add-exports</arg>
                                 <arg>javafx.base/com.sun.javafx.event=org.controlsfx.controls </arg>
                                 </compilerArgs>
-                    <mainClass>com.sciome.bmdexpress3/com.sciome.bmdexpress3.BMDExpress3Main</mainClass>
+                    <mainClass>com.sciome.bmdexpress2/com.sciome.bmdexpress2.BMDExpress3Main</mainClass>
+                    <options>
+                        <option>-Djava.library.path=${project.basedir}/native</option>
+                    </options>
         </configuration>
       </plugin>
 
@@ -254,7 +275,7 @@
       <configuration>
         <archive>
           <manifest>
-            <mainClass>com.sciome.bmdexpress3.BMDExpress3Main</mainClass>
+            <mainClass>com.sciome.bmdexpress2.BMDExpress3Main</mainClass>
           </manifest>
         </archive>
         <descriptorRefs>

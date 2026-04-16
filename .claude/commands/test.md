@@ -12,7 +12,7 @@ Tests are in `src/test/java/`. Uses Spring Boot Test + JUnit.
 ```
 npx cypress run
 ```
-Tests are in `cypress/e2e/`. Requires the dev server to be running on port 8080.
+Tests are in `cypress/e2e/`. Requires the dev server to be running on port 8082.
 To run interactively: `npx cypress open`
 
 **Compile check only (no tests):**

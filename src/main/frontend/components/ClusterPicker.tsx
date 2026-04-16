@@ -4,7 +4,7 @@
 // Integrates with reactive selection for highlighting categories
 
 import React, { useCallback, useMemo } from 'react';
-import { Collapse, Checkbox, Tag, Typography, Tooltip } from 'antd';
+import { Button, Collapse, Checkbox, Tag, Typography, Tooltip, Space } from 'antd';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { selectCategorySetsByType } from '../store/slices/renderStateSlice';
 import { CategorySetType } from '../types/renderState';
@@ -112,6 +112,17 @@ export default function ClusterPicker({ vertical = false }: ClusterPickerProps) 
       }
     }
   }, [dispatch, highlightedIds]);
+
+  // Select all categories across all clusters
+  const handleSelectAll = useCallback(() => {
+    const allIds = clusterSets.flatMap(set => set.categoryIds);
+    dispatch(setReactiveSelection({ type: 'category', ids: allIds, source: 'cluster-picker' }));
+  }, [dispatch, clusterSets]);
+
+  // Clear all selections (reset)
+  const handleReset = useCallback(() => {
+    dispatch(clearReactiveSelection('category'));
+  }, [dispatch]);
 
   if (clusterSets.length === 0) {
     return (
@@ -255,6 +266,10 @@ export default function ClusterPicker({ vertical = false }: ClusterPickerProps) 
         <div style={{ fontSize: '13px', paddingTop: '8px' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
             {clusterSets.map(set => renderClusterButton(set))}
+            {/* Reset — restore all categories to selected (initial state after dataset load) */}
+            <Button size="small" type="link" onClick={handleSelectAll} style={{ fontSize: '11px', padding: '0 4px', marginLeft: '8px' }}>
+              Reset
+            </Button>
           </div>
           <div style={{ marginTop: '4px', marginBottom: '-4px', fontSize: '11px', color: '#8c8c8c', fontStyle: 'italic' }}>
             Cmd/Ctrl+click to add to selection

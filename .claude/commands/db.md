@@ -27,6 +27,6 @@ duckdb src/main/resources/data/bmd/bmdx.duckdb "SELECT * FROM duckdb_constraints
 ```
 
 **Open the explorer:**
-If the dev server is running, tell the user to visit `http://localhost:8080/duckdb-graph`. If deployed, the URL is the Cloud Run service URL + `/duckdb-graph`.
+If the dev server is running, tell the user to visit `http://localhost:8082/duckdb-graph`. If deployed, the URL is the Cloud Run service URL + `/duckdb-graph`.
 
 The DuckDB Graph Explorer (`src/main/resources/static/duckdb-graph.html`) uses DuckDB-WASM to load the database client-side and vis-network to render the table relationship graph. The backend controller is `src/main/java/com/sciome/controller/DuckDbUiController.java`.

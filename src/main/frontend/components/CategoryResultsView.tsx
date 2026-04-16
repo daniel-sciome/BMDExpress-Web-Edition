@@ -924,7 +924,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           background: '#fafafa',
           padding: '8px 4px',
           borderRight: '1px solid #d9d9d9',
-          zIndex: 10,
+          zIndex: 100,
         }}
       >
         <Tooltip title="Datasets" placement="right">

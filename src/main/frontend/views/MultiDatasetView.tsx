@@ -13,7 +13,15 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Collapse, Spin, Tag, Typography } from 'antd';
+import { Button, Collapse, Drawer, Spin, Tag, Tooltip, Typography } from 'antd';
+import {
+  DatabaseOutlined,
+  FileTextOutlined,
+  LineChartOutlined,
+  AppstoreOutlined,
+  FormatPainterOutlined,
+  MinusSquareOutlined,
+} from '@ant-design/icons';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
@@ -25,8 +33,12 @@ import BMDvsPValueScatter from '../components/charts/BMDvsPValueScatter';
 import BMDBoxPlot from '../components/charts/BMDBoxPlot';
 import CategoryResultsGrid from '../components/CategoryResultsGrid';
 import ClusterPicker from '../components/ClusterPicker';
+import AppearancePanel from '../components/charts/appearance/AppearancePanel';
 
 const { Text } = Typography;
+
+/** Panel types for the icon toolbar flyout */
+type ToolPanel = 'datasets' | 'parameters' | 'charts' | 'clusters' | 'appearance' | null;
 
 interface MultiDatasetViewProps {
   projectId: string;
@@ -63,6 +75,11 @@ export default function MultiDatasetView({
 }: MultiDatasetViewProps) {
   // Loaded data for each dataset, keyed by resultName
   const [datasets, setDatasets] = useState<Record<string, LoadedDataset>>({});
+
+  // Icon toolbar state: which flyout panel is open, and chart collapse keys
+  const [activePanel, setActivePanel] = useState<ToolPanel>(null);
+  // Start with all chart sections expanded
+  const [activeChartKeys, setActiveChartKeys] = useState<string[]>(['umap', 'default-charts', 'table']);
 
   // Load data for all selected datasets
   useEffect(() => {
@@ -242,15 +259,165 @@ export default function MultiDatasetView({
         <ClusterPicker />
       </div>
 
-      {/* One collapse per chart type */}
+      {/* One collapse per chart type — controlled so the toolbar can collapse all */}
       <Collapse
-        defaultActiveKey={chartSections.map(s => s.key)}
+        activeKey={activeChartKeys}
+        onChange={(keys) => setActiveChartKeys(Array.isArray(keys) ? keys : [keys])}
         items={chartSections.map(section => ({
           key: section.key,
           label: section.label,
           children: section.render(),
         }))}
       />
+
+      {/* Icon Toolbar — fixed strip on the left edge of the content area.
+          Mirrors the toolbar in CategoryResultsView for consistency. */}
+      <div
+        style={{
+          position: 'fixed',
+          left: 300,
+          top: 0,
+          bottom: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          gap: '4px',
+          background: '#fafafa',
+          padding: '8px 4px',
+          borderRight: '1px solid #d9d9d9',
+          zIndex: 100,
+        }}
+      >
+        <Tooltip title="Datasets" placement="right">
+          <Button
+            type={activePanel === 'datasets' ? 'primary' : 'text'}
+            icon={<DatabaseOutlined />}
+            onClick={() => setActivePanel(activePanel === 'datasets' ? null : 'datasets')}
+            size="small"
+          />
+        </Tooltip>
+        <Tooltip title="Analysis Parameters" placement="right">
+          <Button
+            type={activePanel === 'parameters' ? 'primary' : 'text'}
+            icon={<FileTextOutlined />}
+            onClick={() => setActivePanel(activePanel === 'parameters' ? null : 'parameters')}
+            size="small"
+          />
+        </Tooltip>
+        <Tooltip title="Chart Selection" placement="right">
+          <Button
+            type={activePanel === 'charts' ? 'primary' : 'text'}
+            icon={<LineChartOutlined />}
+            onClick={() => setActivePanel(activePanel === 'charts' ? null : 'charts')}
+            size="small"
+          />
+        </Tooltip>
+        <Tooltip title="Cluster Picker" placement="right">
+          <Button
+            type={activePanel === 'clusters' ? 'primary' : 'text'}
+            icon={<AppstoreOutlined />}
+            onClick={() => setActivePanel(activePanel === 'clusters' ? null : 'clusters')}
+            size="small"
+          />
+        </Tooltip>
+        <Tooltip title="Global Theme" placement="right">
+          <Button
+            type={activePanel === 'appearance' ? 'primary' : 'text'}
+            icon={<FormatPainterOutlined />}
+            onClick={() => setActivePanel(activePanel === 'appearance' ? null : 'appearance')}
+            size="small"
+          />
+        </Tooltip>
+        <div style={{ borderTop: '1px solid #d9d9d9', margin: '4px 0' }} />
+        <Tooltip title="Collapse All Charts" placement="right">
+          <Button
+            type="text"
+            icon={<MinusSquareOutlined />}
+            onClick={() => setActiveChartKeys([])}
+            size="small"
+          />
+        </Tooltip>
+      </div>
+
+      {/* Flyout Drawer — shows the panel corresponding to the active toolbar button */}
+      <Drawer
+        title={
+          activePanel === 'datasets' ? 'Datasets' :
+          activePanel === 'parameters' ? 'Analysis Parameters' :
+          activePanel === 'charts' ? 'Chart Selection' :
+          activePanel === 'clusters' ? 'Cluster Picker' :
+          activePanel === 'appearance' ? 'Global Theme' : ''
+        }
+        placement="right"
+        open={activePanel !== null}
+        onClose={() => setActivePanel(null)}
+        width={400}
+      >
+        {/* Datasets panel — list the currently selected datasets */}
+        {activePanel === 'datasets' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              Currently comparing {loadedDatasets.length} datasets. Use the chips at the top of the page to change the selection.
+            </Text>
+            {loadedDatasets.map(ds => (
+              <Tag key={ds.resultName} color="blue" style={{ fontSize: '12px', padding: '4px 8px' }}>
+                {ds.label}
+              </Tag>
+            ))}
+          </div>
+        )}
+
+        {/* Analysis Parameters panel — not applicable to multi-dataset view */}
+        {activePanel === 'parameters' && (
+          <Text type="secondary">
+            Analysis parameters are specific to a single dataset. Select just one dataset to view its parameters.
+          </Text>
+        )}
+
+        {/* Chart Selection panel — toggle which chart types to show */}
+        {activePanel === 'charts' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <Text type="secondary" style={{ fontSize: '12px', marginBottom: '8px' }}>
+              Toggle which chart types are visible:
+            </Text>
+            {chartSections.map(section => {
+              const isOpen = activeChartKeys.includes(section.key);
+              return (
+                <Button
+                  key={section.key}
+                  type={isOpen ? 'primary' : 'default'}
+                  size="small"
+                  onClick={() => {
+                    if (isOpen) {
+                      setActiveChartKeys(activeChartKeys.filter(k => k !== section.key));
+                    } else {
+                      setActiveChartKeys([...activeChartKeys, section.key]);
+                    }
+                  }}
+                  style={{ textAlign: 'left' }}
+                >
+                  {section.label}
+                </Button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Cluster Picker panel — the picker is already inline at the top of the view */}
+        {activePanel === 'clusters' && (
+          <div>
+            <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginBottom: '12px' }}>
+              The cluster picker is also available at the top of the chart area.
+            </Text>
+            <ClusterPicker />
+          </div>
+        )}
+
+        {/* Global Theme panel */}
+        {activePanel === 'appearance' && (
+          <AppearancePanel />
+        )}
+      </Drawer>
     </div>
   );
 }
