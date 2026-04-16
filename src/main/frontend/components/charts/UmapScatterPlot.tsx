@@ -16,12 +16,18 @@ import { createPlotlyConfig } from './utils/plotlyConfig';
 import { useChartAppearance } from './hooks/useChartAppearance';
 import type { ReferenceUmapItem } from 'Frontend/data/referenceUmapData';
 
+import type { SyncedRange } from 'Frontend/types/chartSync';
+
 interface UmapScatterPlotProps {
   height?: number;
   chartId?: string;
+  /** When provided, overrides the chart's axis ranges (for multi-dataset sync) */
+  syncedRange?: SyncedRange;
+  /** Called when the user zooms/pans so the parent can broadcast to siblings */
+  onRangeChange?: (range: SyncedRange) => void;
 }
 
-export default function UmapScatterPlot({ height = 600, chartId }: UmapScatterPlotProps) {
+export default function UmapScatterPlot({ height = 600, chartId, syncedRange, onRangeChange }: UmapScatterPlotProps) {
   // Use reactive state hook - UMAP reacts to category selections
   const categoryState = useReactiveState('categoryId');
 
@@ -235,6 +241,22 @@ export default function UmapScatterPlot({ height = 600, chartId }: UmapScatterPl
     categoryState.handleClear();
   }, [categoryState]);
 
+  // Capture zoom/pan events and broadcast to siblings
+  const handleRelayout = useCallback((update: any) => {
+    if (!onRangeChange) return;
+    // Plotly emits xaxis.range[0], xaxis.range[1], etc. on zoom/pan
+    if (update['xaxis.range[0]'] !== undefined && update['yaxis.range[0]'] !== undefined) {
+      onRangeChange({
+        xRange: [update['xaxis.range[0]'], update['xaxis.range[1]']],
+        yRange: [update['yaxis.range[0]'], update['yaxis.range[1]']],
+      });
+    }
+    // Double-click or autoscale resets ranges
+    if (update['xaxis.autorange'] || update['yaxis.autorange']) {
+      onRangeChange({ xRange: undefined, yRange: undefined });
+    }
+  }, [onRangeChange]);
+
   // Layout configuration
   const layout: any = applyAppearance({
     xaxis: {
@@ -243,11 +265,13 @@ export default function UmapScatterPlot({ height = 600, chartId }: UmapScatterPl
       showgrid: false,
       scaleanchor: 'y',
       scaleratio: 1,
+      ...(syncedRange?.xRange ? { range: syncedRange.xRange, autorange: false } : {}),
     },
     yaxis: {
       zeroline: false,
       showticklabels: false,
       showgrid: false,
+      ...(syncedRange?.yRange ? { range: syncedRange.yRange, autorange: false } : {}),
     },
     autosize: true,
     hovermode: 'closest' as const,
@@ -305,6 +329,7 @@ export default function UmapScatterPlot({ height = 600, chartId }: UmapScatterPl
           config={config}
           onSelected={handleSelected}
           onDeselect={handleDeselect}
+          onRelayout={handleRelayout}
           style={{ width: '100%', height: '100%' }}
           useResizeHandler={true}
         />

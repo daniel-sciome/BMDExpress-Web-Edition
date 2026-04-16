@@ -12,7 +12,8 @@
  *   passed to charts via DatasetContext.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import type { SyncedRange } from '../types/chartSync';
 import { Button, Collapse, Drawer, Spin, Tag, Tooltip, Typography } from 'antd';
 import {
   DatabaseOutlined,
@@ -86,6 +87,16 @@ export default function MultiDatasetView({
   const [activePanel, setActivePanel] = useState<ToolPanel>(null);
   // Start with all chart sections expanded
   const [activeChartKeys, setActiveChartKeys] = useState<string[]>(['umap', 'default-charts', 'table']);
+
+  // Synchronized axis ranges — one per chart type, shared across all dataset instances.
+  // When a user zooms/pans in any instance, the range is broadcast to all siblings.
+  const [umapRange, setUmapRange] = useState<SyncedRange>({});
+  const [scatterRange, setScatterRange] = useState<SyncedRange>({});
+  const [boxRange, setBoxRange] = useState<SyncedRange>({});
+
+  const handleUmapRange = useCallback((r: SyncedRange) => setUmapRange(r), []);
+  const handleScatterRange = useCallback((r: SyncedRange) => setScatterRange(r), []);
+  const handleBoxRange = useCallback((r: SyncedRange) => setBoxRange(r), []);
 
   // Load data for all selected datasets
   useEffect(() => {
@@ -234,13 +245,14 @@ export default function MultiDatasetView({
     </div>
   );
 
-  // Define chart sections — each becomes a collapse panel
+  // Define chart sections — each becomes a collapse panel.
+  // Sync props are passed so zoom/pan in one dataset's chart applies to all.
   const chartSections: ChartSection[] = [
     {
       key: 'umap',
       label: 'UMAP Scatter Plot',
       render: () => renderSideBySide(() => (
-        <UmapScatterPlot height={400} />
+        <UmapScatterPlot height={400} syncedRange={umapRange} onRangeChange={handleUmapRange} />
       )),
     },
     {
@@ -248,8 +260,8 @@ export default function MultiDatasetView({
       label: 'Default Charts (Scatter & Box)',
       render: () => renderSideBySide(() => (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <BMDvsPValueScatter />
-          <BMDBoxPlot />
+          <BMDvsPValueScatter syncedRange={scatterRange} onRangeChange={handleScatterRange} />
+          <BMDBoxPlot syncedRange={boxRange} onRangeChange={handleBoxRange} />
         </div>
       )),
     },

@@ -7,7 +7,8 @@
  * Uses inFocus-based display mode styling (highlight/dim/isolate).
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
+import type { SyncedRange } from 'Frontend/types/chartSync';
 import Plot from 'react-plotly.js';
 import { Button, Checkbox, Space, Typography } from 'antd';
 import { useFocusAwareStyling } from './hooks/useFocusAwareStyling';
@@ -31,6 +32,10 @@ interface BMDBoxPlotProps {
   parentChartId?: string;
   /** Subplot key for subplot appearance cascade */
   subplotKey?: string;
+  /** When provided, overrides the chart's y-axis range (for multi-dataset sync) */
+  syncedRange?: SyncedRange;
+  /** Called when the user zooms/pans so the parent can broadcast to siblings */
+  onRangeChange?: (range: SyncedRange) => void;
 }
 
 /**
@@ -47,7 +52,7 @@ function deterministicJitter(key: string, salt: number = 0): number {
   return (Math.abs(hash % 1000) / 1000) - 0.5;
 }
 
-export default function BMDBoxPlot({ stat: externalStat, hideControls = false, chartId, parentChartId, subplotKey }: BMDBoxPlotProps) {
+export default function BMDBoxPlot({ stat: externalStat, hideControls = false, chartId, parentChartId, subplotKey, syncedRange, onRangeChange }: BMDBoxPlotProps) {
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
   const { applyToLayout, getConfig } = useChartAppearance(
     chartId,
@@ -267,6 +272,19 @@ export default function BMDBoxPlot({ stat: externalStat, hideControls = false, c
     return { traces: result, yAxisRange: yRange, bmdStats: stats };
   }, [data, clusterColors, displayMode, getPointStyle, shouldHidePoint, categoryState.selectedIds, hasSelection, bmd, bmdl, bmdu]);
 
+  // Capture zoom/pan events and broadcast to siblings (box plot only syncs y-axis)
+  const handleRelayout = useCallback((update: any) => {
+    if (!onRangeChange) return;
+    if (update['yaxis.range[0]'] !== undefined) {
+      onRangeChange({
+        yRange: [update['yaxis.range[0]'], update['yaxis.range[1]']],
+      });
+    }
+    if (update['yaxis.autorange']) {
+      onRangeChange({ yRange: undefined });
+    }
+  }, [onRangeChange]);
+
   if (!data || data.length === 0) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
@@ -307,7 +325,9 @@ export default function BMDBoxPlot({ stat: externalStat, hideControls = false, c
             yaxis: {
               title: { text: 'Dose Value' },
               type: useLogScale ? 'log' : 'linear',
-              ...(useFixedScale && yAxisRange && !useLogScale ? { range: yAxisRange } : { autorange: true }),
+              ...(syncedRange?.yRange
+                ? { range: syncedRange.yRange, autorange: false }
+                : useFixedScale && yAxisRange && !useLogScale ? { range: yAxisRange } : { autorange: true }),
             },
             xaxis: {
               title: '',
@@ -320,6 +340,7 @@ export default function BMDBoxPlot({ stat: externalStat, hideControls = false, c
             boxmode: 'overlay',
           }) as any}
           config={getConfig('bmd_box_plot')}
+          onRelayout={handleRelayout}
           style={{ width: '100%', height: '100%' }}
         />
       </div>

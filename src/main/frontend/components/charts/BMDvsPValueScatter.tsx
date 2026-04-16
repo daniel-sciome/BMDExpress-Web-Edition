@@ -18,6 +18,7 @@ import { useClusterColors, getClusterLabel, getClusterIdForCategory } from './ut
 import { useChartAppearance } from './hooks/useChartAppearance';
 import ExportDropdown from './ExportDropdown';
 import type { BmdStatType } from './utils/bmdMetricConfig';
+import type { SyncedRange } from 'Frontend/types/chartSync';
 
 const { Text } = Typography;
 
@@ -32,9 +33,13 @@ interface BMDvsPValueScatterProps {
   parentChartId?: string;
   /** Subplot key for subplot appearance cascade */
   subplotKey?: string;
+  /** When provided, overrides the chart's axis ranges (for multi-dataset sync) */
+  syncedRange?: SyncedRange;
+  /** Called when the user zooms/pans so the parent can broadcast to siblings */
+  onRangeChange?: (range: SyncedRange) => void;
 }
 
-export default function BMDvsPValueScatter({ stat: externalStat, hideControls = false, chartId, parentChartId, subplotKey }: BMDvsPValueScatterProps) {
+export default function BMDvsPValueScatter({ stat: externalStat, hideControls = false, chartId, parentChartId, subplotKey, syncedRange, onRangeChange }: BMDvsPValueScatterProps) {
   const { data, displayMode, getPointStyle, shouldHidePoint } = useFocusAwareStyling();
   const categoryState = useReactiveState('categoryId');
   const clusterColors = useClusterColors();
@@ -222,6 +227,20 @@ export default function BMDvsPValueScatter({ stat: externalStat, hideControls = 
     }
   }, [categoryState]);
 
+  // Capture zoom/pan events and broadcast to siblings
+  const handleRelayout = useCallback((update: any) => {
+    if (!onRangeChange) return;
+    if (update['xaxis.range[0]'] !== undefined && update['yaxis.range[0]'] !== undefined) {
+      onRangeChange({
+        xRange: [update['xaxis.range[0]'], update['xaxis.range[1]']],
+        yRange: [update['yaxis.range[0]'], update['yaxis.range[1]']],
+      });
+    }
+    if (update['xaxis.autorange'] || update['yaxis.autorange']) {
+      onRangeChange({ xRange: undefined, yRange: undefined });
+    }
+  }, [onRangeChange]);
+
   if (!scatterData || scatterData.size === 0) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
@@ -255,11 +274,15 @@ export default function BMDvsPValueScatter({ stat: externalStat, hideControls = 
             xaxis: {
               title: { text: metricLabel },
               type: useLogScale ? 'log' : 'linear',
-              ...(useLogScale ? { range: xRange } : { autorange: true }),
+              ...(syncedRange?.xRange
+                ? { range: syncedRange.xRange, autorange: false }
+                : useLogScale ? { range: xRange } : { autorange: true }),
             },
             yaxis: {
               title: { text: '-log₁₀(Fisher Exact P-Value)' },
-              range: yRange,
+              ...(syncedRange?.yRange
+                ? { range: syncedRange.yRange, autorange: false }
+                : { range: yRange }),
             },
             hovermode: 'closest',
             margin: { l: 60, r: 30, t: 50, b: 60 },
@@ -267,6 +290,7 @@ export default function BMDvsPValueScatter({ stat: externalStat, hideControls = 
           }) as any}
           config={getConfig('bmd_vs_pvalue_scatter')}
           onClick={handlePlotClick}
+          onRelayout={handleRelayout}
           style={{ width: '100%', height: '100%' }}
         />
       </div>
