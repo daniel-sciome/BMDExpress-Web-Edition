@@ -204,3 +204,25 @@
 .ant-table-tbody > tr.visibility-pinned > td {
   background-color: #fffbe6;
 }
+
+/* =============================================================================
+   FOCUS-BASED ROW STYLES (used by CategoryResultsGrid via getRowClassNameByFocus)
+   ============================================================================= */
+
+/* Row highlighting uses Ant Design's built-in ant-table-row-selected class
+   (applied via rowClassName in CategoryResultsGrid) which properly handles
+   fixed/sticky columns and hover states through Ant's CSS-in-JS system. */
+
+/* Out-of-focus rows dimmed — display mode "dim" */
+.ant-table-tbody > tr.dimmed-row > td {
+  opacity: 0.3;
+}
+
+.ant-table-tbody > tr.dimmed-row:hover > td {
+  opacity: 0.5;
+}
+
+/* Out-of-focus rows hidden — display mode "isolate" */
+.ant-table-tbody > tr.hidden-row {
+  display: none !important;
+}

@@ -111,7 +111,8 @@
       "Bash(sudo tee:*)",
       "Bash(sudo httpd:*)",
       "Bash(archlinux-java status:*)",
-      "Read(//usr/lib/jvm/**)"
+      "Read(//usr/lib/jvm/**)",
+      "Bash(git commit *)"
     ],
     "deny": [],
     "ask": []

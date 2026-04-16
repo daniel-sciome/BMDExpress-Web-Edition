@@ -8,6 +8,7 @@ import { selectSortedDataWithFocus, setSortColumn, setReactiveSelection, clearRe
 import { selectDisplayMode } from '../store/slices/visibilitySlice';
 import { useReactiveState } from './charts/hooks/useReactiveState';
 import { getRowClassNameByFocus } from './charts/utils/displayModeStyles';
+import { useDatasetContext } from '../context/DatasetContext';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import type { CategoryWithFocus } from '../types/categoryTypes';
 
@@ -74,8 +75,11 @@ interface CategoryResultsGridProps {
 
 export default function CategoryResultsGrid({ isExpanded, onExpandChange }: CategoryResultsGridProps) {
   const dispatch = useAppDispatch();
-  // Now gets ALL data with inFocus boolean (not filtered)
-  const allDataWithFocus = useAppSelector(selectSortedDataWithFocus);
+  // When inside a DatasetProvider (multi-dataset view), use context data;
+  // otherwise fall back to the shared Redux slice (single-dataset view).
+  const datasetCtx = useDatasetContext();
+  const reduxData = useAppSelector(selectSortedDataWithFocus);
+  const allDataWithFocus = datasetCtx ? datasetCtx.data : reduxData;
   const viewMode = useAppSelector((state) => state.categoryResults.viewMode);
   const analysisType = useAppSelector((state) => state.categoryResults.analysisType);
   const analysisParameters = useAppSelector((state) => state.categoryResults.analysisParameters);
@@ -111,6 +115,7 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
 
   // Filter toggle state - default OFF (show all rows like desktop)
   const [hideRowsWithoutBMD, setHideRowsWithoutBMD] = useState(false);
+  const [showSelectedOnly, setShowSelectedOnly] = useState(false);
 
   // Pagination state - default to showing all rows (0 = no pagination)
   const [pageSize, setPageSize] = useState<number>(0);
@@ -182,6 +187,13 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
       );
     }
 
+    // Optional: show only rows whose categoryId is in the reactive selection
+    if (showSelectedOnly && categoryState.selectedIds.size > 0) {
+      filteredData = filteredData.filter(row =>
+        row.categoryId != null && categoryState.selectedIds.has(row.categoryId)
+      );
+    }
+
     // Calculate ranks on the visible data
     const rankedData = calculateAllBMDRanks(filteredData);
 
@@ -190,7 +202,7 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
       ...row,
       inFocus: filteredData[idx].inFocus,
     }));
-  }, [allDataWithFocus, hideRowsWithoutBMD]);
+  }, [allDataWithFocus, hideRowsWithoutBMD, showSelectedOnly, categoryState.selectedIds]);
 
   // Calculate padding requirements for all numeric columns
   const paddingMap: PaddingMap = useMemo(() => {
@@ -373,17 +385,16 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
     return cols;
   }, [columnVisibility, viewMode, paddingMap, analysisType, analysisParameters]);
 
-  // Custom row styles based on inFocus state and displayMode
-  // inFocus = passes filter criteria, displayMode controls how out-of-focus rows appear
+  // Custom row styles based on inFocus state and displayMode.
+  // Uses Ant Design's built-in ant-table-row-selected class for highlights
+  // because it properly covers fixed/sticky columns and hover states —
+  // custom CSS classes cannot reliably override Ant's CSS-in-JS.
   const getRowClassName = (record: CategoryResultWithFocusAndRank) => {
     const categoryId = record.categoryId || '';
     const isHighlighted = categoryState.selectedIds.has(categoryId);
 
-    // Use inFocus-based styling for display mode
     const focusClass = getRowClassNameByFocus(record.inFocus, displayMode);
-
-    // Add highlight class if this row is selected
-    const highlightClass = isHighlighted ? 'highlighted-row' : '';
+    const highlightClass = isHighlighted ? 'ant-table-row-selected' : '';
 
     return `${focusClass} ${highlightClass}`.trim();
   };
@@ -1336,6 +1347,14 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
             </Button>
           </Space.Compact>
 
+          <Checkbox
+            checked={showSelectedOnly}
+            onChange={(e) => setShowSelectedOnly(e.target.checked)}
+            onClick={(e) => e.stopPropagation()}
+            disabled={categoryState.selectedIds.size === 0}
+          >
+            Show selected only
+          </Checkbox>
           <Checkbox
             checked={hideRowsWithoutBMD}
             onChange={(e) => setHideRowsWithoutBMD(e.target.checked)}
