@@ -14,7 +14,9 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { SyncedRange } from '../types/chartSync';
-import { Button, Collapse, Drawer, Spin, Tag, Tooltip, Typography } from 'antd';
+import { Button, Checkbox, Collapse, Drawer, Popover, Select, Space, Spin, Tag, Tooltip, Typography } from 'antd';
+import { SettingOutlined } from '@ant-design/icons';
+import type { ColumnVisibility } from '../components/categoryTable/utils';
 import {
   DatabaseOutlined,
   FileTextOutlined,
@@ -36,9 +38,10 @@ import { umapDataService } from '../data/umapDataService';
 import UmapScatterPlot from '../components/charts/UmapScatterPlot';
 import BMDvsPValueScatter from '../components/charts/BMDvsPValueScatter';
 import BMDBoxPlot from '../components/charts/BMDBoxPlot';
-import CategoryResultsGrid from '../components/CategoryResultsGrid';
+import CategoryResultsGrid, { type TableControls } from '../components/CategoryResultsGrid';
 import ClusterPicker, { type DatasetInfo } from '../components/ClusterPicker';
 import AppearancePanel from '../components/charts/appearance/AppearancePanel';
+import { DEFAULT_COLUMN_VISIBILITY } from '../components/categoryTable/utils';
 
 const { Text } = Typography;
 
@@ -97,6 +100,56 @@ export default function MultiDatasetView({
   const handleUmapRange = useCallback((r: SyncedRange) => setUmapRange(r), []);
   const handleScatterRange = useCallback((r: SyncedRange) => setScatterRange(r), []);
   const handleBoxRange = useCallback((r: SyncedRange) => setBoxRange(r), []);
+
+  // Shared table controls — one set of settings for all dataset tables
+  const [sharedHideRowsWithoutBMD, setSharedHideRowsWithoutBMD] = useState(false);
+  const [sharedShowSelectedOnly, setSharedShowSelectedOnly] = useState(false);
+  const [sharedPageSize, setSharedPageSize] = useState<number>(0);
+  const [sharedColumnVisibility, setSharedColumnVisibility] = useState<ColumnVisibility>(DEFAULT_COLUMN_VISIBILITY);
+
+  const [sharedSortColumn, setSharedSortColumn] = useState<string>('clusterId');
+  const [sharedSortDirection, setSharedSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const handleSharedSortChange = useCallback((col: string, dir: 'asc' | 'desc') => {
+    setSharedSortColumn(col);
+    setSharedSortDirection(dir);
+  }, []);
+
+  const sharedTableControls: TableControls = {
+    hideRowsWithoutBMD: sharedHideRowsWithoutBMD,
+    showSelectedOnly: sharedShowSelectedOnly,
+    pageSize: sharedPageSize,
+    columnVisibility: sharedColumnVisibility,
+    sortColumn: sharedSortColumn,
+    sortDirection: sharedSortDirection,
+    onSortChange: handleSharedSortChange,
+    onColumnVisibilityChange: setSharedColumnVisibility,
+  };
+
+  // Column group labels for the simplified column visibility toggle
+  const columnGroups: { key: keyof ColumnVisibility; label: string }[] = [
+    { key: 'primaryFilters', label: 'Primary Filters' },
+    { key: 'preFilters', label: 'Pre-Filters' },
+    { key: 'fishersFull', label: 'Fisher\'s Test' },
+    { key: 'bmdExtended', label: 'BMD Extended' },
+    { key: 'bmdConfidence', label: 'BMD Confidence' },
+    { key: 'bmdlStats', label: 'BMDL Stats' },
+    { key: 'bmdlConfidence', label: 'BMDL Confidence' },
+    { key: 'bmduStats', label: 'BMDU Stats' },
+    { key: 'bmduConfidence', label: 'BMDU Confidence' },
+    { key: 'bmdRanks', label: 'BMD Ranks' },
+    { key: 'bmdlRanks', label: 'BMDL Ranks' },
+    { key: 'bmduRanks', label: 'BMDU Ranks' },
+    { key: 'filterCounts', label: 'Filter Counts' },
+    { key: 'percentiles', label: 'Percentiles' },
+    { key: 'directionalUp', label: 'Directional Up' },
+    { key: 'directionalDown', label: 'Directional Down' },
+    { key: 'directionalAnalysis', label: 'Directional Analysis' },
+    { key: 'foldChange', label: 'Fold Change' },
+    { key: 'zScores', label: 'Z-Scores' },
+    { key: 'modelFoldChange', label: 'Model Fold Change' },
+    { key: 'geneLists', label: 'Gene Lists' },
+  ];
 
   // Load data for all selected datasets
   useEffect(() => {
@@ -277,12 +330,97 @@ export default function MultiDatasetView({
     {
       key: 'table',
       label: 'Category Results Table',
-      render: () => renderSideBySide(() => (
-        <CategoryResultsGrid
-          isExpanded={true}
-          onExpandChange={() => {}}
-        />
-      )),
+      render: () => (
+        <>
+          {/* Shared table controls — one set for all datasets */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap',
+            padding: '8px 12px', marginBottom: '8px',
+            background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: '4px',
+          }}>
+            <Space size="small">
+              <span style={{ fontSize: '12px', color: '#666' }}>Rows:</span>
+              <Select
+                value={sharedPageSize}
+                onChange={setSharedPageSize}
+                options={[
+                  { value: 0, label: 'All' },
+                  { value: 25, label: '25' },
+                  { value: 50, label: '50' },
+                  { value: 100, label: '100' },
+                  { value: 200, label: '200' },
+                ]}
+                size="small"
+                style={{ width: 80 }}
+              />
+            </Space>
+            <Checkbox
+              checked={sharedShowSelectedOnly}
+              onChange={(e) => setSharedShowSelectedOnly(e.target.checked)}
+            >
+              Show selected only
+            </Checkbox>
+            <Checkbox
+              checked={sharedHideRowsWithoutBMD}
+              onChange={(e) => setSharedHideRowsWithoutBMD(e.target.checked)}
+            >
+              Hide rows without BMD
+            </Checkbox>
+            <Popover
+              trigger="click"
+              placement="bottomLeft"
+              title="Column Groups"
+              content={
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '400px', overflowY: 'auto' }}>
+                  {columnGroups.map(({ key, label }) => {
+                    const val = sharedColumnVisibility[key];
+                    const isOn = typeof val === 'boolean' ? val : val?.all;
+                    return (
+                      <Checkbox
+                        key={key}
+                        checked={isOn}
+                        onChange={(e) => {
+                          const next = { ...sharedColumnVisibility };
+                          if (typeof next[key] === 'boolean') {
+                            (next as any)[key] = e.target.checked;
+                          } else {
+                            (next as any)[key] = { ...(next[key] as any), all: e.target.checked };
+                          }
+                          setSharedColumnVisibility(next);
+                        }}
+                      >
+                        {label}
+                      </Checkbox>
+                    );
+                  })}
+                  <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: '8px', marginTop: '4px', display: 'flex', gap: '8px' }}>
+                    <Button size="small" onClick={() => {
+                      const all: any = { ...sharedColumnVisibility };
+                      columnGroups.forEach(({ key }) => {
+                        if (typeof all[key] === 'boolean') all[key] = true;
+                        else all[key] = { ...all[key], all: true };
+                      });
+                      setSharedColumnVisibility(all);
+                    }}>Show All</Button>
+                    <Button size="small" onClick={() => setSharedColumnVisibility(DEFAULT_COLUMN_VISIBILITY)}>
+                      Reset
+                    </Button>
+                  </div>
+                </div>
+              }
+            >
+              <Button icon={<SettingOutlined />} size="small">Columns</Button>
+            </Popover>
+          </div>
+          {renderSideBySide(() => (
+            <CategoryResultsGrid
+              isExpanded={true}
+              onExpandChange={() => {}}
+              sharedControls={sharedTableControls}
+            />
+          ))}
+        </>
+      ),
     },
   ];
 

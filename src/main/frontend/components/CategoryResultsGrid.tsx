@@ -68,12 +68,26 @@ type CategoryResultWithFocusAndRank = CategoryAnalysisResultWithRank & {
   inFocus: boolean;
 };
 
+/** Externally controlled table settings (for multi-dataset shared controls) */
+export interface TableControls {
+  hideRowsWithoutBMD: boolean;
+  showSelectedOnly: boolean;
+  pageSize: number;
+  columnVisibility: ColumnVisibility;
+  sortColumn?: string;
+  sortDirection?: 'asc' | 'desc';
+  onSortChange?: (column: string, direction: 'asc' | 'desc') => void;
+  onColumnVisibilityChange?: (vis: ColumnVisibility) => void;
+}
+
 interface CategoryResultsGridProps {
   isExpanded?: boolean;
   onExpandChange?: (expanded: boolean) => void;
+  /** When provided, hides local controls and uses these shared settings */
+  sharedControls?: TableControls;
 }
 
-export default function CategoryResultsGrid({ isExpanded, onExpandChange }: CategoryResultsGridProps) {
+export default function CategoryResultsGrid({ isExpanded, onExpandChange, sharedControls }: CategoryResultsGridProps) {
   const dispatch = useAppDispatch();
   // When inside a DatasetProvider (multi-dataset view), use context data;
   // otherwise fall back to the shared Redux slice (single-dataset view).
@@ -121,12 +135,14 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
     };
   }, [allDataWithFocus.length, inFocusCount, categoryState.selectedIds.size, displayMode]);
 
-  // Filter toggle state - default OFF (show all rows like desktop)
-  const [hideRowsWithoutBMD, setHideRowsWithoutBMD] = useState(false);
-  const [showSelectedOnly, setShowSelectedOnly] = useState(false);
+  // Filter toggle state — uses shared controls when provided, local state otherwise
+  const [localHideRowsWithoutBMD, setHideRowsWithoutBMD] = useState(false);
+  const [localShowSelectedOnly, setShowSelectedOnly] = useState(false);
+  const [localPageSize, setPageSize] = useState<number>(0);
 
-  // Pagination state - default to showing all rows (0 = no pagination)
-  const [pageSize, setPageSize] = useState<number>(0);
+  const hideRowsWithoutBMD = sharedControls?.hideRowsWithoutBMD ?? localHideRowsWithoutBMD;
+  const showSelectedOnly = sharedControls?.showSelectedOnly ?? localShowSelectedOnly;
+  const pageSize = sharedControls?.pageSize ?? localPageSize;
 
   // Page size options for the selector
   const pageSizeOptions = [
@@ -138,7 +154,8 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
     { value: 500, label: '500' },
   ];
 
-  // Handle table sorting changes - dispatch to Redux for full dataset sorting
+  // Handle table sorting changes — dispatch to Redux for single-dataset,
+  // or call shared callback for multi-dataset sync
   const handleTableChange = (
     _pagination: any,
     _filters: any,
@@ -148,7 +165,11 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
     if (singleSorter.column && singleSorter.order) {
       const column = singleSorter.columnKey as string || singleSorter.field as string;
       const direction = singleSorter.order === 'ascend' ? 'asc' : 'desc';
-      dispatch(setSortColumn({ column, direction }));
+      if (sharedControls?.onSortChange) {
+        sharedControls.onSortChange(column, direction);
+      } else {
+        dispatch(setSortColumn({ column, direction }));
+      }
     }
   };
 
@@ -159,12 +180,14 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
   });
 
   // Column visibility state - load from localStorage only if user wants to remember
-  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>(() => {
+  const [localColumnVisibility, setColumnVisibility] = useState<ColumnVisibility>(() => {
     if (rememberColumnSelection) {
       return loadColumnVisibility();
     }
     return DEFAULT_COLUMN_VISIBILITY;
   });
+
+  const columnVisibility = sharedControls?.columnVisibility ?? localColumnVisibility;
 
   // Save visibility to localStorage only if user wants to remember
   useEffect(() => {
@@ -183,8 +206,7 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
     }
   }, [rememberColumnSelection]);
 
-  // Apply local filters and calculate ranks
-  // Note: inFocus state is preserved - display mode controls visibility of out-of-focus rows
+  // Apply local filters, shared sort, and calculate ranks
   const data: CategoryResultWithFocusAndRank[] = useMemo(() => {
     let filteredData = allDataWithFocus;
 
@@ -202,6 +224,21 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
       );
     }
 
+    // Apply shared sort when in multi-dataset mode
+    if (sharedControls?.sortColumn) {
+      const col = sharedControls.sortColumn;
+      const dir = sharedControls.sortDirection === 'desc' ? -1 : 1;
+      filteredData = [...filteredData].sort((a, b) => {
+        const aVal = (a as any)[col];
+        const bVal = (b as any)[col];
+        if (aVal == null && bVal == null) return 0;
+        if (aVal == null) return 1;
+        if (bVal == null) return -1;
+        if (typeof aVal === 'string') return dir * aVal.localeCompare(bVal);
+        return dir * (aVal - bVal);
+      });
+    }
+
     // Calculate ranks on the visible data
     const rankedData = calculateAllBMDRanks(filteredData);
 
@@ -210,7 +247,8 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
       ...row,
       inFocus: filteredData[idx].inFocus,
     }));
-  }, [allDataWithFocus, hideRowsWithoutBMD, showSelectedOnly, categoryState.selectedIds]);
+  }, [allDataWithFocus, hideRowsWithoutBMD, showSelectedOnly, categoryState.selectedIds,
+      sharedControls?.sortColumn, sharedControls?.sortDirection]);
 
   // Calculate padding requirements for all numeric columns
   const paddingMap: PaddingMap = useMemo(() => {
@@ -1293,26 +1331,6 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
         >
           <span>Category Results ({inFocusCount} in focus / {data.length} total{hideRowsWithoutBMD ? ` (${allDataWithFocus.length} before BMD filter)` : ''})</span>
 
-          {/* Page Size Selector */}
-          <Space size="small">
-            <span style={{ fontSize: '12px', color: '#666' }}>Show:</span>
-            <Select
-              value={pageSize}
-              onChange={(value) => setPageSize(value)}
-              onClick={(e) => e.stopPropagation()}
-              options={pageSizeOptions}
-              size="small"
-              style={{ width: 80 }}
-            />
-          </Space>
-
-          {/* Visibility highlight counter */}
-          {hasHighlights && (
-            <Tag color="cyan">
-              Highlighted: {categoryState.selectedIds.size}
-            </Tag>
-          )}
-
           {/* Selection Counter */}
           {hasHighlights && (
             <Tag color="blue">
@@ -1320,75 +1338,94 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange }: Cate
             </Tag>
           )}
 
-          {/* Phase 7: Bulk Selection Buttons */}
-          <Space.Compact size="small">
-            <Button
-              icon={<CheckSquareOutlined />}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSelectAll();
-              }}
-              size="small"
-              title="Select all visible categories"
-            >
-              Select All
-            </Button>
-            <Button
-              icon={<SwapOutlined />}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleInvertSelection();
-              }}
-              size="small"
-              disabled={!hasHighlights}
-              title="Invert selection"
-            >
-              Invert
-            </Button>
-            <Button
-              icon={<CloseSquareOutlined />}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleClearSelection();
-              }}
-              size="small"
-              disabled={!hasHighlights}
-              danger
-              title="Clear selection"
-            >
-              Clear
-            </Button>
-          </Space.Compact>
+          {/* Controls are hidden when shared controls are provided (multi-dataset view
+              renders them once above all tables instead of per-table) */}
+          {!sharedControls && (
+            <>
+              {/* Page Size Selector */}
+              <Space size="small">
+                <span style={{ fontSize: '12px', color: '#666' }}>Show:</span>
+                <Select
+                  value={pageSize}
+                  onChange={(value) => setPageSize(value)}
+                  onClick={(e) => e.stopPropagation()}
+                  options={pageSizeOptions}
+                  size="small"
+                  style={{ width: 80 }}
+                />
+              </Space>
 
-          <Checkbox
-            checked={showSelectedOnly}
-            onChange={(e) => setShowSelectedOnly(e.target.checked)}
-            onClick={(e) => e.stopPropagation()}
-            disabled={categoryState.selectedIds.size === 0}
-          >
-            Show selected only
-          </Checkbox>
-          <Checkbox
-            checked={hideRowsWithoutBMD}
-            onChange={(e) => setHideRowsWithoutBMD(e.target.checked)}
-            onClick={(e) => e.stopPropagation()}
-          >
-            Hide rows without BMD
-          </Checkbox>
-          <Popover
-            content={columnVisibilityContent}
-            title="Select Columns for Display"
-            trigger="click"
-            placement="bottomLeft"
-          >
-            <Button
-              icon={<SettingOutlined />}
-              onClick={(e) => e.stopPropagation()}
-              size="small"
-            >
-              Select Columns for Display
-            </Button>
-          </Popover>
+              {/* Bulk Selection Buttons */}
+              <Space.Compact size="small">
+                <Button
+                  icon={<CheckSquareOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSelectAll();
+                  }}
+                  size="small"
+                  title="Select all visible categories"
+                >
+                  Select All
+                </Button>
+                <Button
+                  icon={<SwapOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleInvertSelection();
+                  }}
+                  size="small"
+                  disabled={!hasHighlights}
+                  title="Invert selection"
+                >
+                  Invert
+                </Button>
+                <Button
+                  icon={<CloseSquareOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleClearSelection();
+                  }}
+                  size="small"
+                  disabled={!hasHighlights}
+                  danger
+                  title="Clear selection"
+                >
+                  Clear
+                </Button>
+              </Space.Compact>
+
+              <Checkbox
+                checked={showSelectedOnly}
+                onChange={(e) => setShowSelectedOnly(e.target.checked)}
+                onClick={(e) => e.stopPropagation()}
+                disabled={categoryState.selectedIds.size === 0}
+              >
+                Show selected only
+              </Checkbox>
+              <Checkbox
+                checked={hideRowsWithoutBMD}
+                onChange={(e) => setHideRowsWithoutBMD(e.target.checked)}
+                onClick={(e) => e.stopPropagation()}
+              >
+                Hide rows without BMD
+              </Checkbox>
+              <Popover
+                content={columnVisibilityContent}
+                title="Select Columns for Display"
+                trigger="click"
+                placement="bottomLeft"
+              >
+                <Button
+                  icon={<SettingOutlined />}
+                  onClick={(e) => e.stopPropagation()}
+                  size="small"
+                >
+                  Select Columns for Display
+                </Button>
+              </Popover>
+            </>
+          )}
         </div>
       ),
       children: (
