@@ -17,6 +17,13 @@ export const DEFAULT_PLOTLY_CONFIG: Partial<Config> = {
   displaylogo: false,
   modeBarButtonsToRemove: ['select2d', 'lasso2d'] as any,
   responsive: true,
+  // Default the mode-bar camera download to SVG for every chart.
+  // SVG is vector — PowerPoint imports it and "Convert to Shape" makes text
+  // (fonts set via the chart-appearance widget) editable. Charts that construct
+  // their own toImageButtonOptions via createImageExportConfig still get SVG
+  // there too, so the format is consistent everywhere. Per-chart overrides via
+  // createPlotlyConfig({ toImageButtonOptions: ... }) still win by shallow merge.
+  toImageButtonOptions: { format: 'svg' as const },
 };
 
 /**
@@ -90,7 +97,10 @@ export function createImageExportConfig(
     : size;
 
   return {
-    format: 'png' as const,
+    // SVG is vector — PowerPoint imports it directly and "Convert to Shape"
+    // makes the text/shapes editable (fonts set via the chart appearance widget
+    // carry over). PNG was the previous default but forced a raster workflow.
+    format: 'svg' as const,
     filename,
     width: dimensions.width,
     height: dimensions.height,
