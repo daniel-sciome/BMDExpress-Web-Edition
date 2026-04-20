@@ -1,6 +1,6 @@
 import { Outlet } from 'react-router';
 import '@vaadin/icons';
-import { AppLayout, Icon, ProgressBar, Scroller } from '@vaadin/react-components';
+import { AppLayout, DrawerToggle, Icon, ProgressBar, Scroller } from '@vaadin/react-components';
 import { Suspense } from 'react';
 import { Provider } from 'react-redux';
 import { ConfigProvider } from 'antd';
@@ -57,6 +57,9 @@ export default function MainLayout() {
         </style>
         <AppLayout primarySection="drawer">
           <Header />
+          {/* Navbar slot: hamburger toggle stays visible even when the drawer is collapsed,
+              letting the user slide the app sidebar in/out. */}
+          <DrawerToggle slot="navbar" style={{ margin: '0 4px' }} />
           <Scroller slot="drawer" style={{ height: '100%' }}>
             <SidebarNav />
           </Scroller>

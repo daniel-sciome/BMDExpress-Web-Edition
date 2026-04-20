@@ -88,8 +88,18 @@ export default function MultiDatasetView({
 
   // Icon toolbar state: which flyout panel is open, and chart collapse keys
   const [activePanel, setActivePanel] = useState<ToolPanel>(null);
-  // Start with all chart sections expanded
-  const [activeChartKeys, setActiveChartKeys] = useState<string[]>(['umap', 'default-charts', 'table']);
+  // Chart section state is split into two concerns that were previously conflated:
+  //   - `visibleChartKeys`: which chart sections are rendered at all. The flyout's
+  //     "Chart Selection" panel toggles entries in/out of this list. When a key is
+  //     removed, the section disappears from the page entirely (header + content).
+  //   - `expandedChartKeys`: of the visible sections, which are currently expanded in
+  //     the Collapse. Users drive this by clicking collapse headers directly.
+  // Previously a single `activeChartKeys` did both jobs, so toggling a chart off in
+  // the flyout only collapsed the panel — the header stayed visible and the user
+  // perceived the toggle as doing nothing.
+  const ALL_CHART_KEYS = ['umap', 'default-charts', 'table'];
+  const [visibleChartKeys, setVisibleChartKeys] = useState<string[]>(ALL_CHART_KEYS);
+  const [expandedChartKeys, setExpandedChartKeys] = useState<string[]>(ALL_CHART_KEYS);
 
   // Synchronized axis ranges — one per chart type, shared across all dataset instances.
   // When a user zooms/pans in any instance, the range is broadcast to all siblings.
@@ -425,62 +435,32 @@ export default function MultiDatasetView({
   ];
 
   return (
-    <div style={{ padding: '1rem' }}>
-      {/* Header showing how many datasets are compared */}
-      <div style={{
-        marginBottom: '12px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-      }}>
-        <Text strong style={{ fontSize: '14px' }}>
-          Comparing {loadedDatasets.length} datasets
-        </Text>
-        {loadedDatasets.map(ds => (
-          <Tag key={ds.resultName} color="blue" style={{ fontSize: '11px' }}>
-            {ds.label}
-          </Tag>
-        ))}
-      </div>
-
-      {/* Cluster Picker — non-collapsible, always visible at top */}
-      <div style={{
-        marginBottom: '8px',
-        padding: '8px 12px',
-        background: '#fafafa',
-        border: '1px solid #f0f0f0',
-        borderRadius: '4px',
-      }}>
-        <ClusterPicker datasets={datasetInfos} />
-      </div>
-
-      {/* One collapse per chart type — controlled so the toolbar can collapse all */}
-      <Collapse
-        activeKey={activeChartKeys}
-        onChange={(keys) => setActiveChartKeys(Array.isArray(keys) ? keys : [keys])}
-        items={chartSections.map(section => ({
-          key: section.key,
-          label: section.label,
-          children: section.render(),
-        }))}
-      />
-
-      {/* Icon Toolbar — fixed strip on the left edge of the content area.
-          Mirrors the toolbar in CategoryResultsView for consistency. */}
+    // Outer flex row: sticky icon toolbar on the left, main content column on the right.
+    // Replaces the previous `position: fixed; left: 300` toolbar, which overlapped the
+    // app's 300px-wide left sidebar and became invisible whenever the sidebar was open.
+    // With the inline flex layout, the toolbar naturally flows after the app drawer and
+    // tracks the drawer when the user collapses it via the hamburger in the navbar.
+    <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+      {/* ──────────────── Icon Toolbar (sticky left column) ────────────────
+          Vertical strip of icon buttons. Each button toggles a flyout Drawer that
+          shows a panel (Datasets, Parameters, Chart Selection, Cluster Picker,
+          Global Theme). Sticky positioning keeps the toolbar glued to the top of
+          the viewport as the user scrolls the long chart list below, so the
+          flyout triggers are always one click away. `alignSelf: flex-start`
+          prevents the flex row from stretching the toolbar to match the content
+          column's height. */}
       <div
         style={{
-          position: 'fixed',
-          left: 300,
+          position: 'sticky',
           top: 0,
-          bottom: 0,
+          alignSelf: 'flex-start',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center',
           gap: '4px',
           background: '#fafafa',
           padding: '8px 4px',
           borderRight: '1px solid #d9d9d9',
-          zIndex: 100,
+          zIndex: 10,
         }}
       >
         <Tooltip title="Datasets" placement="right">
@@ -528,13 +508,68 @@ export default function MultiDatasetView({
           <Button
             type="text"
             icon={<MinusSquareOutlined />}
-            onClick={() => setActiveChartKeys([])}
+            onClick={() => setExpandedChartKeys([])}
             size="small"
           />
         </Tooltip>
       </div>
 
-      {/* Flyout Drawer — shows the panel corresponding to the active toolbar button */}
+      {/* ──────────────── Main content column ────────────────
+          Takes the remaining horizontal space. `minWidth: 0` lets flex children
+          (like wide tables) shrink instead of forcing the whole row to overflow. */}
+      <div style={{ flex: 1, minWidth: 0, padding: '1rem' }}>
+      {/* Header showing how many datasets are compared */}
+      <div style={{
+        marginBottom: '12px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+      }}>
+        <Text strong style={{ fontSize: '14px' }}>
+          Comparing {loadedDatasets.length} datasets
+        </Text>
+        {loadedDatasets.map(ds => (
+          <Tag key={ds.resultName} color="blue" style={{ fontSize: '11px' }}>
+            {ds.label}
+          </Tag>
+        ))}
+      </div>
+
+      {/* Cluster Picker — non-collapsible, always visible at top */}
+      <div style={{
+        marginBottom: '8px',
+        padding: '8px 12px',
+        background: '#fafafa',
+        border: '1px solid #f0f0f0',
+        borderRadius: '4px',
+      }}>
+        <ClusterPicker datasets={datasetInfos} />
+      </div>
+
+      {/* One collapse per *visible* chart type. `items` is filtered by
+          `visibleChartKeys` so sections toggled off in the flyout disappear entirely
+          (not just collapsed). `activeKey` is driven by a separate `expandedChartKeys`
+          state so users can collapse/expand visible sections independently. */}
+      <Collapse
+        activeKey={expandedChartKeys}
+        onChange={(keys) => setExpandedChartKeys(Array.isArray(keys) ? keys : [keys])}
+        items={chartSections
+          .filter(section => visibleChartKeys.includes(section.key))
+          .map(section => ({
+            key: section.key,
+            label: section.label,
+            children: section.render(),
+          }))}
+      />
+
+      </div>{/* ── end main content column ── */}
+
+      {/* ──────────────── Flyout Drawer ────────────────
+          Shows the panel corresponding to the active toolbar button. Opens from
+          the LEFT (next to the toolbar) instead of the right, so the user's eye
+          doesn't have to cross the whole screen when they click an icon. Width
+          is set so the panel overlays only a portion of the content, leaving
+          most charts visible behind it. */}
       <Drawer
         title={
           activePanel === 'datasets' ? 'Datasets' :
@@ -543,7 +578,7 @@ export default function MultiDatasetView({
           activePanel === 'clusters' ? 'Cluster Picker' :
           activePanel === 'appearance' ? 'Global Theme' : ''
         }
-        placement="right"
+        placement="left"
         open={activePanel !== null}
         onClose={() => setActivePanel(null)}
         width={400}
@@ -575,18 +610,26 @@ export default function MultiDatasetView({
             <Text type="secondary" style={{ fontSize: '12px', marginBottom: '8px' }}>
               Toggle which chart types are visible:
             </Text>
+            {/* Each button reflects whether the section is currently RENDERED on the
+                page (`visibleChartKeys`). Clicking toggles render-visibility; expansion
+                state (`expandedChartKeys`) is managed separately by the Collapse
+                component below. When a user toggles a section back on, we also add
+                it to `expandedChartKeys` so they can immediately see what appeared. */}
             {chartSections.map(section => {
-              const isOpen = activeChartKeys.includes(section.key);
+              const isVisible = visibleChartKeys.includes(section.key);
               return (
                 <Button
                   key={section.key}
-                  type={isOpen ? 'primary' : 'default'}
+                  type={isVisible ? 'primary' : 'default'}
                   size="small"
                   onClick={() => {
-                    if (isOpen) {
-                      setActiveChartKeys(activeChartKeys.filter(k => k !== section.key));
+                    if (isVisible) {
+                      setVisibleChartKeys(visibleChartKeys.filter(k => k !== section.key));
                     } else {
-                      setActiveChartKeys([...activeChartKeys, section.key]);
+                      setVisibleChartKeys([...visibleChartKeys, section.key]);
+                      if (!expandedChartKeys.includes(section.key)) {
+                        setExpandedChartKeys([...expandedChartKeys, section.key]);
+                      }
                     }
                   }}
                   style={{ textAlign: 'left' }}
