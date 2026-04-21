@@ -18,3 +18,9 @@ vite.generated.ts
 cypress/videos/
 cypress/screenshots/
 cypress/downloads/
+
+# BMD library data — large binary files (3.3 GiB total, several >100 MB).
+# Treated as external content: deploy.sh syncs them from /opt into the
+# source tree at build time. Keeping them in git bloated the history and
+# made pushes fail against GitHub's 100 MB-per-file limit.
+src/main/resources/data/bmd/*.bm2
