@@ -13,6 +13,33 @@
 import React, { createContext, useContext } from 'react';
 import type { CategoryWithFocus } from '../types/categoryTypes';
 import type { CategoryAnalysisResultWithCluster } from '../store/slices/categoryResultsSlice';
+import type { ReactiveSelectionMap, SelectionSource } from '../types/reactiveTypes';
+
+/**
+ * Per-dataset reactive selection subsystem.
+ *
+ * In single-dataset mode selection state lives globally in the Redux slice, so
+ * every chart shares one Set of selected category/cluster IDs. That does not
+ * work in multi-dataset mode: clicking a point in dataset A must not highlight
+ * the same-id point in dataset B, and each dataset's filter/selection sync is
+ * independent. This context carries an isolated state + handler bundle for
+ * each dataset. When `useReactiveState` finds one, it uses it instead of
+ * dispatching to Redux.
+ */
+export interface DatasetReactiveSelection {
+  /** Current per-dataset selection snapshot (category + cluster Sets). */
+  state: ReactiveSelectionMap;
+  /** Replace the selection for a type with the given ids. */
+  setAll: (
+    type: 'category' | 'cluster',
+    ids: (string | number)[],
+    source: SelectionSource
+  ) => void;
+  /** Toggle one id in/out of the selection for a type. */
+  toggle: (type: 'category' | 'cluster', id: string | number) => void;
+  /** Clear the selection for a type. */
+  clear: (type: 'category' | 'cluster') => void;
+}
 
 /**
  * The full data type used throughout the app — category results with both
@@ -41,6 +68,16 @@ export interface DatasetContextValue {
    * annotation didn't carry one.
    */
   analysisType?: string | null;
+  /**
+   * Per-dataset reactive selection state + handlers. When present,
+   * `useReactiveState` uses this instead of the global Redux slice, so each
+   * dataset column maintains its own selected-category/cluster Sets. Optional
+   * because the provider-in-provider chain may introduce contexts without
+   * needing a selection subsystem; `useReactiveState` still has a Redux
+   * fallback for that case (though in practice all multi-dataset providers
+   * should supply one).
+   */
+  reactiveSelection?: DatasetReactiveSelection;
 }
 
 const DatasetContext = createContext<DatasetContextValue | null>(null);

@@ -5,10 +5,9 @@
 
 import React, { useCallback, useMemo } from 'react';
 import { Button, Collapse, Checkbox, Tag, Typography, Tooltip, Space } from 'antd';
-import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { useAppSelector } from '../store/hooks';
 import { selectCategorySetsByType } from '../store/slices/renderStateSlice';
 import { CategorySetType } from '../types/renderState';
-import { setReactiveSelection, clearReactiveSelection } from '../store/slices/categoryResultsSlice';
 import { useReactiveState } from './charts/hooks/useReactiveState';
 import type { GroupSelectionState } from '../types/visibilityTypes';
 
@@ -54,7 +53,10 @@ interface ClusterPickerProps {
 }
 
 export default function ClusterPicker({ vertical = false, datasets }: ClusterPickerProps) {
-  const dispatch = useAppDispatch();
+  // Mutations go through the hook's handlers (not direct dispatch) so multi-
+  // dataset mode can transparently route them to per-dataset state via
+  // DatasetContext. In single-dataset mode the hook still falls through to
+  // Redux, preserving the original behavior.
   const categoryState = useReactiveState('categoryId');
   // Category IDs are always strings, cast for type safety
   const highlightedIds = categoryState.selectedIds as Set<string>;
@@ -109,10 +111,10 @@ export default function ClusterPicker({ vertical = false, datasets }: ClusterPic
         // Add to existing highlights
         const currentHighlights = Array.from(highlightedIds);
         const merged = [...new Set([...currentHighlights, ...categoryIds])];
-        dispatch(setReactiveSelection({ type: 'category', ids: merged, source: 'cluster-picker' }));
+        categoryState.handleMultiSelect(merged, 'cluster-picker');
       } else {
         // Replace selection with this cluster
-        dispatch(setReactiveSelection({ type: 'category', ids: categoryIds, source: 'cluster-picker' }));
+        categoryState.handleMultiSelect(categoryIds, 'cluster-picker');
       }
     } else {
       // Deselect this cluster
@@ -122,27 +124,27 @@ export default function ClusterPicker({ vertical = false, datasets }: ClusterPic
           id => !categoryIds.includes(id)
         );
         if (remaining.length > 0) {
-          dispatch(setReactiveSelection({ type: 'category', ids: remaining, source: 'cluster-picker' }));
+          categoryState.handleMultiSelect(remaining, 'cluster-picker');
         } else {
-          dispatch(clearReactiveSelection('category'));
+          categoryState.handleClear();
         }
       } else {
         // Clear all highlights
-        dispatch(clearReactiveSelection('category'));
+        categoryState.handleClear();
       }
     }
-  }, [dispatch, highlightedIds]);
+  }, [categoryState, highlightedIds]);
 
   // Select all categories across all clusters
   const handleSelectAll = useCallback(() => {
     const allIds = clusterSets.flatMap(set => set.categoryIds);
-    dispatch(setReactiveSelection({ type: 'category', ids: allIds, source: 'cluster-picker' }));
-  }, [dispatch, clusterSets]);
+    categoryState.handleMultiSelect(allIds, 'cluster-picker');
+  }, [categoryState, clusterSets]);
 
   // Clear all selections (reset)
   const handleReset = useCallback(() => {
-    dispatch(clearReactiveSelection('category'));
-  }, [dispatch]);
+    categoryState.handleClear();
+  }, [categoryState]);
 
   if (clusterSets.length === 0) {
     return (

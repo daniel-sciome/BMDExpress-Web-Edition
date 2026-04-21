@@ -9,6 +9,7 @@ import {
   clearReactiveSelection,
 } from 'Frontend/store/slices/categoryResultsSlice';
 import type { ReactiveType, SelectionSource } from 'Frontend/types/reactiveTypes';
+import { useDatasetContext } from 'Frontend/context/DatasetContext';
 
 /**
  * Generic hook for reactive state management
@@ -30,19 +31,32 @@ import type { ReactiveType, SelectionSource } from 'Frontend/types/reactiveTypes
  */
 export function useReactiveState(reactTo: ReactiveType) {
   const dispatch = useAppDispatch();
+  // If we're rendered under a DatasetProvider that carries its own reactive
+  // selection (multi-dataset mode), prefer that over the global Redux slice so
+  // each dataset column maintains an independent selection. In single-dataset
+  // mode this is null and we fall through to the Redux path as before.
+  const datasetCtx = useDatasetContext();
+  const ctxReactive = datasetCtx?.reactiveSelection;
 
-  // Map reactTo to Redux state path
+  // Map reactTo to Redux/context state path
   const stateKey = reactTo === 'categoryId' ? 'category' : 'cluster';
 
   // CRITICAL: Select the entire parent object with a custom equality check
-  // We must check if the selectedIds Set reference has changed, not just the parent object
-  const selectionState = useAppSelector(
+  // We must check if the selectedIds Set reference has changed, not just the parent object.
+  // Always read Redux — React hooks must be called unconditionally and in the
+  // same order on every render.
+  const reduxSelectionState = useAppSelector(
     (state) => state.categoryResults.reactiveSelection[stateKey],
     (left, right) => {
       // Custom equality: check if the Set references are the same
       return left.selectedIds === right.selectedIds && left.source === right.source;
     }
   );
+
+  // Pick the live state: per-dataset context if provided, else Redux.
+  const selectionState = ctxReactive
+    ? ctxReactive.state[stateKey]
+    : reduxSelectionState;
 
   // Extract fields from the selection state
   const selectedIds = selectionState.selectedIds;
@@ -69,6 +83,16 @@ export function useReactiveState(reactTo: ReactiveType) {
    * @param source - Where the selection originated from
    */
   const handleSelect = (id: string | number, isMultiSelect: boolean, source: SelectionSource) => {
+    if (ctxReactive) {
+      // Route mutations through the per-dataset handlers so the selection
+      // stays scoped to this dataset's context and never touches Redux.
+      if (isMultiSelect) {
+        ctxReactive.toggle(stateKey, id);
+      } else {
+        ctxReactive.setAll(stateKey, [id], source);
+      }
+      return;
+    }
     if (isMultiSelect) {
       dispatch(toggleReactiveSelection({ type: stateKey, id }));
     } else {
@@ -87,8 +111,13 @@ export function useReactiveState(reactTo: ReactiveType) {
       type: stateKey,
       idsCount: ids.length,
       firstIds: ids.slice(0, 5),
-      source
+      source,
+      scope: ctxReactive ? 'dataset-context' : 'redux',
     });
+    if (ctxReactive) {
+      ctxReactive.setAll(stateKey, ids, source);
+      return;
+    }
     dispatch(setReactiveSelection({ type: stateKey, ids, source }));
   };
 
@@ -96,6 +125,10 @@ export function useReactiveState(reactTo: ReactiveType) {
    * Clear all selection for this reactive type
    */
   const handleClear = () => {
+    if (ctxReactive) {
+      ctxReactive.clear(stateKey);
+      return;
+    }
     dispatch(clearReactiveSelection(stateKey));
   };
 

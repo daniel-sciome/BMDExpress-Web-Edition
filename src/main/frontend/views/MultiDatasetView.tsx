@@ -28,7 +28,8 @@ import {
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/CategoryAnalysisResultDto';
 import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
-import { DatasetProvider, type DatasetContextValue, type CategoryDataRow } from '../context/DatasetContext';
+import { DatasetProvider, type DatasetContextValue, type CategoryDataRow, type DatasetReactiveSelection } from '../context/DatasetContext';
+import type { ReactiveSelectionMap, SelectionSource } from '../types/reactiveTypes';
 import { useAppDispatch } from '../store/hooks';
 import { initializeCategories, upsertCategorySet } from '../store/slices/renderStateSlice';
 import { createClusterSets } from '../store/utils/initializeRenderState';
@@ -88,6 +89,147 @@ export default function MultiDatasetView({
 
   // Loaded data for each dataset, keyed by resultName
   const [datasets, setDatasets] = useState<Record<string, LoadedDataset>>({});
+
+  // Per-dataset reactive selection state. Each dataset column's charts and
+  // tables mutate their own entry via the DatasetReactiveSelection bundle
+  // exposed through DatasetContext. This replaces the single global Redux
+  // `reactiveSelection` slice for multi-dataset mode, so clicking a point
+  // in dataset A no longer highlights same-id points in dataset B, and the
+  // filter-driven Dim/Isolate display modes don't get masked by stale
+  // selection carried over from a prior single-dataset session.
+  //
+  // Key invariant: entries are keyed by dataset resultName. An absent entry
+  // is treated as empty (no selection).
+  const [datasetSelections, setDatasetSelections] = useState<Record<string, ReactiveSelectionMap>>({});
+
+  // Build an empty selection snapshot — used when a dataset has no selection yet.
+  const makeEmptySelectionMap = useCallback((): ReactiveSelectionMap => ({
+    category: { selectedIds: new Set<string>(), source: null },
+    cluster: { selectedIds: new Set<number | string>(), source: null },
+  }), []);
+
+  // Shared helpers used by both the per-dataset and the broadcast factories.
+  // Written as a functional-setState closure over resultName so we can
+  // target one dataset's entry without racing against sibling updates.
+  const setDatasetTypeSelection = useCallback((
+    resultName: string,
+    type: 'category' | 'cluster',
+    ids: (string | number)[],
+    source: SelectionSource,
+  ) => {
+    setDatasetSelections(prev => {
+      const existing = prev[resultName] ?? makeEmptySelectionMap();
+      const nextSet = new Set(ids) as Set<string> & Set<number | string>;
+      return {
+        ...prev,
+        [resultName]: {
+          ...existing,
+          [type]: { selectedIds: nextSet, source },
+        },
+      };
+    });
+  }, [makeEmptySelectionMap]);
+
+  const toggleDatasetTypeSelection = useCallback((
+    resultName: string,
+    type: 'category' | 'cluster',
+    id: string | number,
+  ) => {
+    setDatasetSelections(prev => {
+      const existing = prev[resultName] ?? makeEmptySelectionMap();
+      const current = existing[type].selectedIds as Set<string | number>;
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return {
+        ...prev,
+        [resultName]: {
+          ...existing,
+          [type]: {
+            selectedIds: next as Set<string> & Set<number | string>,
+            source: existing[type].source,
+          },
+        },
+      };
+    });
+  }, [makeEmptySelectionMap]);
+
+  const clearDatasetTypeSelection = useCallback((
+    resultName: string,
+    type: 'category' | 'cluster',
+  ) => {
+    setDatasetSelections(prev => {
+      const existing = prev[resultName] ?? makeEmptySelectionMap();
+      return {
+        ...prev,
+        [resultName]: {
+          ...existing,
+          [type]: {
+            selectedIds: new Set() as Set<string> & Set<number | string>,
+            source: null,
+          },
+        },
+      };
+    });
+  }, [makeEmptySelectionMap]);
+
+  // Factory for the per-dataset reactive-selection bundle that gets placed on
+  // DatasetContextValue. Built inside useCallback so handler identity is stable
+  // across renders for a given resultName — chart useMemo deps that include
+  // `handleSelect` etc. don't invalidate on every parent render.
+  const getReactiveSelectionFor = useCallback((resultName: string): DatasetReactiveSelection => {
+    const snapshot = datasetSelections[resultName] ?? makeEmptySelectionMap();
+    return {
+      state: snapshot,
+      setAll: (type, ids, source) => setDatasetTypeSelection(resultName, type, ids, source),
+      toggle: (type, id) => toggleDatasetTypeSelection(resultName, type, id),
+      clear: (type) => clearDatasetTypeSelection(resultName, type),
+    };
+  }, [
+    datasetSelections,
+    makeEmptySelectionMap,
+    setDatasetTypeSelection,
+    toggleDatasetTypeSelection,
+    clearDatasetTypeSelection,
+  ]);
+
+  // Broadcast reactive-selection bundle. Used by shared controls that sit
+  // above the per-dataset columns — notably the ClusterPicker at the top of
+  // MultiDatasetView. When the user clicks a cluster here, the mutation fans
+  // out to every loaded dataset's selection state, so all dataset columns
+  // update in lockstep. Reads return the union across datasets, so the
+  // picker UI shows a cluster as "full" when any dataset has all its ids
+  // selected (cheap and good enough for the visual indicator).
+  const broadcastReactiveSelection: DatasetReactiveSelection = useMemo(() => {
+    const unionCategory = new Set<string>();
+    const unionCluster = new Set<number | string>();
+    Object.values(datasetSelections).forEach(snap => {
+      snap.category.selectedIds.forEach(id => unionCategory.add(id));
+      snap.cluster.selectedIds.forEach(id => unionCluster.add(id));
+    });
+    const unionSnapshot: ReactiveSelectionMap = {
+      category: { selectedIds: unionCategory, source: null },
+      cluster: { selectedIds: unionCluster, source: null },
+    };
+    return {
+      state: unionSnapshot,
+      setAll: (type, ids, source) => {
+        resultNames.forEach(rn => setDatasetTypeSelection(rn, type, ids, source));
+      },
+      toggle: (type, id) => {
+        resultNames.forEach(rn => toggleDatasetTypeSelection(rn, type, id));
+      },
+      clear: (type) => {
+        resultNames.forEach(rn => clearDatasetTypeSelection(rn, type));
+      },
+    };
+  }, [
+    datasetSelections,
+    resultNames,
+    setDatasetTypeSelection,
+    toggleDatasetTypeSelection,
+    clearDatasetTypeSelection,
+  ]);
 
   // Icon toolbar state: which flyout panel is open, and chart collapse keys
   const [activePanel, setActivePanel] = useState<ToolPanel>(null);
@@ -300,6 +442,7 @@ export default function MultiDatasetView({
           resultName: ds.resultName,
           projectId,
           analysisType: ds.analysisType,
+          reactiveSelection: getReactiveSelectionFor(ds.resultName),
         };
         return (
           <div key={ds.resultName}>
@@ -551,7 +694,23 @@ export default function MultiDatasetView({
         border: '1px solid #f0f0f0',
         borderRadius: '4px',
       }}>
-        <ClusterPicker datasets={datasetInfos} />
+        {/* Wrap the shared ClusterPicker in a DatasetProvider whose
+            reactiveSelection is the broadcast bundle. ClusterPicker's
+            useReactiveState picks up that bundle and routes clicks to every
+            loaded dataset's selection state at once — no more Redux
+            dispatches stranded without a listener. The other context fields
+            are placeholders: ClusterPicker reads clusterSets from Redux
+            (renderStateSlice) and doesn't use ctx.data/label/resultName. */}
+        <DatasetProvider value={{
+          data: [],
+          label: 'All datasets',
+          resultName: '__broadcast__',
+          projectId,
+          analysisType: null,
+          reactiveSelection: broadcastReactiveSelection,
+        }}>
+          <ClusterPicker datasets={datasetInfos} />
+        </DatasetProvider>
       </div>
 
       {/* One collapse per *visible* chart type. `items` is filtered by
