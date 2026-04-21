@@ -10,7 +10,8 @@
 
 import { useMemo, useCallback } from 'react';
 import { useAppSelector } from '../../../store/hooks';
-import { selectSortedDataWithFocus } from '../../../store/slices/categoryResultsSlice';
+import { selectSortedDataWithFocus, rowPassesFilters } from '../../../store/slices/categoryResultsSlice';
+import { selectEnabledFilterGroups } from '../../../store/slices/filterSlice';
 import type { CategoryWithFocus } from '../../../types/categoryTypes';
 import { selectDisplayMode } from '../../../store/slices/visibilitySlice';
 import { getMarkerStyleByFocus, type MarkerStyle } from '../utils/displayModeStyles';
@@ -82,8 +83,28 @@ export function useFocusAwareStyling(): FocusAwareStylingResult {
   const reduxData = useAppSelector(selectSortedDataWithFocus);
   const displayMode = useAppSelector(selectDisplayMode);
 
-  // Use context data if available, otherwise fall back to Redux
-  const data: CategoryDataRow[] = datasetCtx ? datasetCtx.data : reduxData;
+  // Filter state lives globally in Redux even in multi-dataset mode — every
+  // dataset is evaluated against the same primary/master/custom filters. We
+  // read the pieces here so we can recompute `inFocus` for context-provided
+  // data (which arrives from the backend with every row marked in-focus and
+  // never learned about the filters).
+  const masterFilters = useAppSelector(state => state.categoryResults.filters);
+  const enabledFilterGroups = useAppSelector(selectEnabledFilterGroups);
+
+  // Compose the data for charts. In single-dataset mode we return Redux data
+  // as-is — `selectSortedDataWithFocus` already ran rows through
+  // `rowPassesFilters`. In multi-dataset mode we must apply the same filter
+  // recompute to the context's raw rows ourselves, using the dataset's own
+  // analysisType (so GENE datasets skip the primary-filter gate correctly
+  // even when another dataset in the same comparison is e.g. GO-BP).
+  const data: CategoryDataRow[] = useMemo(() => {
+    if (!datasetCtx) return reduxData;
+    const analysisType = datasetCtx.analysisType ?? null;
+    return datasetCtx.data.map(row => ({
+      ...row,
+      inFocus: rowPassesFilters(row, masterFilters, analysisType, enabledFilterGroups),
+    }));
+  }, [datasetCtx, reduxData, masterFilters, enabledFilterGroups]);
 
   /**
    * Get marker style for a single point based on its inFocus state

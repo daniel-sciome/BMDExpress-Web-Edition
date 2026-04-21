@@ -569,8 +569,12 @@ const selectPageSize = (state: RootState) => state.categoryResults.pageSize;
 /**
  * Helper function to check if a single row passes all filter criteria.
  * Used by selectDataWithFocus to mark each row with inFocus status.
+ *
+ * Exported so the multi-dataset path (via useFocusAwareStyling +
+ * DatasetContext) can recompute `inFocus` from Redux filter state without
+ * reimplementing the primary-filter / GENE carve-out / filter-group logic.
  */
-function rowPassesFilters(
+export function rowPassesFilters(
   row: CategoryAnalysisResultWithCluster,
   filters: Filters,
   analysisType: string | null,

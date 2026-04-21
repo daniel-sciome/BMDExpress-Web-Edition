@@ -34,6 +34,13 @@ export interface DatasetContextValue {
   resultName: string;
   /** Project ID */
   projectId: string;
+  /**
+   * Analysis type for this dataset (e.g. 'GENE', 'GO-BP', 'PATHWAY', etc.).
+   * Needed so filter-application code can match the single-dataset carve-out
+   * that skips primary filters for GENE analyses. May be null if the
+   * annotation didn't carry one.
+   */
+  analysisType?: string | null;
 }
 
 const DatasetContext = createContext<DatasetContextValue | null>(null);

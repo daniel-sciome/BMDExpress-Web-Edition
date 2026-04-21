@@ -63,6 +63,9 @@ interface LoadedDataset {
   data: CategoryDataRow[];
   loading: boolean;
   error: string | null;
+  /** Carried from the annotation so charts can apply the GENE-skip
+      carve-out that primary filters use in single-dataset mode. */
+  analysisType?: string | null;
 }
 
 /**
@@ -173,6 +176,10 @@ export default function MultiDatasetView({
         data: [],
         loading: true,
         error: null,
+        // Propagate analysisType from the annotation so the filter-recomputation
+        // path in useFocusAwareStyling can honor the GENE carve-out per dataset
+        // (different datasets in the same comparison may have different types).
+        analysisType: ann?.analysisType ?? null,
       };
     }
     setDatasets(initial);
@@ -292,6 +299,7 @@ export default function MultiDatasetView({
           label: ds.label,
           resultName: ds.resultName,
           projectId,
+          analysisType: ds.analysisType,
         };
         return (
           <div key={ds.resultName}>
