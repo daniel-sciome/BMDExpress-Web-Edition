@@ -17,6 +17,7 @@ import type { SyncedRange } from '../types/chartSync';
 import { Button, Checkbox, Collapse, Drawer, Popover, Select, Space, Spin, Tag, Tooltip, Typography } from 'antd';
 import { SettingOutlined } from '@ant-design/icons';
 import type { ColumnVisibility } from '../components/categoryTable/utils';
+import { COLUMN_GROUPS } from '../components/categoryTable/utils';
 import {
   DatabaseOutlined,
   FileTextOutlined,
@@ -281,30 +282,8 @@ export default function MultiDatasetView({
     onColumnVisibilityChange: setSharedColumnVisibility,
   };
 
-  // Column group labels for the simplified column visibility toggle
-  const columnGroups: { key: keyof ColumnVisibility; label: string }[] = [
-    { key: 'primaryFilters', label: 'Primary Filters' },
-    { key: 'preFilters', label: 'Pre-Filters' },
-    { key: 'fishersFull', label: 'Fisher\'s Test' },
-    { key: 'bmdExtended', label: 'BMD Extended' },
-    { key: 'bmdConfidence', label: 'BMD Confidence' },
-    { key: 'bmdlStats', label: 'BMDL Stats' },
-    { key: 'bmdlConfidence', label: 'BMDL Confidence' },
-    { key: 'bmduStats', label: 'BMDU Stats' },
-    { key: 'bmduConfidence', label: 'BMDU Confidence' },
-    { key: 'bmdRanks', label: 'BMD Ranks' },
-    { key: 'bmdlRanks', label: 'BMDL Ranks' },
-    { key: 'bmduRanks', label: 'BMDU Ranks' },
-    { key: 'filterCounts', label: 'Filter Counts' },
-    { key: 'percentiles', label: 'Percentiles' },
-    { key: 'directionalUp', label: 'Directional Up' },
-    { key: 'directionalDown', label: 'Directional Down' },
-    { key: 'directionalAnalysis', label: 'Directional Analysis' },
-    { key: 'foldChange', label: 'Fold Change' },
-    { key: 'zScores', label: 'Z-Scores' },
-    { key: 'modelFoldChange', label: 'Model Fold Change' },
-    { key: 'geneLists', label: 'Gene Lists' },
-  ];
+  // Use the shared column group config so the picker stays in sync with single-dataset view
+  const columnGroups = COLUMN_GROUPS;
 
   // Load data for all selected datasets
   useEffect(() => {

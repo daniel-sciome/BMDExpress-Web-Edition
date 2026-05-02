@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card, Radio, Button, Typography, Tabs, Drawer, Divider } from 'antd';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { Spin, Row, Col, Tag, Collapse, Checkbox, Space, Badge, Tooltip, Card, Radio, Button, Typography, Tabs, Drawer, Divider, Select, Popover } from 'antd';
 import { FileTextOutlined, InfoCircleOutlined, LineChartOutlined, EyeOutlined, DatabaseOutlined, AppstoreOutlined, MinusSquareOutlined, PlusOutlined, EditOutlined, SettingOutlined, FormatPainterOutlined } from '@ant-design/icons';
 import { Icon } from '@vaadin/react-components';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -10,7 +10,8 @@ import { selectVisibleCharts, selectOpenCollapses, setVisibleCharts, setOpenColl
 import type { DisplayMode } from '../types/visibilityTypes';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
-import CategoryResultsGrid from './CategoryResultsGrid';
+import CategoryResultsGrid, { type TableControls } from './CategoryResultsGrid';
+import { ColumnVisibility, DEFAULT_COLUMN_VISIBILITY, COLUMN_GROUPS } from './categoryTable/utils';
 import BMDvsPValueScatter from './charts/BMDvsPValueScatter';
 import BMDBoxPlot from './charts/BMDBoxPlot';
 import RangePlot from './charts/RangePlot';
@@ -187,6 +188,32 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   // Per-chart appearance modal
   const [appearanceChartId, setAppearanceChartId] = useState<string | null>(null);
 
+  // Table controls lifted here so single-dataset view uses the same sharedControls
+  // pattern as multi-dataset view — fixes and features apply to both paths equally.
+  const [tableHideRowsWithoutBMD, setTableHideRowsWithoutBMD] = useState(false);
+  const [tableShowSelectedOnly, setTableShowSelectedOnly] = useState(false);
+  const [tablePageSize, setTablePageSize] = useState<number>(0);
+  const [tableColumnVisibility, setTableColumnVisibility] = useState<ColumnVisibility>(
+    () => JSON.parse(JSON.stringify(DEFAULT_COLUMN_VISIBILITY))
+  );
+  const [tableSortColumn, setTableSortColumn] = useState<string>('clusterId');
+  const [tableSortDirection, setTableSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const handleTableSortChange = useCallback((col: string, dir: 'asc' | 'desc') => {
+    setTableSortColumn(col);
+    setTableSortDirection(dir);
+  }, []);
+
+  const singleDatasetTableControls: TableControls = {
+    hideRowsWithoutBMD: tableHideRowsWithoutBMD,
+    showSelectedOnly: tableShowSelectedOnly,
+    pageSize: tablePageSize,
+    columnVisibility: tableColumnVisibility,
+    sortColumn: tableSortColumn,
+    sortDirection: tableSortDirection,
+    onSortChange: handleTableSortChange,
+    onColumnVisibilityChange: setTableColumnVisibility,
+  };
 
   // Chart configuration
   const userConfigurations = useAppSelector(selectUserConfigurations);
@@ -265,6 +292,99 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         return null;
     }
   };
+
+  // Shared table control bar — row count, column picker, and display toggles.
+  // Matches the bar rendered in MultiDatasetView so both paths behave identically.
+  const renderTableControlBar = () => (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap',
+      padding: '8px 12px', marginBottom: '8px',
+      background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: '4px',
+    }}>
+      <Space size="small">
+        <span style={{ fontSize: '12px', color: '#666' }}>Rows:</span>
+        <Select
+          value={tablePageSize}
+          onChange={setTablePageSize}
+          options={[
+            { value: 0, label: 'All' },
+            { value: 25, label: '25' },
+            { value: 50, label: '50' },
+            { value: 100, label: '100' },
+            { value: 200, label: '200' },
+          ]}
+          size="small"
+          style={{ width: 80 }}
+        />
+      </Space>
+      <Checkbox
+        checked={tableShowSelectedOnly}
+        onChange={(e) => setTableShowSelectedOnly(e.target.checked)}
+      >
+        Show selected only
+      </Checkbox>
+      <Checkbox
+        checked={tableHideRowsWithoutBMD}
+        onChange={(e) => setTableHideRowsWithoutBMD(e.target.checked)}
+      >
+        Hide rows without BMD
+      </Checkbox>
+      <Popover
+        trigger="click"
+        placement="bottomLeft"
+        title="Column Groups"
+        content={
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '400px', overflowY: 'auto' }}>
+            {COLUMN_GROUPS.map(({ key, label }) => {
+              const val = tableColumnVisibility[key];
+              const isOn = typeof val === 'boolean' ? val : (val as any)?.all;
+              return (
+                <Checkbox
+                  key={key}
+                  checked={isOn}
+                  onChange={(e) => {
+                    const next = { ...tableColumnVisibility };
+                    if (typeof next[key] === 'boolean') {
+                      (next as any)[key] = e.target.checked;
+                    } else {
+                      const group = next[key] as any;
+                      if (e.target.checked) {
+                        (next as any)[key] = { ...group, all: true };
+                      } else {
+                        // Zero out individual flags so some(v=>v) doesn't keep them visible
+                        const cleared = Object.fromEntries(
+                          Object.keys(group.columns).map((k: string) => [k, false])
+                        );
+                        (next as any)[key] = { ...group, all: false, columns: cleared };
+                      }
+                    }
+                    setTableColumnVisibility(next);
+                  }}
+                >
+                  {label}
+                </Checkbox>
+              );
+            })}
+            <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: '8px', marginTop: '4px', display: 'flex', gap: '8px' }}>
+              <Button size="small" onClick={() => {
+                const all: any = { ...tableColumnVisibility };
+                COLUMN_GROUPS.forEach(({ key }) => {
+                  if (typeof all[key] === 'boolean') all[key] = true;
+                  else all[key] = { ...all[key], all: true };
+                });
+                setTableColumnVisibility(all);
+              }}>Show All</Button>
+              <Button size="small" onClick={() =>
+                setTableColumnVisibility(JSON.parse(JSON.stringify(DEFAULT_COLUMN_VISIBILITY)))
+              }>Reset</Button>
+            </div>
+          </div>
+        }
+      >
+        <Button icon={<SettingOutlined />} size="small">Columns</Button>
+      </Popover>
+    </div>
+  );
 
   // Render a chart collapse panel
   const renderChartCollapse = (chartId: string) => {
@@ -784,6 +904,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                   {viewMode === 'power' && CHART_CONFIG.map(config => renderChartCollapse(config.id))}
 
                   {/* Table */}
+                  {renderTableControlBar()}
                   <CategoryResultsGrid
                     key={`${projectId}-${resultName}`}
                     isExpanded={openChartCollapses.includes('category-results-table')}
@@ -796,6 +917,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                         dispatch(setOpenCollapses(openChartCollapses.filter(k => k !== 'category-results-table')));
                       }
                     }}
+                    sharedControls={singleDatasetTableControls}
                   />
                 </div>
               ),
@@ -893,6 +1015,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         {viewMode === 'power' && CHART_CONFIG.map(config => renderChartCollapse(config.id))}
 
         {/* Table */}
+        {renderTableControlBar()}
         <CategoryResultsGrid
           key={`${projectId}-${resultName}`}
           isExpanded={openChartCollapses.includes('category-results-table')}
@@ -905,6 +1028,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
               dispatch(setOpenCollapses(openChartCollapses.filter(k => k !== 'category-results-table')));
             }
           }}
+          sharedControls={singleDatasetTableControls}
         />
       </div>
       )}

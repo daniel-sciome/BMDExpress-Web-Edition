@@ -331,6 +331,35 @@ export const DEFAULT_COLUMN_VISIBILITY: ColumnVisibility = {
 export const COLUMN_VISIBILITY_STORAGE_KEY = 'categoryTable_visibleColumns';
 
 /**
+ * All column groups with their display labels, ordered for presentation in the
+ * column picker UI.  Both the single-dataset and multi-dataset views import this
+ * so the two pickers stay in sync automatically.
+ */
+export const COLUMN_GROUPS: { key: keyof ColumnVisibility; label: string }[] = [
+  { key: 'primaryFilters', label: 'Primary Filters' },
+  { key: 'preFilters',     label: 'Pre-Filters' },
+  { key: 'fishersFull',    label: "Fisher's Test" },
+  { key: 'bmdExtended',    label: 'BMD Extended' },
+  { key: 'bmdConfidence',  label: 'BMD Confidence' },
+  { key: 'bmdlStats',      label: 'BMDL Stats' },
+  { key: 'bmdlConfidence', label: 'BMDL Confidence' },
+  { key: 'bmduStats',      label: 'BMDU Stats' },
+  { key: 'bmduConfidence', label: 'BMDU Confidence' },
+  { key: 'bmdRanks',       label: 'BMD Ranks' },
+  { key: 'bmdlRanks',      label: 'BMDL Ranks' },
+  { key: 'bmduRanks',      label: 'BMDU Ranks' },
+  { key: 'filterCounts',        label: 'Filter Counts' },
+  { key: 'percentiles',         label: 'Percentiles' },
+  { key: 'directionalUp',       label: 'Directional Up' },
+  { key: 'directionalDown',     label: 'Directional Down' },
+  { key: 'directionalAnalysis', label: 'Directional Analysis' },
+  { key: 'foldChange',     label: 'Fold Change' },
+  { key: 'zScores',        label: 'Z-Scores' },
+  { key: 'modelFoldChange', label: 'Model Fold Change' },
+  { key: 'geneLists',      label: 'Gene Lists' },
+];
+
+/**
  * Column relevance classification
  *
  * Different analysis types have different relevant columns. See columnRelevance.ts
