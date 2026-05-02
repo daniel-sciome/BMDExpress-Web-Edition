@@ -168,6 +168,8 @@ export default function FilterBuilder({ filter, onChange, onDelete, showDelete =
                   onChange={(val) => setValue(val ?? undefined)}
                   style={{ width: '100%' }}
                   step={selectedField.includes('PValue') ? 0.001 : 0.1}
+                  // BMD/BMDL/BMDU dose values (mg/kg) are always non-negative
+                  min={FIELD_METADATA[selectedField]?.unit === 'mg/kg' ? 0 : undefined}
                 />
                 {operatorMetadata.requiresMaxValue && (
                   <InputNumber
@@ -176,6 +178,7 @@ export default function FilterBuilder({ filter, onChange, onDelete, showDelete =
                     onChange={(val) => setMaxValue(val ?? undefined)}
                     style={{ width: '100%' }}
                     step={selectedField.includes('PValue') ? 0.001 : 0.1}
+                    min={FIELD_METADATA[selectedField]?.unit === 'mg/kg' ? 0 : undefined}
                   />
                 )}
               </Space>

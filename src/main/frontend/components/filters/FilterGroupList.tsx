@@ -52,6 +52,8 @@ function filterToConfig(filter: Filter): FilterConfig {
     maxValue: hasValue && 'maxValue' in filter ? filter.maxValue : undefined,
     step: field?.name.includes('PValue') ? 0.001 : 1,
     precision: field?.name.includes('PValue') ? 4 : 0,
+    // BMD/BMDL/BMDU values are dose measurements (mg/kg) — they're always non-negative
+    min: field?.unit === 'mg/kg' ? 0 : undefined,
   };
 }
 
