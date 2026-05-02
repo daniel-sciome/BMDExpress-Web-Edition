@@ -545,7 +545,18 @@ export default function MultiDatasetView({
                           if (typeof next[key] === 'boolean') {
                             (next as any)[key] = e.target.checked;
                           } else {
-                            (next as any)[key] = { ...(next[key] as any), all: e.target.checked };
+                            const group = next[key] as any;
+                            if (e.target.checked) {
+                              (next as any)[key] = { ...group, all: true };
+                            } else {
+                              // Zero out individual flags so the group is fully hidden;
+                              // leaving them true would still satisfy the some(v=>v) check
+                              // in the columns useMemo and keep the columns visible.
+                              const cleared = Object.fromEntries(
+                                Object.keys(group.columns).map((k: string) => [k, false])
+                              );
+                              (next as any)[key] = { ...group, all: false, columns: cleared };
+                            }
                           }
                           setSharedColumnVisibility(next);
                         }}
@@ -563,7 +574,7 @@ export default function MultiDatasetView({
                       });
                       setSharedColumnVisibility(all);
                     }}>Show All</Button>
-                    <Button size="small" onClick={() => setSharedColumnVisibility(DEFAULT_COLUMN_VISIBILITY)}>
+                    <Button size="small" onClick={() => setSharedColumnVisibility(JSON.parse(JSON.stringify(DEFAULT_COLUMN_VISIBILITY)))}>
                       Reset
                     </Button>
                   </div>
