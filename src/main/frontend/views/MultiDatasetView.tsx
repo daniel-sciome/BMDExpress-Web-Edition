@@ -17,7 +17,7 @@ import type { SyncedRange } from '../types/chartSync';
 import { Button, Checkbox, Collapse, Drawer, Popover, Select, Space, Spin, Tag, Tooltip, Typography } from 'antd';
 import { SettingOutlined } from '@ant-design/icons';
 import type { ColumnVisibility } from '../components/categoryTable/utils';
-import { COLUMN_GROUPS } from '../components/categoryTable/utils';
+import TableColumnPicker from '../components/categoryTable/TableColumnPicker';
 import {
   DatabaseOutlined,
   FileTextOutlined,
@@ -282,9 +282,6 @@ export default function MultiDatasetView({
     onColumnVisibilityChange: setSharedColumnVisibility,
   };
 
-  // Use the shared column group config so the picker stays in sync with single-dataset view
-  const columnGroups = COLUMN_GROUPS;
-
   // Load data for all selected datasets
   useEffect(() => {
     // Initialize loading state for each dataset
@@ -509,55 +506,12 @@ export default function MultiDatasetView({
             <Popover
               trigger="click"
               placement="bottomLeft"
-              title="Column Groups"
+              title="Columns"
               content={
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '400px', overflowY: 'auto' }}>
-                  {columnGroups.map(({ key, label }) => {
-                    const val = sharedColumnVisibility[key];
-                    const isOn = typeof val === 'boolean' ? val : val?.all;
-                    return (
-                      <Checkbox
-                        key={key}
-                        checked={isOn}
-                        onChange={(e) => {
-                          const next = { ...sharedColumnVisibility };
-                          if (typeof next[key] === 'boolean') {
-                            (next as any)[key] = e.target.checked;
-                          } else {
-                            const group = next[key] as any;
-                            if (e.target.checked) {
-                              (next as any)[key] = { ...group, all: true };
-                            } else {
-                              // Zero out individual flags so the group is fully hidden;
-                              // leaving them true would still satisfy the some(v=>v) check
-                              // in the columns useMemo and keep the columns visible.
-                              const cleared = Object.fromEntries(
-                                Object.keys(group.columns).map((k: string) => [k, false])
-                              );
-                              (next as any)[key] = { ...group, all: false, columns: cleared };
-                            }
-                          }
-                          setSharedColumnVisibility(next);
-                        }}
-                      >
-                        {label}
-                      </Checkbox>
-                    );
-                  })}
-                  <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: '8px', marginTop: '4px', display: 'flex', gap: '8px' }}>
-                    <Button size="small" onClick={() => {
-                      const all: any = { ...sharedColumnVisibility };
-                      columnGroups.forEach(({ key }) => {
-                        if (typeof all[key] === 'boolean') all[key] = true;
-                        else all[key] = { ...all[key], all: true };
-                      });
-                      setSharedColumnVisibility(all);
-                    }}>Show All</Button>
-                    <Button size="small" onClick={() => setSharedColumnVisibility(JSON.parse(JSON.stringify(DEFAULT_COLUMN_VISIBILITY)))}>
-                      Reset
-                    </Button>
-                  </div>
-                </div>
+                <TableColumnPicker
+                  value={sharedColumnVisibility}
+                  onChange={setSharedColumnVisibility}
+                />
               }
             >
               <Button icon={<SettingOutlined />} size="small">Columns</Button>

@@ -11,7 +11,8 @@ import type { DisplayMode } from '../types/visibilityTypes';
 import { CategoryResultsService } from 'Frontend/generated/endpoints';
 import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
 import CategoryResultsGrid, { type TableControls } from './CategoryResultsGrid';
-import { ColumnVisibility, DEFAULT_COLUMN_VISIBILITY, COLUMN_GROUPS } from './categoryTable/utils';
+import { ColumnVisibility, DEFAULT_COLUMN_VISIBILITY } from './categoryTable/utils';
+import TableColumnPicker from './categoryTable/TableColumnPicker';
 import BMDvsPValueScatter from './charts/BMDvsPValueScatter';
 import BMDBoxPlot from './charts/BMDBoxPlot';
 import RangePlot from './charts/RangePlot';
@@ -332,53 +333,12 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
       <Popover
         trigger="click"
         placement="bottomLeft"
-        title="Column Groups"
+        title="Columns"
         content={
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '400px', overflowY: 'auto' }}>
-            {COLUMN_GROUPS.map(({ key, label }) => {
-              const val = tableColumnVisibility[key];
-              const isOn = typeof val === 'boolean' ? val : (val as any)?.all;
-              return (
-                <Checkbox
-                  key={key}
-                  checked={isOn}
-                  onChange={(e) => {
-                    const next = { ...tableColumnVisibility };
-                    if (typeof next[key] === 'boolean') {
-                      (next as any)[key] = e.target.checked;
-                    } else {
-                      const group = next[key] as any;
-                      if (e.target.checked) {
-                        (next as any)[key] = { ...group, all: true };
-                      } else {
-                        // Zero out individual flags so some(v=>v) doesn't keep them visible
-                        const cleared = Object.fromEntries(
-                          Object.keys(group.columns).map((k: string) => [k, false])
-                        );
-                        (next as any)[key] = { ...group, all: false, columns: cleared };
-                      }
-                    }
-                    setTableColumnVisibility(next);
-                  }}
-                >
-                  {label}
-                </Checkbox>
-              );
-            })}
-            <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: '8px', marginTop: '4px', display: 'flex', gap: '8px' }}>
-              <Button size="small" onClick={() => {
-                const all: any = { ...tableColumnVisibility };
-                COLUMN_GROUPS.forEach(({ key }) => {
-                  if (typeof all[key] === 'boolean') all[key] = true;
-                  else all[key] = { ...all[key], all: true };
-                });
-                setTableColumnVisibility(all);
-              }}>Show All</Button>
-              <Button size="small" onClick={() =>
-                setTableColumnVisibility(JSON.parse(JSON.stringify(DEFAULT_COLUMN_VISIBILITY)))
-              }>Reset</Button>
-            </div>
-          </div>
+          <TableColumnPicker
+            value={tableColumnVisibility}
+            onChange={setTableColumnVisibility}
+          />
         }
       >
         <Button icon={<SettingOutlined />} size="small">Columns</Button>
