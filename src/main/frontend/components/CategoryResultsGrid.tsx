@@ -499,6 +499,8 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange, shared
                   ...columnVisibility,
                   primaryFilters: {
                     ...columnVisibility.primaryFilters,
+                    // Switching to per-column mode so individual flags are respected
+                    all: false,
                     columns: { ...columnVisibility.primaryFilters.columns, genesPassed: e.target.checked }
                   }
                 });
@@ -514,6 +516,7 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange, shared
                   ...columnVisibility,
                   primaryFilters: {
                     ...columnVisibility.primaryFilters,
+                    all: false,
                     columns: { ...columnVisibility.primaryFilters.columns, allGenes: e.target.checked }
                   }
                 });
@@ -529,6 +532,7 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange, shared
                   ...columnVisibility,
                   primaryFilters: {
                     ...columnVisibility.primaryFilters,
+                    all: false,
                     columns: { ...columnVisibility.primaryFilters.columns, percentage: e.target.checked }
                   }
                 });
@@ -550,6 +554,7 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange, shared
                   ...columnVisibility,
                   primaryFilters: {
                     ...columnVisibility.primaryFilters,
+                    all: false,
                     columns: { ...columnVisibility.primaryFilters.columns, bmdMean: e.target.checked }
                   }
                 });
@@ -565,6 +570,7 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange, shared
                   ...columnVisibility,
                   primaryFilters: {
                     ...columnVisibility.primaryFilters,
+                    all: false,
                     columns: { ...columnVisibility.primaryFilters.columns, bmdMedian: e.target.checked }
                   }
                 });
@@ -589,6 +595,7 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange, shared
               ...columnVisibility,
               preFilters: {
                 ...columnVisibility.preFilters,
+                all: false,
                 columns: { ...columnVisibility.preFilters.columns, anova: e.target.checked }
               }
             });
