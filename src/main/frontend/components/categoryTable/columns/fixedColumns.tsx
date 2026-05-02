@@ -49,8 +49,8 @@ export function getFixedColumns(
     align: 'center' as const,
     render: (clusterId: number | undefined) => {
       // -2 = not in reference, -1 = unclassified, 0+ = cluster number
-      if (clusterId === undefined || clusterId === -2) return 'not in reference';
-      if (clusterId === -1) return 'unclassified';
+      if (clusterId === undefined || clusterId === -2) return 'NA';
+      if (clusterId === -1) return '-1';
       return clusterId;
     },
     // Note: Actual sorting is handled by Redux (setSortColumn)
