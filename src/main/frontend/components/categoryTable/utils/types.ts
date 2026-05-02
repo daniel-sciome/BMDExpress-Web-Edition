@@ -200,9 +200,9 @@ export const DEFAULT_COLUMN_VISIBILITY: ColumnVisibility = {
     },
   },
   preFilters: {
-    all: true,
+    all: false,
     columns: {
-      anova: true,
+      anova: false,
       // Future pre-filter types will be added here
     },
   },
@@ -239,11 +239,11 @@ export const DEFAULT_COLUMN_VISIBILITY: ColumnVisibility = {
   percentiles: {
     all: false,
     columns: {
-      bmd5th: false,
+      bmd5th: true,
       bmd10th: false,
-      bmdl5th: false,
+      bmdl5th: true,
       bmdl10th: false,
-      bmdu5th: false,
+      bmdu5th: true,
       bmdu10th: false,
     },
   },
@@ -276,12 +276,12 @@ export const DEFAULT_COLUMN_VISIBILITY: ColumnVisibility = {
     },
   },
   directionalAnalysis: {
-    all: false,
+    all: true,
     columns: {
-      overallDirection: false,
-      percentUP: false,
-      percentDOWN: false,
-      percentConflict: false,
+      overallDirection: true,
+      percentUP: true,
+      percentDOWN: true,
+      percentConflict: true,
     },
   },
   foldChange: {
