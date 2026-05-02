@@ -4,7 +4,7 @@ import { SettingOutlined, CheckSquareOutlined, CloseSquareOutlined, SwapOutlined
 import type { TableProps, ColumnsType } from 'antd/es/table';
 import type { SorterResult } from 'antd/es/table/interface';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { selectSortedDataWithFocus, setSortColumn, setReactiveSelection, clearReactiveSelection } from '../store/slices/categoryResultsSlice';
+import { selectSortedDataWithFocus, setSortColumn } from '../store/slices/categoryResultsSlice';
 import { selectDisplayMode } from '../store/slices/visibilitySlice';
 import { useReactiveState } from './charts/hooks/useReactiveState';
 import { getRowClassNameByFocus } from './charts/utils/displayModeStyles';
@@ -260,24 +260,26 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange, shared
     return Array.from(categoryState.selectedIds);
   }, [categoryState.selectedIds]);
 
-  // Handle selection change from table row clicks
+  // Handle selection change from table row clicks.
+  // Routes through categoryState so multi-dataset mode uses DatasetContext
+  // rather than the global Redux slice (which charts in that mode don't read).
   const handleSelectionChange = (selectedRowKeys: React.Key[]) => {
     const categoryIds = selectedRowKeys.map(key => String(key));
     if (categoryIds.length > 0) {
-      dispatch(setReactiveSelection({ type: 'category', ids: categoryIds, source: 'table' }));
+      categoryState.handleMultiSelect(categoryIds, 'table');
     } else {
-      dispatch(clearReactiveSelection('category'));
+      categoryState.handleClear();
     }
   };
 
   // Bulk selection handlers (operate on filtered data only)
   const handleSelectAll = () => {
     const visibleIds = data.map(cat => cat.categoryId).filter(Boolean) as string[];
-    dispatch(setReactiveSelection({ type: 'category', ids: visibleIds, source: 'table' }));
+    categoryState.handleMultiSelect(visibleIds, 'table');
   };
 
   const handleClearSelection = () => {
-    dispatch(clearReactiveSelection('category'));
+    categoryState.handleClear();
   };
 
   const handleInvertSelection = () => {
@@ -285,9 +287,9 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange, shared
     const visibleIds = data.map(cat => cat.categoryId).filter(Boolean) as string[];
     const invertedIds = visibleIds.filter(id => !categoryState.selectedIds.has(id));
     if (invertedIds.length > 0) {
-      dispatch(setReactiveSelection({ type: 'category', ids: invertedIds, source: 'table' }));
+      categoryState.handleMultiSelect(invertedIds, 'table');
     } else {
-      dispatch(clearReactiveSelection('category'));
+      categoryState.handleClear();
     }
   };
 
