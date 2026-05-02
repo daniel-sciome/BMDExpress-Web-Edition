@@ -604,7 +604,7 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
   }
 
   return (
-    <>
+    <div style={{ display: 'flex', height: '100%' }}>
       <style>
         {`
           .ant-tabs-content,
@@ -634,7 +634,81 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           }
         `}
       </style>
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', marginLeft: '40px' }}>
+
+      {/* Icon Toolbar — inline sticky column so it tracks the app drawer instead of
+          being fixed to a hard-coded left: 300 viewport offset. */}
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          alignSelf: 'flex-start',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px',
+          background: '#fafafa',
+          padding: '8px 4px',
+          borderRight: '1px solid #d9d9d9',
+          zIndex: 10,
+        }}
+      >
+        <Tooltip title="Datasets" placement="right">
+          <Button
+            type={activePanel === 'datasets' ? 'primary' : 'text'}
+            icon={<DatabaseOutlined />}
+            onClick={() => setActivePanel(activePanel === 'datasets' ? null : 'datasets')}
+            size="small"
+          />
+        </Tooltip>
+        {analysisParameters && analysisParameters.length > 0 && (
+          <Tooltip title="Analysis Parameters" placement="right">
+            <Button
+              type={activePanel === 'parameters' ? 'primary' : 'text'}
+              icon={<FileTextOutlined />}
+              onClick={() => setActivePanel(activePanel === 'parameters' ? null : 'parameters')}
+              size="small"
+            />
+          </Tooltip>
+        )}
+        {viewMode === 'power' && (
+          <>
+            <Tooltip title="Chart Selection" placement="right">
+              <Button
+                type={activePanel === 'charts' ? 'primary' : 'text'}
+                icon={<LineChartOutlined />}
+                onClick={() => setActivePanel(activePanel === 'charts' ? null : 'charts')}
+                size="small"
+              />
+            </Tooltip>
+            <Tooltip title="Cluster Picker" placement="right">
+              <Button
+                type={activePanel === 'clusters' ? 'primary' : 'text'}
+                icon={<AppstoreOutlined />}
+                onClick={() => setActivePanel(activePanel === 'clusters' ? null : 'clusters')}
+                size="small"
+              />
+            </Tooltip>
+          </>
+        )}
+        <Tooltip title="Global Theme" placement="right">
+          <Button
+            type={activePanel === 'appearance' ? 'primary' : 'text'}
+            icon={<FormatPainterOutlined />}
+            onClick={() => setActivePanel(activePanel === 'appearance' ? null : 'appearance')}
+            size="small"
+          />
+        </Tooltip>
+        <div style={{ borderTop: '1px solid #d9d9d9', margin: '4px 0' }} />
+        <Tooltip title="Collapse All Charts" placement="right">
+          <Button
+            type="text"
+            icon={<MinusSquareOutlined />}
+            onClick={handleCollapseAll}
+            size="small"
+          />
+        </Tooltip>
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
         {/* Formatted header with annotation metadata */}
         {annotation && annotation.parseSuccess ? (
           <div style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0 }}>
@@ -841,17 +915,11 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
               key: 'single',
               label: 'Single Dataset',
               children: (
-                <div style={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  overflowX: 'hidden',
-                  minHeight: 0,
-                  padding: '1rem',
-                  paddingLeft: '1rem'
-                }}>
-                  {/* Cluster Picker — non-collapsible, always visible at top of chart area */}
+                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                  {/* Cluster Picker — sits above the scroll container so it stays visible while charts/table scroll */}
                   <div style={{
-                    marginBottom: '8px',
+                    flexShrink: 0,
+                    margin: '8px 1rem 0',
                     padding: '8px 12px',
                     background: '#fafafa',
                     border: '1px solid #f0f0f0',
@@ -860,25 +928,34 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
                     <ClusterPicker />
                   </div>
 
-                  {/* Charts - Direct rendering based on checkbox selection (Power User mode only) */}
-                  {viewMode === 'power' && CHART_CONFIG.map(config => renderChartCollapse(config.id))}
+                  <div style={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    minHeight: 0,
+                    padding: '1rem',
+                    paddingLeft: '1rem'
+                  }}>
+                    {/* Charts - Direct rendering based on checkbox selection (Power User mode only) */}
+                    {viewMode === 'power' && CHART_CONFIG.map(config => renderChartCollapse(config.id))}
 
-                  {/* Table */}
-                  {renderTableControlBar()}
-                  <CategoryResultsGrid
-                    key={`${projectId}-${resultName}`}
-                    isExpanded={openChartCollapses.includes('category-results-table')}
-                    onExpandChange={(expanded) => {
-                      if (expanded) {
-                        if (!openChartCollapses.includes('category-results-table')) {
-                          dispatch(setOpenCollapses([...openChartCollapses, 'category-results-table']));
+                    {/* Table */}
+                    {renderTableControlBar()}
+                    <CategoryResultsGrid
+                      key={`${projectId}-${resultName}`}
+                      isExpanded={openChartCollapses.includes('category-results-table')}
+                      onExpandChange={(expanded) => {
+                        if (expanded) {
+                          if (!openChartCollapses.includes('category-results-table')) {
+                            dispatch(setOpenCollapses([...openChartCollapses, 'category-results-table']));
+                          }
+                        } else {
+                          dispatch(setOpenCollapses(openChartCollapses.filter(k => k !== 'category-results-table')));
                         }
-                      } else {
-                        dispatch(setOpenCollapses(openChartCollapses.filter(k => k !== 'category-results-table')));
-                      }
-                    }}
-                    sharedControls={singleDatasetTableControls}
-                  />
+                      }}
+                      sharedControls={singleDatasetTableControls}
+                    />
+                  </div>
                 </div>
               ),
             },
@@ -952,121 +1029,50 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
           ]}
         />
       ) : (
-        <div style={{
-          flex: 1,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          minHeight: 0,
-          padding: '1rem',
-          paddingLeft: '1rem'
-        }}>
-        {/* Cluster Picker — non-collapsible, always visible at top of chart area */}
-        <div style={{
-          marginBottom: '8px',
-          padding: '8px 12px',
-          background: '#fafafa',
-          border: '1px solid #f0f0f0',
-          borderRadius: '4px',
-        }}>
-          <ClusterPicker />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          {/* Cluster Picker — sits above the scroll container so it stays visible while charts/table scroll */}
+          <div style={{
+            flexShrink: 0,
+            margin: '8px 1rem 0',
+            padding: '8px 12px',
+            background: '#fafafa',
+            border: '1px solid #f0f0f0',
+            borderRadius: '4px',
+          }}>
+            <ClusterPicker />
+          </div>
+
+          <div style={{
+            flex: 1,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            minHeight: 0,
+            padding: '1rem',
+            paddingLeft: '1rem'
+          }}>
+            {/* Charts - Direct rendering based on checkbox selection (Power User mode only) */}
+            {viewMode === 'power' && CHART_CONFIG.map(config => renderChartCollapse(config.id))}
+
+            {/* Table */}
+            {renderTableControlBar()}
+            <CategoryResultsGrid
+              key={`${projectId}-${resultName}`}
+              isExpanded={openChartCollapses.includes('category-results-table')}
+              onExpandChange={(expanded) => {
+                if (expanded) {
+                  if (!openChartCollapses.includes('category-results-table')) {
+                    dispatch(setOpenCollapses([...openChartCollapses, 'category-results-table']));
+                  }
+                } else {
+                  dispatch(setOpenCollapses(openChartCollapses.filter(k => k !== 'category-results-table')));
+                }
+              }}
+              sharedControls={singleDatasetTableControls}
+            />
+          </div>
         </div>
-
-        {/* Charts - Direct rendering based on checkbox selection (Power User mode only) */}
-        {viewMode === 'power' && CHART_CONFIG.map(config => renderChartCollapse(config.id))}
-
-        {/* Table */}
-        {renderTableControlBar()}
-        <CategoryResultsGrid
-          key={`${projectId}-${resultName}`}
-          isExpanded={openChartCollapses.includes('category-results-table')}
-          onExpandChange={(expanded) => {
-            if (expanded) {
-              if (!openChartCollapses.includes('category-results-table')) {
-                dispatch(setOpenCollapses([...openChartCollapses, 'category-results-table']));
-              }
-            } else {
-              dispatch(setOpenCollapses(openChartCollapses.filter(k => k !== 'category-results-table')));
-            }
-          }}
-          sharedControls={singleDatasetTableControls}
-        />
-      </div>
       )}
 
-
-      {/* Icon Toolbar - fixed strip between sidebar and content */}
-      <div
-        style={{
-          position: 'fixed',
-          left: 300,
-          top: 0,
-          bottom: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          gap: '4px',
-          background: '#fafafa',
-          padding: '8px 4px',
-          borderRight: '1px solid #d9d9d9',
-          zIndex: 100,
-        }}
-      >
-        <Tooltip title="Datasets" placement="right">
-          <Button
-            type={activePanel === 'datasets' ? 'primary' : 'text'}
-            icon={<DatabaseOutlined />}
-            onClick={() => setActivePanel(activePanel === 'datasets' ? null : 'datasets')}
-            size="small"
-          />
-        </Tooltip>
-        {analysisParameters && analysisParameters.length > 0 && (
-          <Tooltip title="Analysis Parameters" placement="right">
-            <Button
-              type={activePanel === 'parameters' ? 'primary' : 'text'}
-              icon={<FileTextOutlined />}
-              onClick={() => setActivePanel(activePanel === 'parameters' ? null : 'parameters')}
-              size="small"
-            />
-          </Tooltip>
-        )}
-        {viewMode === 'power' && (
-          <>
-            <Tooltip title="Chart Selection" placement="right">
-              <Button
-                type={activePanel === 'charts' ? 'primary' : 'text'}
-                icon={<LineChartOutlined />}
-                onClick={() => setActivePanel(activePanel === 'charts' ? null : 'charts')}
-                size="small"
-              />
-            </Tooltip>
-            <Tooltip title="Cluster Picker" placement="right">
-              <Button
-                type={activePanel === 'clusters' ? 'primary' : 'text'}
-                icon={<AppstoreOutlined />}
-                onClick={() => setActivePanel(activePanel === 'clusters' ? null : 'clusters')}
-                size="small"
-              />
-            </Tooltip>
-          </>
-        )}
-        <Tooltip title="Global Theme" placement="right">
-          <Button
-            type={activePanel === 'appearance' ? 'primary' : 'text'}
-            icon={<FormatPainterOutlined />}
-            onClick={() => setActivePanel(activePanel === 'appearance' ? null : 'appearance')}
-            size="small"
-          />
-        </Tooltip>
-        <div style={{ borderTop: '1px solid #d9d9d9', margin: '4px 0' }} />
-        <Tooltip title="Collapse All Charts" placement="right">
-          <Button
-            type="text"
-            icon={<MinusSquareOutlined />}
-            onClick={handleCollapseAll}
-            size="small"
-          />
-        </Tooltip>
-      </div>
 
       {/* Flyout Drawer */}
       <Drawer
@@ -1318,6 +1324,6 @@ export default function CategoryResultsView({ projectId, resultName }: CategoryR
         subplots={CHART_CONFIG.find(c => c.id === appearanceChartId)?.subplots}
       />
     </div>
-    </>
+    </div>
   );
 }
