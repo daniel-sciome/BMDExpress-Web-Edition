@@ -309,12 +309,10 @@ export default function ClusterPicker({ vertical = false, datasets }: ClusterPic
   ];
 
   return (
-    <div style={{ marginTop: 16 }}>
-      <Collapse
-        defaultActiveKey={['1']}
-        items={collapseItems}
-        size="small"
-      />
-    </div>
+    <Collapse
+      defaultActiveKey={['1']}
+      items={collapseItems}
+      size="small"
+    />
   );
 }

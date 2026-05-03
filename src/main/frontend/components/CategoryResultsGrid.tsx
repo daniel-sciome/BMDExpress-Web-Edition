@@ -1329,158 +1329,169 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange, shared
     </div>
   );
 
-  // Collapse items configuration
+  // Stats + dataset tag shown in both the Collapse header and the flat multi-dataset header.
+  const statsLabel = (
+    <div
+      style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {datasetCtx?.label && (
+        <Tag color="blue" style={{ fontWeight: 600, marginInlineEnd: 0 }}>{datasetCtx.label}</Tag>
+      )}
+
+      <Tag color="blue" style={{ marginInlineEnd: 0 }}>
+        {inFocusCount} in focus / {data.length} total{hideRowsWithoutBMD ? ` (${allDataWithFocus.length} before BMD filter)` : ''}
+      </Tag>
+
+      {/* Selection Counter */}
+      {hasHighlights && (
+        <Tag color="blue" style={{ marginInlineEnd: 0 }}>
+          Selected: {selectedCount} of {data.length}
+        </Tag>
+      )}
+
+      {/* Controls shown only in single-dataset mode (shared controls handle multi-dataset) */}
+      {!sharedControls && (
+        <>
+          {/* Page Size Selector */}
+          <Space size="small">
+            <span style={{ fontSize: '12px', color: '#666' }}>Show:</span>
+            <Select
+              value={pageSize}
+              onChange={(value) => setPageSize(value)}
+              onClick={(e) => e.stopPropagation()}
+              options={pageSizeOptions}
+              size="small"
+              style={{ width: 80 }}
+            />
+          </Space>
+
+          {/* Bulk Selection Buttons */}
+          <Space.Compact size="small">
+            <Button
+              icon={<CheckSquareOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSelectAll();
+              }}
+              size="small"
+              title="Select all visible categories"
+            >
+              Select All
+            </Button>
+            <Button
+              icon={<SwapOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleInvertSelection();
+              }}
+              size="small"
+              disabled={!hasHighlights}
+              title="Invert selection"
+            >
+              Invert
+            </Button>
+            <Button
+              icon={<CloseSquareOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClearSelection();
+              }}
+              size="small"
+              disabled={!hasHighlights}
+              danger
+              title="Clear selection"
+            >
+              Clear
+            </Button>
+          </Space.Compact>
+
+          <Checkbox
+            checked={showSelectedOnly}
+            onChange={(e) => setShowSelectedOnly(e.target.checked)}
+            onClick={(e) => e.stopPropagation()}
+            disabled={categoryState.selectedIds.size === 0}
+          >
+            Show selected only
+          </Checkbox>
+          <Checkbox
+            checked={hideRowsWithoutBMD}
+            onChange={(e) => setHideRowsWithoutBMD(e.target.checked)}
+            onClick={(e) => e.stopPropagation()}
+          >
+            Hide rows without BMD
+          </Checkbox>
+          <Popover
+            content={columnVisibilityContent}
+            title="Select Columns for Display"
+            trigger="click"
+            placement="bottomLeft"
+          >
+            <Button
+              icon={<SettingOutlined />}
+              onClick={(e) => e.stopPropagation()}
+              size="small"
+            >
+              Select Columns for Display
+            </Button>
+          </Popover>
+        </>
+      )}
+    </div>
+  );
+
+  // Table + bottom page-size selector, used in both Collapse and flat rendering paths.
+  const tableContent = (
+    <div>
+      <Table<CategoryResultWithFocusAndRank>
+        key={`table-${categoryState.selectedIds.size}-${selectedKeys[0] || 'none'}`}
+        columns={columns}
+        dataSource={data}
+        rowKey="categoryId"
+        rowClassName={getRowClassName}
+        rowSelection={rowSelection}
+        onChange={handleTableChange}
+        onRow={(record) => ({
+          onClick: () => handleRowClick(record),
+          style: { cursor: record.inFocus ? 'pointer' : 'default' },
+        })}
+        pagination={pageSize === 0 ? false : {
+          pageSize: pageSize,
+          showSizeChanger: false,
+          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+          position: ['bottomCenter'],
+        }}
+        scroll={{ x: 1250 }}
+        tableLayout="fixed"
+        size="small"
+      />
+
+      {/* Page Size Selector - Bottom */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', padding: '0 8px' }}>
+        <Space size="small">
+          <span style={{ fontSize: '12px', color: '#666' }}>Show:</span>
+          <Select
+            value={pageSize}
+            onChange={(value) => setPageSize(value)}
+            options={pageSizeOptions}
+            size="small"
+            style={{ width: 80 }}
+          />
+          <span style={{ fontSize: '12px', color: '#666' }}>rows per page</span>
+        </Space>
+        <span style={{ fontSize: '12px', color: '#666' }}>
+          {data.length} total categories
+        </span>
+      </div>
+    </div>
+  );
+
+  // Collapse items — only used in single-dataset mode.
   const collapseItems = [
     {
       key: '1',
-      label: (
-        <div
-          style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <span>Category Results ({inFocusCount} in focus / {data.length} total{hideRowsWithoutBMD ? ` (${allDataWithFocus.length} before BMD filter)` : ''})</span>
-
-          {/* Selection Counter */}
-          {hasHighlights && (
-            <Tag color="blue">
-              Selected: {selectedCount} of {data.length}
-            </Tag>
-          )}
-
-          {/* Controls are hidden when shared controls are provided (multi-dataset view
-              renders them once above all tables instead of per-table) */}
-          {!sharedControls && (
-            <>
-              {/* Page Size Selector */}
-              <Space size="small">
-                <span style={{ fontSize: '12px', color: '#666' }}>Show:</span>
-                <Select
-                  value={pageSize}
-                  onChange={(value) => setPageSize(value)}
-                  onClick={(e) => e.stopPropagation()}
-                  options={pageSizeOptions}
-                  size="small"
-                  style={{ width: 80 }}
-                />
-              </Space>
-
-              {/* Bulk Selection Buttons */}
-              <Space.Compact size="small">
-                <Button
-                  icon={<CheckSquareOutlined />}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSelectAll();
-                  }}
-                  size="small"
-                  title="Select all visible categories"
-                >
-                  Select All
-                </Button>
-                <Button
-                  icon={<SwapOutlined />}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleInvertSelection();
-                  }}
-                  size="small"
-                  disabled={!hasHighlights}
-                  title="Invert selection"
-                >
-                  Invert
-                </Button>
-                <Button
-                  icon={<CloseSquareOutlined />}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleClearSelection();
-                  }}
-                  size="small"
-                  disabled={!hasHighlights}
-                  danger
-                  title="Clear selection"
-                >
-                  Clear
-                </Button>
-              </Space.Compact>
-
-              <Checkbox
-                checked={showSelectedOnly}
-                onChange={(e) => setShowSelectedOnly(e.target.checked)}
-                onClick={(e) => e.stopPropagation()}
-                disabled={categoryState.selectedIds.size === 0}
-              >
-                Show selected only
-              </Checkbox>
-              <Checkbox
-                checked={hideRowsWithoutBMD}
-                onChange={(e) => setHideRowsWithoutBMD(e.target.checked)}
-                onClick={(e) => e.stopPropagation()}
-              >
-                Hide rows without BMD
-              </Checkbox>
-              <Popover
-                content={columnVisibilityContent}
-                title="Select Columns for Display"
-                trigger="click"
-                placement="bottomLeft"
-              >
-                <Button
-                  icon={<SettingOutlined />}
-                  onClick={(e) => e.stopPropagation()}
-                  size="small"
-                >
-                  Select Columns for Display
-                </Button>
-              </Popover>
-            </>
-          )}
-        </div>
-      ),
-      children: (
-        <div>
-          <Table<CategoryResultWithFocusAndRank>
-            key={`table-${categoryState.selectedIds.size}-${selectedKeys[0] || 'none'}`}
-            columns={columns}
-            dataSource={data}
-            rowKey="categoryId"
-            rowClassName={getRowClassName}
-            rowSelection={rowSelection}
-            onChange={handleTableChange}
-            onRow={(record) => ({
-              onClick: () => handleRowClick(record),
-              style: { cursor: record.inFocus ? 'pointer' : 'default' },
-            })}
-            pagination={pageSize === 0 ? false : {
-              pageSize: pageSize,
-              showSizeChanger: false, // We use our own selector
-              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-              position: ['bottomCenter'],
-            }}
-            scroll={{ x: 1250 }}
-            tableLayout="fixed"
-            size="small"
-          />
-
-          {/* Page Size Selector - Bottom */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', padding: '0 8px' }}>
-            <Space size="small">
-              <span style={{ fontSize: '12px', color: '#666' }}>Show:</span>
-              <Select
-                value={pageSize}
-                onChange={(value) => setPageSize(value)}
-                options={pageSizeOptions}
-                size="small"
-                style={{ width: 80 }}
-              />
-              <span style={{ fontSize: '12px', color: '#666' }}>rows per page</span>
-            </Space>
-            <span style={{ fontSize: '12px', color: '#666' }}>
-              {data.length} total categories
-            </span>
-          </div>
-        </div>
-      ),
+      label: statsLabel,
+      children: tableContent,
     },
   ];
 
@@ -1551,17 +1562,30 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange, shared
           }
         `}
       </style>
-      <Collapse
-        activeKey={isExpanded !== undefined ? (isExpanded ? ['1'] : []) : undefined}
-        defaultActiveKey={isExpanded === undefined ? ['1'] : undefined}
-        onChange={(keys) => {
-          if (onExpandChange) {
-            const keysArray = Array.isArray(keys) ? keys : [keys];
-            onExpandChange(keysArray.includes('1'));
-          }
-        }}
-        items={collapseItems}
-      />
+      {sharedControls ? (
+        // Flat rendering for multi-dataset mode — no Collapse wrapper so the
+        // shared ClusterPicker in MultiDatasetView sits directly above each table.
+        <div style={{ border: '1px solid #d9d9d9', borderRadius: '8px' }}>
+          <div style={{ padding: '8px 12px', borderBottom: '1px solid #d9d9d9', background: '#fafafa', borderRadius: '8px 8px 0 0' }}>
+            {statsLabel}
+          </div>
+          <div style={{ padding: '4px' }}>
+            {tableContent}
+          </div>
+        </div>
+      ) : (
+        <Collapse
+          activeKey={isExpanded !== undefined ? (isExpanded ? ['1'] : []) : undefined}
+          defaultActiveKey={isExpanded === undefined ? ['1'] : undefined}
+          onChange={(keys) => {
+            if (onExpandChange) {
+              const keysArray = Array.isArray(keys) ? keys : [keys];
+              onExpandChange(keysArray.includes('1'));
+            }
+          }}
+          items={collapseItems}
+        />
+      )}
     </>
   );
 }

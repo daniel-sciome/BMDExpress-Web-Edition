@@ -442,20 +442,11 @@ export default function MultiDatasetView({
           reactiveSelection: getReactiveSelectionFor(ds.resultName),
         };
         return (
-          <div key={ds.resultName}>
-            {/* Dataset label */}
-            <div style={{
-              padding: '4px 8px',
-              background: '#e6f7ff',
-              borderBottom: '1px solid #91d5ff',
-              fontSize: '11px',
-              fontWeight: 600,
-              color: '#1890ff',
-              textAlign: 'center',
-              marginBottom: '4px',
-            }}>
-              {ds.label}
-            </div>
+          // minWidth: 0 lets the grid item shrink to its 1fr track size.
+          // Without it, the item defaults to min-width: auto (= the table's
+          // natural 1250px scroll width), which overflows the grid column and
+          // bleeds content to the right of the sticky cluster picker.
+          <div key={ds.resultName} style={{ minWidth: 0 }}>
             <DatasetProvider value={ctx}>
               {renderChart(ctx)}
             </DatasetProvider>
@@ -638,16 +629,20 @@ export default function MultiDatasetView({
       <div style={{ flex: 1, minWidth: 0, padding: '0 1rem 1rem' }}>
 
       {/* Cluster Picker — sticky so it stays visible while charts/table scroll,
-          matching the behaviour in single-dataset mode (CategoryResultsView). */}
+          matching the behaviour in single-dataset mode (CategoryResultsView).
+          Purely a positioning shell; the Collapse inside ClusterPicker provides
+          all visual styling so there's no double-border or radius mismatch. */}
       <div style={{
         position: 'sticky',
         top: 0,
         zIndex: 5,
+        paddingTop: '8px',
+        paddingLeft: '1rem',
+        paddingRight: '1rem',
+        marginLeft: '-1rem',
+        marginRight: '-1rem',
         marginBottom: '8px',
-        padding: '8px 12px',
-        background: '#fafafa',
-        border: '1px solid #f0f0f0',
-        borderRadius: '4px',
+        background: '#fff',
       }}>
         {/* Wrap the shared ClusterPicker in a DatasetProvider whose
             reactiveSelection is the broadcast bundle. ClusterPicker's
