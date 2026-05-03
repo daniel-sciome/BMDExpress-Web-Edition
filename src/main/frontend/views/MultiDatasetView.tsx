@@ -632,27 +632,17 @@ export default function MultiDatasetView({
 
       {/* ──────────────── Main content column ────────────────
           Takes the remaining horizontal space. `minWidth: 0` lets flex children
-          (like wide tables) shrink instead of forcing the whole row to overflow. */}
-      <div style={{ flex: 1, minWidth: 0, padding: '1rem' }}>
-      {/* Header showing how many datasets are compared */}
-      <div style={{
-        marginBottom: '12px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-      }}>
-        <Text strong style={{ fontSize: '14px' }}>
-          Comparing {loadedDatasets.length} datasets
-        </Text>
-        {loadedDatasets.map(ds => (
-          <Tag key={ds.resultName} color="blue" style={{ fontSize: '11px' }}>
-            {ds.label}
-          </Tag>
-        ))}
-      </div>
+          (like wide tables) shrink instead of forcing the whole row to overflow.
+          No top padding so the sticky cluster picker starts flush with the top
+          of the viewport and never needs to scroll before sticking. */}
+      <div style={{ flex: 1, minWidth: 0, padding: '0 1rem 1rem' }}>
 
-      {/* Cluster Picker — non-collapsible, always visible at top */}
+      {/* Cluster Picker — sticky so it stays visible while charts/table scroll,
+          matching the behaviour in single-dataset mode (CategoryResultsView). */}
       <div style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 5,
         marginBottom: '8px',
         padding: '8px 12px',
         background: '#fafafa',
