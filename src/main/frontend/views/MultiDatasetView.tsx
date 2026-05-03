@@ -333,6 +333,27 @@ export default function MultiDatasetView({
             loading: false,
           },
         }));
+
+        // Mirror what loadCategoryResults.fulfilled does in single-dataset mode:
+        // initialize the reactive selection with all category IDs so that all
+        // cluster buttons start as 'full' and Ctrl+click removes a cluster
+        // (de-selects it) rather than adding to an empty selection.
+        const allCategoryIds = dataWithFocus
+          .map(row => row.categoryId)
+          .filter((id): id is string => Boolean(id));
+        setDatasetSelections(prev => ({
+          ...prev,
+          [resultName]: {
+            category: {
+              selectedIds: new Set(allCategoryIds) as Set<string> & Set<number | string>,
+              source: null,
+            },
+            cluster: {
+              selectedIds: new Set() as Set<string> & Set<number | string>,
+              source: null,
+            },
+          },
+        }));
       } catch (err) {
         console.error(`Failed to load dataset ${resultName}:`, err);
         setDatasets(prev => ({
@@ -752,13 +773,23 @@ export default function MultiDatasetView({
           </div>
         )}
 
-        {/* Cluster Picker panel — the picker is already inline at the top of the view */}
+        {/* Cluster Picker panel — must use the broadcast DatasetProvider so clicks
+            fan out to all per-dataset selections, matching the inline picker above. */}
         {activePanel === 'clusters' && (
           <div>
             <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginBottom: '12px' }}>
               The cluster picker is also available at the top of the chart area.
             </Text>
-            <ClusterPicker />
+            <DatasetProvider value={{
+              data: [],
+              label: 'All datasets',
+              resultName: '__broadcast__',
+              projectId,
+              analysisType: null,
+              reactiveSelection: broadcastReactiveSelection,
+            }}>
+              <ClusterPicker datasets={datasetInfos} />
+            </DatasetProvider>
           </div>
         )}
 

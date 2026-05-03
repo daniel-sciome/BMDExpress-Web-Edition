@@ -107,13 +107,6 @@ export function useReactiveState(reactTo: ReactiveType) {
    * @param source - Where the selection originated from
    */
   const handleMultiSelect = (ids: (string | number)[], source: SelectionSource) => {
-    console.log('[useReactiveState] handleMultiSelect called:', {
-      type: stateKey,
-      idsCount: ids.length,
-      firstIds: ids.slice(0, 5),
-      source,
-      scope: ctxReactive ? 'dataset-context' : 'redux',
-    });
     if (ctxReactive) {
       ctxReactive.setAll(stateKey, ids, source);
       return;

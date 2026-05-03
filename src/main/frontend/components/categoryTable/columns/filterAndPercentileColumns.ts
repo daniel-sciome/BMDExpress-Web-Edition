@@ -200,6 +200,7 @@ export function getPercentilesColumns(
       key: 'bmdFifthPercentileTotalGenes',
       width: 70,
       align: 'center',
+      render: (value: number) => formatNumber(value),
       sorter: (a, b) => (a.bmdFifthPercentileTotalGenes || 0) - (b.bmdFifthPercentileTotalGenes || 0),
     },
     bmd10th: {
@@ -208,6 +209,7 @@ export function getPercentilesColumns(
       key: 'bmdTenthPercentileTotalGenes',
       width: 70,
       align: 'center',
+      render: (value: number) => formatNumber(value),
       sorter: (a, b) => (a.bmdTenthPercentileTotalGenes || 0) - (b.bmdTenthPercentileTotalGenes || 0),
     },
     bmdl5th: {
@@ -216,6 +218,7 @@ export function getPercentilesColumns(
       key: 'bmdlFifthPercentileTotalGenes',
       width: 70,
       align: 'center',
+      render: (value: number) => formatNumber(value),
       sorter: (a, b) => (a.bmdlFifthPercentileTotalGenes || 0) - (b.bmdlFifthPercentileTotalGenes || 0),
     },
     bmdl10th: {
@@ -224,6 +227,7 @@ export function getPercentilesColumns(
       key: 'bmdlTenthPercentileTotalGenes',
       width: 70,
       align: 'center',
+      render: (value: number) => formatNumber(value),
       sorter: (a, b) => (a.bmdlTenthPercentileTotalGenes || 0) - (b.bmdlTenthPercentileTotalGenes || 0),
     },
     bmdu5th: {
@@ -232,6 +236,7 @@ export function getPercentilesColumns(
       key: 'bmduFifthPercentileTotalGenes',
       width: 70,
       align: 'center',
+      render: (value: number) => formatNumber(value),
       sorter: (a, b) => (a.bmduFifthPercentileTotalGenes || 0) - (b.bmduFifthPercentileTotalGenes || 0),
     },
     bmdu10th: {
@@ -240,6 +245,7 @@ export function getPercentilesColumns(
       key: 'bmduTenthPercentileTotalGenes',
       width: 70,
       align: 'center',
+      render: (value: number) => formatNumber(value),
       sorter: (a, b) => (a.bmduTenthPercentileTotalGenes || 0) - (b.bmduTenthPercentileTotalGenes || 0),
     },
   };
