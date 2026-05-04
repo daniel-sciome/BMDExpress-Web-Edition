@@ -194,8 +194,12 @@ systemctl daemon-reload
 # --- Step 6: Enable and Start ---
 echo "[6/6] Enabling and starting service..."
 
-# enable: start on boot; --now: also start immediately
-systemctl enable --now "$SERVICE_NAME"
+# enable: mark to start on boot
+# restart: stop any running instance and start fresh with the new JAR.
+# Using separate commands so a running service is always replaced,
+# not just left alive serving stale code.
+systemctl enable "$SERVICE_NAME"
+systemctl restart "$SERVICE_NAME"
 
 echo ""
 echo "=== Deployment Complete ==="

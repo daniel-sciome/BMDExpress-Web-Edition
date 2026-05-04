@@ -118,7 +118,12 @@
       "Bash(journalctl -u bmdexpress-web --since \"15 minutes ago\" --no-pager)",
       "Bash(git push *)",
       "Bash(bc)",
-      "Bash(sort -t' ' -k2 -n)"
+      "Bash(sort -t' ' -k2 -n)",
+      "Bash(httpd -M)",
+      "Bash(apache2 -M)",
+      "Bash(JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./mvnw vaadin:build-frontend -Pproduction)",
+      "Bash(JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./mvnw package -Pproduction -DskipTests -Dmaven.compiler.skip=true)",
+      "Bash(sudo ./deploy/deploy.sh --skip-build)"
     ],
     "deny": [],
     "ask": []

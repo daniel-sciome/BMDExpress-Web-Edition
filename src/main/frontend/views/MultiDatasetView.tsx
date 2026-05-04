@@ -31,8 +31,10 @@ import type CategoryAnalysisResultDto from 'Frontend/generated/com/sciome/dto/Ca
 import type AnalysisAnnotationDto from 'Frontend/generated/com/sciome/dto/AnalysisAnnotationDto';
 import { DatasetProvider, type DatasetContextValue, type CategoryDataRow, type DatasetReactiveSelection } from '../context/DatasetContext';
 import type { ReactiveSelectionMap, SelectionSource } from '../types/reactiveTypes';
-import { useAppDispatch } from '../store/hooks';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { initializeCategories, upsertCategorySet } from '../store/slices/renderStateSlice';
+import { rowPassesFilters } from '../store/slices/categoryResultsSlice';
+import { selectEnabledFilterGroups } from '../store/slices/filterSlice';
 import { createClusterSets } from '../store/utils/initializeRenderState';
 import { umapDataService } from '../data/umapDataService';
 
@@ -406,6 +408,27 @@ export default function MultiDatasetView({
     [loadedDatasets]
   );
 
+  // Read the same filter state the single-dataset path uses, so that
+  // inFocus is recomputed whenever the sidebar filters change.
+  const primaryFilters = useAppSelector((state) => state.categoryResults.filters);
+  const enabledFilterGroups = useAppSelector(selectEnabledFilterGroups);
+
+  // Datasets with inFocus recomputed from current filter state.
+  // The raw loaded data always has inFocus: true; this applies the same
+  // rowPassesFilters logic that the Redux selector uses in single-dataset mode.
+  // loadedDatasets (unfiltered) is kept for cluster init and the cluster picker
+  // so that those don't change when filters narrow the visible set.
+  const filteredLoadedDatasets = useMemo(() =>
+    loadedDatasets.map(ds => ({
+      ...ds,
+      data: ds.data.map(row => ({
+        ...row,
+        inFocus: rowPassesFilters(row, primaryFilters, ds.analysisType ?? null, enabledFilterGroups),
+      })),
+    })),
+    [loadedDatasets, primaryFilters, enabledFilterGroups]
+  );
+
   if (anyLoading) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center' }}>
@@ -440,7 +463,7 @@ export default function MultiDatasetView({
         : `repeat(${loadedDatasets.length}, 1fr)`,
       gap: '8px',
     }}>
-      {loadedDatasets.map(ds => {
+      {filteredLoadedDatasets.map(ds => {
         const ctx: DatasetContextValue = {
           data: ds.data,
           label: ds.label,
