@@ -115,7 +115,10 @@
       "Bash(git commit *)",
       "Bash(systemctl show *)",
       "Bash(journalctl -u bmdexpress-web -n 10 --no-pager)",
-      "Bash(journalctl -u bmdexpress-web --since \"15 minutes ago\" --no-pager)"
+      "Bash(journalctl -u bmdexpress-web --since \"15 minutes ago\" --no-pager)",
+      "Bash(git push *)",
+      "Bash(bc)",
+      "Bash(sort -t' ' -k2 -n)"
     ],
     "deny": [],
     "ask": []

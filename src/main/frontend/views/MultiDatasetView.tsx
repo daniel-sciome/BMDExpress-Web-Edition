@@ -423,13 +423,21 @@ export default function MultiDatasetView({
     );
   }
 
-  // Helper: render a row of charts, one per dataset, side by side
+  // Helper: render a row of charts, one per dataset, side by side.
+  // fitContent: when true, each column is minmax(max-content, 1fr) so the cell
+  // is at least as wide as its table content (totalColumnsWidth + borders/padding)
+  // and grows to fill extra viewport space. Use for the results table.
+  // Without it, 1fr cells can be narrower than the table, forcing a scrollbar
+  // even with default columns visible.
   const renderSideBySide = (
-    renderChart: (ctx: DatasetContextValue) => React.ReactNode
+    renderChart: (ctx: DatasetContextValue) => React.ReactNode,
+    fitContent?: boolean,
   ) => (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: `repeat(${loadedDatasets.length}, 1fr)`,
+      gridTemplateColumns: fitContent
+        ? `repeat(${loadedDatasets.length}, minmax(max-content, 1fr))`
+        : `repeat(${loadedDatasets.length}, 1fr)`,
       gap: '8px',
     }}>
       {loadedDatasets.map(ds => {
@@ -535,7 +543,7 @@ export default function MultiDatasetView({
               onExpandChange={() => {}}
               sharedControls={sharedTableControls}
             />
-          ))}
+          ), true)}
         </>
       ),
     },

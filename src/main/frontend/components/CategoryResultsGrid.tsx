@@ -315,14 +315,8 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange, shared
   const columns = useMemo(() => {
     const cols: ColumnsType<any> = [];
 
-    // Prepare analysis info for dynamic column labels
-    const analysisInfo = {
-      analysisType,
-      analysisParameters,
-    };
-
-    // Always show fixed columns with dynamic labels
-    cols.push(...getFixedColumns(viewMode, analysisInfo));
+    // Always show fixed columns
+    cols.push(...getFixedColumns(viewMode));
 
     // Conditionally add primary filter columns based on visibility
     // Content varies by analysis type: gene counts for multi-gene categories, BMD stats for GENE type
@@ -432,6 +426,22 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange, shared
 
     return cols;
   }, [columnVisibility, viewMode, paddingMap, analysisType, analysisParameters]);
+
+  // Sum all leaf-column widths so we can pass the exact total to scroll.x.
+  // rc-table always adds min-width: 100% as an inline style on the <table> element
+  // when scroll.x is set, which forces the table to fill its container. In
+  // multi-dataset mode the grid cell is 2500px+, causing table-layout:fixed to
+  // scale every column proportionally. Using the exact column sum as scroll.x AND
+  // overriding minWidth to 0 via components.table keeps every column at its
+  // declared width regardless of container size.
+  const totalColumnsWidth = useMemo(() => {
+    const sumLeaf = (cols: any[]): number =>
+      cols.reduce((sum: number, col: any) => {
+        if (col.children) return sum + sumLeaf(col.children);
+        return sum + (typeof col.width === 'number' ? col.width : 0);
+      }, 0);
+    return sumLeaf(columns);
+  }, [columns]);
 
   // Focus/dim styling via rowClassName (for display mode: dim/isolate).
   // Row highlighting is handled by Ant's rowSelection prop instead of
@@ -1461,9 +1471,22 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange, shared
           showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
           position: ['bottomCenter'],
         }}
-        scroll={{ x: 1250 }}
+        scroll={{ x: totalColumnsWidth }}
         tableLayout="fixed"
         size="small"
+        components={{
+          // rc-table injects `min-width: 100%` as an inline style on the <table>
+          // element whenever scroll.x is set. This forces the table to fill its
+          // container (e.g. 2500px in multi-dataset mode), which causes
+          // table-layout:fixed to scale all columns proportionally — making the
+          // description column huge. Overriding minWidth to 0 here (at the
+          // component level) is the only reliable way to suppress that behaviour,
+          // since inline styles take precedence over even !important CSS rules in
+          // some browsers.
+          table: ({ style, ...rest }: React.HTMLAttributes<HTMLTableElement>) => (
+            <table {...rest} style={{ ...style, minWidth: 0 }} />
+          ),
+        }}
       />
 
       {/* Page Size Selector - Bottom */}
@@ -1559,6 +1582,30 @@ export default function CategoryResultsGrid({ isExpanded, onExpandChange, shared
           .ant-table-tbody > tr > td:first-child,
           .ant-table-thead > tr > th:first-child {
             padding-left: 4px !important;
+          }
+
+          .ant-table-tbody > tr > td:last-child,
+          .ant-table-thead > tr > th:last-child {
+            padding-right: 12px !important;
+          }
+
+          /* Remove the scroll-ping gradient shadow Ant Design overlays on the
+             right edge when the table has horizontally scrollable content. */
+          .ant-table-container::after {
+            box-shadow: none !important;
+          }
+
+
+          /* Fixed (sticky) columns need an opaque background so that
+             horizontally-scrolled content doesn't bleed through behind them. */
+          .ant-table-cell-fix-left {
+            background-color: #fff !important;
+          }
+          .ant-table-tbody > tr:hover .ant-table-cell-fix-left {
+            background-color: #fafafa !important;
+          }
+          .ant-table-tbody > tr.ant-table-row-selected .ant-table-cell-fix-left {
+            background-color: #e6f4ff !important;
           }
         `}
       </style>
