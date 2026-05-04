@@ -344,3 +344,30 @@ export function getFieldsByCategory(): Record<string, FieldMetadata[]> {
  * Categorical field values
  */
 export const DIRECTION_VALUES = ['UP', 'DOWN', 'CONFLICT'];
+
+/**
+ * Return step, precision, and optional min for a numeric input based on a
+ * field's unit string.
+ *
+ * Ant Design's InputNumber derives precision from `step` when no explicit
+ * `precision` prop is set — step=1 silently rounds all typed decimals to
+ * integers. We set both props explicitly here and import this wherever a
+ * numeric filter value is entered (FilterBuilder, FilterGroupList) so the
+ * behaviour is identical in every editing surface.
+ *
+ * Rules:
+ *   count     → integers only  (gene counts can't be fractional)
+ *   p-value   → 6 decimals     (e.g. 0.000123)
+ *   mg/kg     → 4 decimals, ≥0 (e.g. 0.0025 mg/kg BMD values)
+ *   %         → 2 decimals     (e.g. 5.25%)
+ *   (other)   → 4 decimals     (fold change, z-scores, etc.)
+ */
+export function getFieldInputConfig(unit?: string): { step: number; precision: number; min?: number } {
+  switch (unit) {
+    case 'count':   return { step: 1,      precision: 0 };
+    case 'p-value': return { step: 0.0001, precision: 6 };
+    case 'mg/kg':   return { step: 0.001,  precision: 4, min: 0 };
+    case '%':       return { step: 0.1,    precision: 2 };
+    default:        return { step: 0.01,   precision: 4 };
+  }
+}

@@ -11,9 +11,10 @@ import React, { useState, useEffect } from 'react';
 import { Select, InputNumber, Checkbox, Space, Button, Row, Col } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 import type { Filter, PartialFilter, NumericFilter, CategoricalFilter, FilterableFieldName, FilterOperator } from '../../types/filterTypes';
-import { FIELD_METADATA, NUMERIC_OPERATORS, CATEGORICAL_OPERATORS, DIRECTION_VALUES, getFieldsByCategory } from '../../utils/filterMetadata';
+import { FIELD_METADATA, NUMERIC_OPERATORS, CATEGORICAL_OPERATORS, DIRECTION_VALUES, getFieldsByCategory, getFieldInputConfig } from '../../utils/filterMetadata';
 
 const { Option, OptGroup } = Select;
+
 
 interface FilterBuilderProps {
   filter?: Filter | PartialFilter;
@@ -167,9 +168,7 @@ export default function FilterBuilder({ filter, onChange, onDelete, showDelete =
                   value={value as number}
                   onChange={(val) => setValue(val ?? undefined)}
                   style={{ width: '100%' }}
-                  step={selectedField.includes('PValue') ? 0.001 : 0.1}
-                  // BMD/BMDL/BMDU dose values (mg/kg) are always non-negative
-                  min={FIELD_METADATA[selectedField]?.unit === 'mg/kg' ? 0 : undefined}
+                  {...getFieldInputConfig(fieldMetadata?.unit)}
                 />
                 {operatorMetadata.requiresMaxValue && (
                   <InputNumber
@@ -177,8 +176,7 @@ export default function FilterBuilder({ filter, onChange, onDelete, showDelete =
                     value={maxValue}
                     onChange={(val) => setMaxValue(val ?? undefined)}
                     style={{ width: '100%' }}
-                    step={selectedField.includes('PValue') ? 0.001 : 0.1}
-                    min={FIELD_METADATA[selectedField]?.unit === 'mg/kg' ? 0 : undefined}
+                    {...getFieldInputConfig(fieldMetadata?.unit)}
                   />
                 )}
               </Space>

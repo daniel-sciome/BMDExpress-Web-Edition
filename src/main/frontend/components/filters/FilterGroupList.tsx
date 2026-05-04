@@ -22,7 +22,7 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { selectAllFilterGroups, toggleFilterGroup, deleteFilterGroup, updateFilterGroup } from '../../store/slices/filterSlice';
 import { selectFilteredData } from '../../store/slices/categoryResultsSlice';
 import { getCategoryIdsForFilterGroup } from '../../utils/filterEvaluation';
-import { FIELD_METADATA, operatorToShortSymbol, shortSymbolToOperator } from '../../utils/filterMetadata';
+import { FIELD_METADATA, operatorToShortSymbol, shortSymbolToOperator, getFieldInputConfig } from '../../utils/filterMetadata';
 import FilterGroupEditor from './FilterGroupEditor';
 import FilterGroupEditorModal, { FilterConfig, FilterOperator, formatFilterDisplay, isBetweenOperator, isFilterActive } from './FilterGroupEditorModal';
 import PrimaryFilter from '../PrimaryFilter';
@@ -44,16 +44,17 @@ function filterToConfig(filter: Filter): FilterConfig {
   // If filter was disabled, treat as "all" (no value)
   const hasValue = filter.enabled && 'value' in filter && typeof filter.value === 'number';
 
+  const { step, precision, min } = getFieldInputConfig(field?.unit);
+
   return {
     id: filter.id,
     label: field?.label || filter.field,
     operator,
     value: hasValue ? (filter as NumericFilter).value : undefined,
     maxValue: hasValue && 'maxValue' in filter ? filter.maxValue : undefined,
-    step: field?.name.includes('PValue') ? 0.001 : 1,
-    precision: field?.name.includes('PValue') ? 4 : 0,
-    // BMD/BMDL/BMDU values are dose measurements (mg/kg) — they're always non-negative
-    min: field?.unit === 'mg/kg' ? 0 : undefined,
+    step,
+    precision,
+    min,
   };
 }
 
